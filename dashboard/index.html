@@ -15,7 +15,7 @@
 
     <style>
       /* ═══════════════════════════════════════════════════════════════════
-         Reflect Internal Design System Theme Overrides
+         Reflect Internal Design System — Golden Theme Overrides
          ═══════════════════════════════════════════════════════════════════ */
       * {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
@@ -26,6 +26,12 @@
       html, body, .min-h-screen, .bg-gray-50, .bg-gray-100, .bg-gray-900, .bg-gray-950, #app {
         background-color: #0E1117 !important;
         color: #E6E8EC !important;
+      }
+
+      /* Universal Gradient Elimination: Reflect uses sleek solid dark surfaces */
+      [class*="bg-gradient-"], .bg-gradient-to-r, .bg-gradient-to-br, .bg-gradient-to-b,
+      [class*="from-indigo"], [class*="to-purple"], [class*="from-purple"] {
+        background-image: none !important;
       }
 
       /* Top Reflect Internal Brand Bar */
@@ -53,8 +59,71 @@
         color: #4ED49B;
       }
 
-      /* Cards & Sidebar Surfaces -> Reflect #161A22 */
-      aside, form, .bg-white, .dark\:bg-gray-800, .dark\:bg-gray-900 {
+      /* Modal Backdrop */
+      .bg-black\/70, [class*="bg-black"], [class*="backdrop-blur"] {
+        background-color: rgba(10, 15, 12, 0.75) !important;
+        backdrop-filter: blur(4px) !important;
+      }
+
+      /* Modal Dialog Cards (New Message, Create Mailbox, etc.) */
+      [class*="max-w-3xl"], [class*="max-w-md"], [class*="max-w-2xl"], [class*="max-w-xl"],
+      .rounded-2xl.shadow-2xl {
+        background-color: #161A22 !important;
+        background-image: none !important;
+        border: 1px solid #252B36 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55) !important;
+        color: #E6E8EC !important;
+        overflow: hidden !important;
+      }
+
+      /* Modal Dialog Headers -> Clean Reflect Dark Surface */
+      [class*="max-w-3xl"] > div:first-child,
+      [class*="max-w-md"] > div:first-child,
+      [class*="max-w-2xl"] > div:first-child,
+      [class*="rounded-2xl"] > div:first-child {
+        background: #161A22 !important;
+        background-color: #161A22 !important;
+        background-image: none !important;
+        border-bottom: 1px solid #252B36 !important;
+        color: #FFFFFF !important;
+        padding: 18px 24px !important;
+      }
+
+      /* Modal Header Icon Container */
+      [class*="max-w-3xl"] > div:first-child [class*="rounded-xl"],
+      [class*="max-w-md"] > div:first-child [class*="rounded-xl"] {
+        background: #1F2530 !important;
+        border: 1px solid #252B36 !important;
+      }
+      [class*="max-w-3xl"] > div:first-child [class*="rounded-xl"] svg,
+      [class*="max-w-md"] > div:first-child [class*="rounded-xl"] svg {
+        color: #4ED49B !important;
+      }
+
+      /* Modal Close Button */
+      [class*="max-w-3xl"] > div:first-child button,
+      [class*="max-w-md"] > div:first-child button {
+        color: #8A92A0 !important;
+        background: transparent !important;
+        border-radius: 6px !important;
+        transition: all 120ms ease !important;
+      }
+      [class*="max-w-3xl"] > div:first-child button:hover,
+      [class*="max-w-md"] > div:first-child button:hover {
+        color: #FFFFFF !important;
+        background-color: #1F2530 !important;
+      }
+
+      /* Sidebar Surfaces -> Reflect #161A22 */
+      aside {
+        background-color: #161A22 !important;
+        background-image: none !important;
+        border-right: 1px solid #252B36 !important;
+      }
+
+      /* Cards & Containers */
+      form, .bg-white, .dark\:bg-gray-800, .dark\:bg-gray-900 {
         background-color: #161A22 !important;
         background-image: none !important;
         border-color: #252B36 !important;
@@ -64,11 +133,10 @@
         border: 1px solid #252B36 !important;
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.40) !important;
         border-radius: 12px !important;
-        padding: 32px !important;
       }
 
       /* Borders across all containers */
-      .border-gray-200, .border-gray-300, .border-gray-700, .border-gray-800, .dark\:border-gray-700 {
+      .border-gray-200, .border-gray-300, .border-gray-600, .border-gray-700, .border-gray-800, .dark\:border-gray-700 {
         border-color: #252B36 !important;
       }
 
@@ -96,14 +164,15 @@
       }
       input:focus, textarea:focus, select:focus {
         border-color: #4ED49B !important;
-        box-shadow: 0 0 0 3px rgba(78, 212, 155, 0.15) !important;
+        box-shadow: 0 0 0 2px rgba(78, 212, 155, 0.15) !important;
         outline: none !important;
       }
 
-      /* Buttons -> Reflect Emerald #4ED49B */
+      /* Primary Buttons -> Reflect Signature Emerald #4ED49B */
       button[type="submit"],
       button.bg-gradient-to-r,
-      .bg-indigo-600, .bg-blue-600, .bg-purple-600 {
+      aside button,
+      .bg-indigo-600, .bg-blue-600, .bg-purple-600, .bg-green-600, .bg-emerald-600 {
         background: #4ED49B !important;
         background-color: #4ED49B !important;
         background-image: none !important;
@@ -116,24 +185,89 @@
       }
       button[type="submit"]:hover,
       button.bg-gradient-to-r:hover,
-      .bg-indigo-600:hover, .bg-blue-600:hover {
+      aside button:hover,
+      .bg-indigo-600:hover, .bg-blue-600:hover, .bg-green-600:hover, .bg-emerald-600:hover {
+        background: #6FE3B0 !important;
         background-color: #6FE3B0 !important;
+        color: #0A0F0C !important;
         transform: translateY(-1px) !important;
       }
 
+      /* Secondary / Cancel / Neutral Buttons */
+      button[type="button"],
+      .bg-gray-200, .dark\:bg-gray-700, .bg-gray-700 {
+        background: #1F2530 !important;
+        background-color: #1F2530 !important;
+        color: #E6E8EC !important;
+        border: 1px solid #252B36 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 120ms ease !important;
+      }
+      button[type="button"]:hover,
+      .bg-gray-200:hover, .dark\:bg-gray-700:hover, .bg-gray-700:hover {
+        background: #2A313D !important;
+        background-color: #2A313D !important;
+        color: #FFFFFF !important;
+      }
+
       /* Active navigation items in sidebar */
-      nav a.router-link-active,
-      nav a[active-class],
-      .active {
+      aside nav a.router-link-active,
+      aside nav a[active-class],
+      aside nav a[class*="active"],
+      .router-link-active {
         background: rgba(78, 212, 155, 0.12) !important;
         background-image: none !important;
         color: #4ED49B !important;
         font-weight: 600 !important;
         border-radius: 8px !important;
+        border-left: 3px solid #4ED49B !important;
       }
-      nav a:hover {
+      aside nav a.router-link-active svg,
+      aside nav a[active-class] svg {
+        color: #4ED49B !important;
+        stroke: #4ED49B !important;
+      }
+      aside nav a:hover {
         background: #1F2530 !important;
         color: #FFFFFF !important;
+      }
+
+      /* Rich Text Editor */
+      .toolbar-btn[data-v-ca32fd7c] {
+        color: #8A92A0 !important;
+        border-radius: 6px !important;
+      }
+      .toolbar-btn[data-v-ca32fd7c]:hover {
+        background-color: #1F2530 !important;
+        color: #E6E8EC !important;
+      }
+      .toolbar-btn.is-active[data-v-ca32fd7c] {
+        background-color: rgba(78, 212, 155, 0.15) !important;
+        color: #4ED49B !important;
+      }
+      [data-v-ca32fd7c] .ProseMirror {
+        color: #E6E8EC !important;
+        background-color: #0E1117 !important;
+        border: 1px solid #252B36 !important;
+        border-radius: 8px !important;
+        padding: 14px !important;
+        min-height: 200px !important;
+      }
+      [data-v-ca32fd7c] .ProseMirror:focus {
+        border-color: #4ED49B !important;
+        box-shadow: 0 0 0 2px rgba(78, 212, 155, 0.15) !important;
+        outline: none !important;
+      }
+
+      /* Avatars */
+      .rounded-full[class*="bg-gradient"],
+      [class*="w-12"][class*="h-12"][class*="rounded-full"],
+      [class*="w-20"][class*="h-20"][class*="rounded-full"] {
+        background: #1F2530 !important;
+        background-image: none !important;
+        border: 1px solid #252B36 !important;
+        color: #4ED49B !important;
       }
 
       /* Text & Accent colors */
@@ -146,6 +280,16 @@
       }
       .text-gray-500, .text-gray-400, .dark\:text-gray-400 {
         color: #8A92A0 !important;
+      }
+
+      /* Unread Dot */
+      .w-2.h-2.rounded-full {
+        background-color: #4ED49B !important;
+      }
+
+      /* Toggle switch */
+      input:checked + div, .peer-checked\:bg-indigo-600 {
+        background-color: #4ED49B !important;
       }
 
       /* Subtle hover on email list rows */
