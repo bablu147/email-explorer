@@ -196,35 +196,5 @@
     </div>
 
     <div id="app"></div>
-
-    <!-- Dynamic text replacer: Replaces any 'Email Explorer' with 'Reflect Mail' -->
-    <script>
-      (function() {
-        function replaceBranding() {
-          const walker = document.createTreeWalker(
-            document.body,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-          );
-          let node;
-          while (node = walker.nextNode()) {
-            if (node.parentElement && node.parentElement.id === 'reflect-top-bar') continue;
-            if (node.nodeValue && node.nodeValue.includes('Email Explorer')) {
-              node.nodeValue = node.nodeValue.replace(/Email Explorer/g, 'Reflect Mail');
-            }
-          }
-          if (document.title && document.title.includes('Email Explorer')) {
-            document.title = document.title.replace(/Email Explorer/g, 'Reflect Mail');
-          }
-          if (document.title === 'Vite App' || document.title === 'Login') {
-            document.title = 'Reflect Mail';
-          }
-        }
-        const observer = new MutationObserver(replaceBranding);
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-        window.addEventListener('DOMContentLoaded', replaceBranding);
-      })();
-    </script>
   </body>
 </html>
