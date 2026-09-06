@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflect Mail</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script type="module" crossorigin src="/assets/index-DQ0HIAMr.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BiCh9w9_.css">
+
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════
+         Reflect Internal Design System Theme Overrides
+         ═══════════════════════════════════════════════════════════════════ */
+      * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        box-sizing: border-box;
+      }
+
+      /* Base Surface -> Reflect #0E1117 */
+      html, body, .min-h-screen, .bg-gray-50, .bg-gray-100, .bg-gray-900, .bg-gray-950, #app {
+        background-color: #0E1117 !important;
+        color: #E6E8EC !important;
+      }
+
+      /* Top Reflect Internal Brand Bar */
+      #reflect-top-bar {
+        background: #161A22;
+        border-bottom: 1px solid #252B36;
+        height: 46px;
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      #reflect-top-bar a.nav-link {
+        color: #8A92A0;
+        font-size: 12px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 120ms ease;
+      }
+      #reflect-top-bar a.nav-link:hover {
+        color: #4ED49B;
+      }
+
+      /* Cards & Sidebar Surfaces -> Reflect #161A22 */
+      aside, form, .bg-white, .dark\:bg-gray-800, .dark\:bg-gray-900 {
+        background-color: #161A22 !important;
+        background-image: none !important;
+        border-color: #252B36 !important;
+      }
+
+      form {
+        border: 1px solid #252B36 !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.40) !important;
+        border-radius: 12px !important;
+        padding: 32px !important;
+      }
+
+      /* Borders across all containers */
+      .border-gray-200, .border-gray-300, .border-gray-700, .border-gray-800, .dark\:border-gray-700 {
+        border-color: #252B36 !important;
+      }
+
+      /* Headings */
+      h1, h2, h3, h4 {
+        color: #FFFFFF !important;
+        letter-spacing: -0.02em !important;
+        font-weight: 700 !important;
+      }
+
+      /* Form inputs */
+      input, textarea, select {
+        background-color: #0E1117 !important;
+        border: 1px solid #252B36 !important;
+        color: #E6E8EC !important;
+        border-radius: 6px !important;
+        padding: 10px 14px !important;
+        transition: border-color 120ms ease, box-shadow 120ms ease !important;
+      }
+      input::placeholder, textarea::placeholder {
+        color: #7E8695 !important;
+      }
+      input:hover, textarea:hover, select:hover {
+        border-color: #303846 !important;
+      }
+      input:focus, textarea:focus, select:focus {
+        border-color: #4ED49B !important;
+        box-shadow: 0 0 0 3px rgba(78, 212, 155, 0.15) !important;
+        outline: none !important;
+      }
+
+      /* Buttons -> Reflect Emerald #4ED49B */
+      button[type="submit"],
+      button.bg-gradient-to-r,
+      .bg-indigo-600, .bg-blue-600, .bg-purple-600 {
+        background: #4ED49B !important;
+        background-color: #4ED49B !important;
+        background-image: none !important;
+        color: #0A0F0C !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
+        border: none !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20) !important;
+        transition: all 120ms ease !important;
+      }
+      button[type="submit"]:hover,
+      button.bg-gradient-to-r:hover,
+      .bg-indigo-600:hover, .bg-blue-600:hover {
+        background-color: #6FE3B0 !important;
+        transform: translateY(-1px) !important;
+      }
+
+      /* Active navigation items in sidebar */
+      nav a.router-link-active,
+      nav a[active-class],
+      .active {
+        background: rgba(78, 212, 155, 0.12) !important;
+        background-image: none !important;
+        color: #4ED49B !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+      }
+      nav a:hover {
+        background: #1F2530 !important;
+        color: #FFFFFF !important;
+      }
+
+      /* Text & Accent colors */
+      .text-indigo-600, .text-indigo-500, .text-indigo-400,
+      .text-blue-600, .text-blue-500, .text-blue-400 {
+        color: #4ED49B !important;
+      }
+      .text-gray-900, .dark\:text-white {
+        color: #E6E8EC !important;
+      }
+      .text-gray-500, .text-gray-400, .dark\:text-gray-400 {
+        color: #8A92A0 !important;
+      }
+
+      /* Subtle hover on email list rows */
+      tr:hover td, .hover\:bg-gray-100:hover, .hover\:bg-gray-800:hover, .hover\:bg-gray-800\/50:hover {
+        background-color: #1F2530 !important;
+      }
+
+      /* Sleek dark scrollbars */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0E1117;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #252B36;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #303846;
+      }
+
+      /* Selection highlight */
+      ::selection {
+        background: rgba(78, 212, 155, 0.25) !important;
+        color: #FFFFFF !important;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-gray-100">
+    <!-- Top Header Bar for Reflect Internal -->
+    <div id="reflect-top-bar">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="7" fill="#0A0F0C"/>
+          <text x="16" y="22" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">R</text>
+          <path d="M 22.5 9 L 25 9 L 25 11.5" stroke="#4ED49B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-weight: 700; font-size: 14px; color: #E6E8EC; letter-spacing: -0.02em;">Reflect</span>
+        <span style="font-size: 10px; font-weight: 700; color: #4ED49B; background: rgba(78, 212, 155, 0.12); padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(78, 212, 155, 0.25);">MAIL</span>
+        <span style="font-size: 11px; color: #8A92A0; margin-left: 4px;">internal</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <a href="https://reflect.cloud" target="_blank" class="nav-link">Console &rarr;</a>
+        <a href="https://docs.reflect.cloud" target="_blank" class="nav-link">Docs</a>
+      </div>
+    </div>
+
+    <div id="app"></div>
+
+    <!-- Dynamic text replacer: Replaces any 'Email Explorer' with 'Reflect Mail' -->
+    <script>
+      (function() {
+        function replaceBranding() {
+          const walker = document.createTreeWalker(
+            document.body,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+          );
+          let node;
+          while (node = walker.nextNode()) {
+            if (node.parentElement && node.parentElement.id === 'reflect-top-bar') continue;
+            if (node.nodeValue && node.nodeValue.includes('Email Explorer')) {
+              node.nodeValue = node.nodeValue.replace(/Email Explorer/g, 'Reflect Mail');
+            }
+          }
+          if (document.title && document.title.includes('Email Explorer')) {
+            document.title = document.title.replace(/Email Explorer/g, 'Reflect Mail');
+          }
+          if (document.title === 'Vite App' || document.title === 'Login') {
+            document.title = 'Reflect Mail';
+          }
+        }
+        const observer = new MutationObserver(replaceBranding);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        window.addEventListener('DOMContentLoaded', replaceBranding);
+      })();
+    </script>
+  </body>
+</html>
