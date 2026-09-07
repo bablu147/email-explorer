@@ -1,10 +1,31 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reflect Mail</title>
+
+    <!-- Theme Boot: Read preference pre-paint to prevent flash of wrong theme -->
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('reflect_theme') || (document.cookie.match(/reflect_theme=(dark|light)/) || [])[1];
+          if (t === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.documentElement.classList.remove('dark');
+          } else if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (prefersDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,30 +36,172 @@
 
     <style>
       /* ═══════════════════════════════════════════════════════════════════
-         Reflect Internal Design System — Golden Theme Overrides
+         Reflect Design System Theming
+         Swapped by data-theme on <html>:
+         - data-theme="dark" forces dark.
+         - data-theme="light" forces light.
+         - Default (no data-theme) follows OS prefers-color-scheme.
+         ═══════════════════════════════════════════════════════════════════ */
+
+      /* ── DARK palette (default + explicit data-theme="dark") ─────────── */
+      :root, [data-theme="dark"] {
+        color-scheme: dark;
+
+        --bg:            #0E1117;
+        --bg-1:          #10141B;
+        --bg-2:          #161A22;
+        --bg-3:          #1F2530;
+        --bg-4:          #2A313D;
+
+        --border:        #252B36;
+        --border-strong: #303846;
+
+        --fg:            #E6E8EC;
+        --fg-2:          #B0B6C0;
+        --fg-dim:        #8A92A0;
+        --fg-faint:      #7E8695;
+
+        --accent:        #4ED49B;
+        --accent-2:      #6FE3B0;
+        --accent-deep:   #0F8C5E;
+        --accent-soft:   rgba(78, 212, 155, 0.12);
+        --accent-tint:   rgba(78, 212, 155, 0.25);
+        --accent-on:     #0A0F0C;
+
+        --ok:            #4ADE80;
+        --warn:          #FACC15;
+        --err:           #F87171;
+        --info:          #60A5FA;
+
+        --shadow-1:      0 1px 2px rgba(0, 0, 0, 0.20);
+        --shadow-2:      0 4px 12px rgba(0, 0, 0, 0.25);
+        --shadow-3:      0 12px 32px rgba(0, 0, 0, 0.35);
+
+        --row-hover:     rgba(255, 255, 255, 0.025);
+        --selection:     rgba(78, 212, 155, 0.20);
+        --backdrop:      rgba(10, 15, 12, 0.75);
+      }
+
+      /* ── LIGHT palette (explicit data-theme="light") ────────────────── */
+      [data-theme="light"] {
+        color-scheme: light;
+
+        --bg:            #F6F8FA;
+        --bg-1:          #F9FAFB;
+        --bg-2:          #FFFFFF;
+        --bg-3:          #F0F2F5;
+        --bg-4:          #E5E8EE;
+
+        --border:        #E5E8EE;
+        --border-strong: #D0D5DD;
+
+        --fg:            #0F172A;
+        --fg-2:          #344054;
+        --fg-dim:        #667085;
+        --fg-faint:      #6B7280;
+
+        --accent:        #0F8C5E;
+        --accent-2:      #0B6E48;
+        --accent-deep:   #0B5A3A;
+        --accent-soft:   rgba(15, 140, 94, 0.10);
+        --accent-tint:   rgba(15, 140, 94, 0.20);
+        --accent-on:     #FFFFFF;
+
+        --ok:            #15803D;
+        --warn:          #B45309;
+        --err:           #B91C1C;
+        --info:          #1D4ED8;
+
+        --shadow-1:      0 1px 2px rgba(15, 23, 42, 0.06);
+        --shadow-2:      0 4px 12px rgba(15, 23, 42, 0.08);
+        --shadow-3:      0 12px 32px rgba(15, 23, 42, 0.12);
+
+        --row-hover:     rgba(15, 23, 42, 0.025);
+        --selection:     rgba(15, 140, 94, 0.18);
+        --backdrop:      rgba(15, 23, 42, 0.40);
+      }
+
+      /* ── System preference: when no explicit data-theme is set and OS prefers light ── */
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]), [data-theme="system"]:root, html:not([data-theme]), html[data-theme="system"] {
+          color-scheme: light;
+
+          --bg:            #F6F8FA;
+          --bg-1:          #F9FAFB;
+          --bg-2:          #FFFFFF;
+          --bg-3:          #F0F2F5;
+          --bg-4:          #E5E8EE;
+
+          --border:        #E5E8EE;
+          --border-strong: #D0D5DD;
+
+          --fg:            #0F172A;
+          --fg-2:          #344054;
+          --fg-dim:        #667085;
+          --fg-faint:      #6B7280;
+
+          --accent:        #0F8C5E;
+          --accent-2:      #0B6E48;
+          --accent-deep:   #0B5A3A;
+          --accent-soft:   rgba(15, 140, 94, 0.10);
+          --accent-tint:   rgba(15, 140, 94, 0.20);
+          --accent-on:     #FFFFFF;
+
+          --ok:            #15803D;
+          --warn:          #B45309;
+          --err:           #B91C1C;
+          --info:          #1D4ED8;
+
+          --shadow-1:      0 1px 2px rgba(15, 23, 42, 0.06);
+          --shadow-2:      0 4px 12px rgba(15, 23, 42, 0.08);
+          --shadow-3:      0 12px 32px rgba(15, 23, 42, 0.12);
+
+          --row-hover:     rgba(15, 23, 42, 0.025);
+          --selection:     rgba(15, 140, 94, 0.18);
+          --backdrop:      rgba(15, 23, 42, 0.40);
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+         Component Styles Applied Through Tokens
          ═══════════════════════════════════════════════════════════════════ */
       * {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         box-sizing: border-box;
       }
 
-      /* Base Surface -> Reflect #0E1117 */
+      /* Base Surface */
       html, body, .min-h-screen, .bg-gray-50, .bg-gray-100, .bg-gray-900, .bg-gray-950, #app {
-        background-color: #0E1117 !important;
-        color: #E6E8EC !important;
+        background-color: var(--bg) !important;
+        color: var(--fg) !important;
       }
 
-      /* Universal Gradient Elimination: Reflect uses sleek solid dark surfaces */
+      /* Universal Gradient Elimination: Reflect uses crisp solid surfaces */
       [class*="bg-gradient-"], .bg-gradient-to-r, .bg-gradient-to-br, .bg-gradient-to-b,
       [class*="from-indigo"], [class*="to-purple"], [class*="from-purple"] {
         background-image: none !important;
       }
 
+      /* Arbitrary hex classes from JS bundle */
+      .bg-\[\#161A22\] { background-color: var(--bg-2) !important; }
+      .bg-\[\#1F2530\] { background-color: var(--bg-3) !important; }
+      .hover\:bg-\[\#1F2530\]:hover { background-color: var(--bg-3) !important; }
+      .border-\[\#252B36\] { border-color: var(--border) !important; }
+      .text-\[\#E6E8EC\] { color: var(--fg) !important; }
+      .bg-\[\#4ED49B\] { background-color: var(--accent) !important; color: var(--accent-on) !important; }
+      .hover\:bg-\[\#6FE3B0\]:hover { background-color: var(--accent-2) !important; color: var(--accent-on) !important; }
+      .text-\[\#4ED49B\] { color: var(--accent) !important; }
+      .bg-\[\#4ED49B\]\/10 { background-color: var(--accent-soft) !important; }
+      .border-\[\#4ED49B\] { border-color: var(--accent) !important; }
+      .text-\[\#0A0F0C\] { color: var(--accent-on) !important; }
+      .bg-\[\#1F2530\]\/50 { background-color: var(--bg-3) !important; }
+      .bg-\[\#4ED49B\]\/5 { background-color: var(--accent-soft) !important; }
+
       /* Top Reflect Internal Brand Bar */
       #reflect-top-bar {
-        background: #161A22;
-        border-bottom: 1px solid #252B36;
-        height: 46px;
+        background: var(--bg-2);
+        border-bottom: 1px solid var(--border);
+        height: 48px;
         padding: 0 20px;
         display: flex;
         align-items: center;
@@ -46,169 +209,236 @@
         position: sticky;
         top: 0;
         z-index: 100;
+        transition: background 120ms ease, border-color 120ms ease;
       }
 
       #reflect-top-bar a.nav-link {
-        color: #8A92A0;
+        color: var(--fg-dim);
         font-size: 12px;
         text-decoration: none;
         font-weight: 500;
         transition: color 120ms ease;
       }
       #reflect-top-bar a.nav-link:hover {
-        color: #4ED49B;
+        color: var(--accent);
+      }
+
+      /* ── Reflect Theme Switcher Pill (Matching SideNav.tsx) ────────── */
+      .reflect-theme-switcher {
+        display: inline-flex;
+        align-items: center;
+        background: var(--bg-3);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 1px;
+      }
+
+      .reflect-theme-switcher button {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--fg-dim);
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+        font-family: inherit;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .reflect-theme-switcher button:hover {
+        color: var(--fg);
+      }
+
+      .reflect-theme-switcher button.active {
+        background: var(--bg-2);
+        color: var(--fg);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+        font-weight: 700;
+      }
+
+      @media (max-width: 640px) {
+        .reflect-theme-switcher .theme-label {
+          display: none;
+        }
+        .reflect-theme-switcher button {
+          padding: 5px 7px;
+          font-size: 12px;
+        }
+        #reflect-top-bar {
+          padding: 0 12px;
+        }
       }
 
       /* Modal Backdrop */
       .bg-black\/70, [class*="bg-black"], [class*="backdrop-blur"] {
-        background-color: rgba(10, 15, 12, 0.75) !important;
+        background-color: var(--backdrop) !important;
         backdrop-filter: blur(4px) !important;
       }
 
       /* Modal Dialog Cards (New Message, Create Mailbox, etc.) */
       [class*="max-w-3xl"], [class*="max-w-md"], [class*="max-w-2xl"], [class*="max-w-xl"],
       .rounded-2xl.shadow-2xl {
-        background-color: #161A22 !important;
+        background-color: var(--bg-2) !important;
         background-image: none !important;
-        border: 1px solid #252B36 !important;
+        border: 1px solid var(--border) !important;
         border-radius: 14px !important;
-        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55) !important;
-        color: #E6E8EC !important;
+        box-shadow: var(--shadow-3) !important;
+        color: var(--fg) !important;
         overflow: hidden !important;
       }
 
-      /* Modal Dialog Headers -> Clean Reflect Dark Surface */
+      /* Modal Dialog Headers -> Clean Reflect Surface */
       [class*="max-w-3xl"] > div:first-child,
       [class*="max-w-md"] > div:first-child,
       [class*="max-w-2xl"] > div:first-child,
       [class*="rounded-2xl"] > div:first-child {
-        background: #161A22 !important;
-        background-color: #161A22 !important;
+        background: var(--bg-2) !important;
+        background-color: var(--bg-2) !important;
         background-image: none !important;
-        border-bottom: 1px solid #252B36 !important;
-        color: #FFFFFF !important;
+        border-bottom: 1px solid var(--border) !important;
+        color: var(--fg) !important;
         padding: 18px 24px !important;
       }
 
       /* Modal Header Icon Container */
       [class*="max-w-3xl"] > div:first-child [class*="rounded-xl"],
       [class*="max-w-md"] > div:first-child [class*="rounded-xl"] {
-        background: #1F2530 !important;
-        border: 1px solid #252B36 !important;
+        background: var(--bg-3) !important;
+        border: 1px solid var(--border) !important;
       }
       [class*="max-w-3xl"] > div:first-child [class*="rounded-xl"] svg,
       [class*="max-w-md"] > div:first-child [class*="rounded-xl"] svg {
-        color: #4ED49B !important;
+        color: var(--accent) !important;
       }
 
       /* Modal Close Button */
       [class*="max-w-3xl"] > div:first-child button,
       [class*="max-w-md"] > div:first-child button {
-        color: #8A92A0 !important;
+        color: var(--fg-dim) !important;
         background: transparent !important;
         border-radius: 6px !important;
         transition: all 120ms ease !important;
       }
       [class*="max-w-3xl"] > div:first-child button:hover,
       [class*="max-w-md"] > div:first-child button:hover {
-        color: #FFFFFF !important;
-        background-color: #1F2530 !important;
+        color: var(--fg) !important;
+        background-color: var(--bg-3) !important;
       }
 
-      /* Sidebar Surfaces -> Reflect #161A22 */
+      /* Sidebar & Header Surfaces */
       aside {
-        background-color: #161A22 !important;
+        background-color: var(--bg-2) !important;
         background-image: none !important;
-        border-right: 1px solid #252B36 !important;
+        border-right: 1px solid var(--border) !important;
+      }
+
+      header {
+        background-color: var(--bg-2) !important;
+        border-bottom: 1px solid var(--border) !important;
       }
 
       /* Cards & Containers */
       form, .bg-white, .dark\:bg-gray-800, .dark\:bg-gray-900 {
-        background-color: #161A22 !important;
+        background-color: var(--bg-2) !important;
         background-image: none !important;
-        border-color: #252B36 !important;
+        border-color: var(--border) !important;
       }
 
       form {
-        border: 1px solid #252B36 !important;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.40) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow-2) !important;
         border-radius: 12px !important;
       }
 
       /* Borders across all containers */
-      .border-gray-200, .border-gray-300, .border-gray-600, .border-gray-700, .border-gray-800, .dark\:border-gray-700 {
-        border-color: #252B36 !important;
+      .border-gray-200, .border-gray-300, .border-gray-600, .border-gray-700, .border-gray-800, .dark\:border-gray-700, .divide-gray-200, .divide-gray-700 {
+        border-color: var(--border) !important;
       }
 
       /* Headings */
       h1, h2, h3, h4 {
-        color: #FFFFFF !important;
+        color: var(--fg) !important;
         letter-spacing: -0.02em !important;
         font-weight: 700 !important;
       }
 
       /* Form inputs */
       input, textarea, select {
-        background-color: #0E1117 !important;
-        border: 1px solid #252B36 !important;
-        color: #E6E8EC !important;
+        background-color: var(--bg) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--fg) !important;
         border-radius: 6px !important;
         padding: 10px 14px !important;
         transition: border-color 120ms ease, box-shadow 120ms ease !important;
       }
+      [data-theme="light"] input, [data-theme="light"] textarea, [data-theme="light"] select {
+        background-color: var(--bg-2) !important;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]) input, :root:not([data-theme]) textarea, :root:not([data-theme]) select {
+          background-color: var(--bg-2) !important;
+        }
+      }
       input::placeholder, textarea::placeholder {
-        color: #7E8695 !important;
+        color: var(--fg-faint) !important;
       }
       input:hover, textarea:hover, select:hover {
-        border-color: #303846 !important;
+        border-color: var(--border-strong) !important;
       }
       input:focus, textarea:focus, select:focus {
-        border-color: #4ED49B !important;
-        box-shadow: 0 0 0 2px rgba(78, 212, 155, 0.15) !important;
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent-soft) !important;
         outline: none !important;
       }
 
-      /* Primary Buttons -> Reflect Signature Emerald #4ED49B */
+      /* Primary Buttons -> Reflect Signature Emerald */
       button[type="submit"],
       button.bg-gradient-to-r,
       aside button,
       .bg-indigo-600, .bg-blue-600, .bg-purple-600, .bg-green-600, .bg-emerald-600 {
-        background: #4ED49B !important;
-        background-color: #4ED49B !important;
+        background: var(--accent) !important;
+        background-color: var(--accent) !important;
         background-image: none !important;
-        color: #0A0F0C !important;
+        color: var(--accent-on) !important;
         font-weight: 700 !important;
         border-radius: 8px !important;
         border: none !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.20) !important;
+        box-shadow: var(--shadow-1) !important;
         transition: all 120ms ease !important;
       }
       button[type="submit"]:hover,
       button.bg-gradient-to-r:hover,
       aside button:hover,
       .bg-indigo-600:hover, .bg-blue-600:hover, .bg-green-600:hover, .bg-emerald-600:hover {
-        background: #6FE3B0 !important;
-        background-color: #6FE3B0 !important;
-        color: #0A0F0C !important;
+        background: var(--accent-2) !important;
+        background-color: var(--accent-2) !important;
+        color: var(--accent-on) !important;
         transform: translateY(-1px) !important;
       }
 
       /* Secondary / Cancel / Neutral Buttons */
-      button[type="button"],
+      button[type="button"]:not([data-theme-btn]):not(.toolbar-btn),
       .bg-gray-200, .dark\:bg-gray-700, .bg-gray-700 {
-        background: #1F2530 !important;
-        background-color: #1F2530 !important;
-        color: #E6E8EC !important;
-        border: 1px solid #252B36 !important;
+        background: var(--bg-3) !important;
+        background-color: var(--bg-3) !important;
+        color: var(--fg) !important;
+        border: 1px solid var(--border) !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
         transition: all 120ms ease !important;
       }
-      button[type="button"]:hover,
+      button[type="button"]:not([data-theme-btn]):not(.toolbar-btn):hover,
       .bg-gray-200:hover, .dark\:bg-gray-700:hover, .bg-gray-700:hover {
-        background: #2A313D !important;
-        background-color: #2A313D !important;
-        color: #FFFFFF !important;
+        background: var(--bg-4) !important;
+        background-color: var(--bg-4) !important;
+        color: var(--fg) !important;
       }
 
       /* Active navigation items in sidebar */
@@ -216,47 +446,55 @@
       aside nav a[active-class],
       aside nav a[class*="active"],
       .router-link-active {
-        background: rgba(78, 212, 155, 0.12) !important;
+        background: var(--accent-soft) !important;
         background-image: none !important;
-        color: #4ED49B !important;
+        color: var(--accent) !important;
         font-weight: 600 !important;
         border-radius: 8px !important;
-        border-left: 3px solid #4ED49B !important;
+        border-left: 3px solid var(--accent) !important;
       }
       aside nav a.router-link-active svg,
       aside nav a[active-class] svg {
-        color: #4ED49B !important;
-        stroke: #4ED49B !important;
+        color: var(--accent) !important;
+        stroke: var(--accent) !important;
       }
       aside nav a:hover {
-        background: #1F2530 !important;
-        color: #FFFFFF !important;
+        background: var(--bg-3) !important;
+        color: var(--fg) !important;
       }
 
       /* Rich Text Editor */
       .toolbar-btn[data-v-ca32fd7c] {
-        color: #8A92A0 !important;
+        color: var(--fg-dim) !important;
         border-radius: 6px !important;
       }
       .toolbar-btn[data-v-ca32fd7c]:hover {
-        background-color: #1F2530 !important;
-        color: #E6E8EC !important;
+        background-color: var(--bg-3) !important;
+        color: var(--fg) !important;
       }
       .toolbar-btn.is-active[data-v-ca32fd7c] {
-        background-color: rgba(78, 212, 155, 0.15) !important;
-        color: #4ED49B !important;
+        background-color: var(--accent-soft) !important;
+        color: var(--accent) !important;
       }
       [data-v-ca32fd7c] .ProseMirror {
-        color: #E6E8EC !important;
-        background-color: #0E1117 !important;
-        border: 1px solid #252B36 !important;
+        color: var(--fg) !important;
+        background-color: var(--bg) !important;
+        border: 1px solid var(--border) !important;
         border-radius: 8px !important;
         padding: 14px !important;
         min-height: 200px !important;
       }
+      [data-theme="light"] [data-v-ca32fd7c] .ProseMirror {
+        background-color: var(--bg-2) !important;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]) [data-v-ca32fd7c] .ProseMirror {
+          background-color: var(--bg-2) !important;
+        }
+      }
       [data-v-ca32fd7c] .ProseMirror:focus {
-        border-color: #4ED49B !important;
-        box-shadow: 0 0 0 2px rgba(78, 212, 155, 0.15) !important;
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 2px var(--accent-soft) !important;
         outline: none !important;
       }
 
@@ -264,63 +502,66 @@
       .rounded-full[class*="bg-gradient"],
       [class*="w-12"][class*="h-12"][class*="rounded-full"],
       [class*="w-20"][class*="h-20"][class*="rounded-full"] {
-        background: #1F2530 !important;
+        background: var(--bg-3) !important;
         background-image: none !important;
-        border: 1px solid #252B36 !important;
-        color: #4ED49B !important;
+        border: 1px solid var(--border) !important;
+        color: var(--accent) !important;
       }
 
       /* Text & Accent colors */
       .text-indigo-600, .text-indigo-500, .text-indigo-400,
       .text-blue-600, .text-blue-500, .text-blue-400 {
-        color: #4ED49B !important;
+        color: var(--accent) !important;
       }
-      .text-gray-900, .dark\:text-white {
-        color: #E6E8EC !important;
+      .text-gray-900, .dark\:text-white, .dark\:text-gray-100 {
+        color: var(--fg) !important;
+      }
+      .text-gray-700, .text-gray-600, .dark\:text-gray-300 {
+        color: var(--fg-2) !important;
       }
       .text-gray-500, .text-gray-400, .dark\:text-gray-400 {
-        color: #8A92A0 !important;
+        color: var(--fg-dim) !important;
       }
 
       /* Unread Dot */
       .w-2.h-2.rounded-full {
-        background-color: #4ED49B !important;
+        background-color: var(--accent) !important;
       }
 
       /* Toggle switch */
       input:checked + div, .peer-checked\:bg-indigo-600 {
-        background-color: #4ED49B !important;
+        background-color: var(--accent) !important;
       }
 
       /* Subtle hover on email list rows */
       tr:hover td, .hover\:bg-gray-100:hover, .hover\:bg-gray-800:hover, .hover\:bg-gray-800\/50:hover {
-        background-color: #1F2530 !important;
+        background-color: var(--bg-3) !important;
       }
 
-      /* Sleek dark scrollbars */
+      /* Sleek scrollbars */
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #0E1117;
+        background: var(--bg);
       }
       ::-webkit-scrollbar-thumb {
-        background: #252B36;
+        background: var(--border);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #303846;
+        background: var(--border-strong);
       }
 
       /* Selection highlight */
       ::selection {
-        background: rgba(78, 212, 155, 0.25) !important;
-        color: #FFFFFF !important;
+        background: var(--selection) !important;
+        color: var(--fg) !important;
       }
     </style>
   </head>
-  <body class="bg-gray-900 text-gray-100">
+  <body>
     <!-- Top Header Bar for Reflect Internal -->
     <div id="reflect-top-bar">
       <div style="display: flex; align-items: center; gap: 10px;">
@@ -329,16 +570,103 @@
           <text x="16" y="22" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">R</text>
           <path d="M 22.5 9 L 25 9 L 25 11.5" stroke="#4ED49B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span style="font-weight: 700; font-size: 14px; color: #E6E8EC; letter-spacing: -0.02em;">Reflect</span>
-        <span style="font-size: 10px; font-weight: 700; color: #4ED49B; background: rgba(78, 212, 155, 0.12); padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(78, 212, 155, 0.25);">MAIL</span>
-        <span style="font-size: 11px; color: #8A92A0; margin-left: 4px;">internal</span>
+        <span style="font-weight: 700; font-size: 14px; color: var(--fg); letter-spacing: -0.02em;">Reflect</span>
+        <span style="font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--accent-tint);">MAIL</span>
+        <span style="font-size: 11px; color: var(--fg-dim); margin-left: 4px;">internal</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <!-- Theme Switcher: Light · Dark · Auto -->
+        <div class="reflect-theme-switcher" role="radiogroup" aria-label="Theme mode">
+          <button type="button" data-theme-btn="light" onclick="setTheme('light')" title="Light mode" aria-label="Switch to light mode">
+            <span>☀</span>
+            <span class="theme-label">Light</span>
+          </button>
+          <button type="button" data-theme-btn="dark" onclick="setTheme('dark')" title="Dark mode" aria-label="Switch to dark mode">
+            <span>☾</span>
+            <span class="theme-label">Dark</span>
+          </button>
+          <button type="button" data-theme-btn="auto" onclick="setTheme('auto')" title="Follow system theme" aria-label="Use system theme">
+            <span>⚙</span>
+            <span class="theme-label">Auto</span>
+          </button>
+        </div>
         <a href="https://reflect.cloud" target="_blank" class="nav-link">Console &rarr;</a>
         <a href="https://docs.reflect.cloud" target="_blank" class="nav-link">Docs</a>
       </div>
     </div>
 
     <div id="app"></div>
+
+    <!-- Theme Controller Script -->
+    <script>
+      function getThemePreference() {
+        var stored = localStorage.getItem('reflect_theme');
+        if (stored === 'light' || stored === 'dark') return stored;
+        var match = document.cookie.match(/reflect_theme=(dark|light)/);
+        if (match) return match[1];
+        return 'auto';
+      }
+
+      function applyTheme(pref) {
+        if (pref === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.classList.remove('dark');
+        } else if (pref === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (isDark) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        }
+      }
+
+      function updateThemeButtons(pref) {
+        var buttons = document.querySelectorAll('[data-theme-btn]');
+        buttons.forEach(function(btn) {
+          var btnVal = btn.getAttribute('data-theme-btn');
+          if (btnVal === pref) {
+            btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
+          } else {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-pressed', 'false');
+          }
+        });
+      }
+
+      function setTheme(mode) {
+        if (mode === 'light' || mode === 'dark') {
+          localStorage.setItem('reflect_theme', mode);
+          document.cookie = 'reflect_theme=' + mode + '; path=/; max-age=31536000; SameSite=Lax';
+        } else {
+          mode = 'auto';
+          localStorage.removeItem('reflect_theme');
+          document.cookie = 'reflect_theme=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+        }
+        applyTheme(mode);
+        updateThemeButtons(mode);
+      }
+
+      // Initialize UI button state
+      var initialPref = getThemePreference();
+      applyTheme(initialPref);
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          updateThemeButtons(initialPref);
+        });
+      } else {
+        updateThemeButtons(initialPref);
+      }
+
+      // Live listener for OS preference changes when in Auto mode
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (getThemePreference() === 'auto') {
+          if (e.matches) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        }
+      });
+    </script>
   </body>
 </html>
