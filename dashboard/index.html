@@ -370,12 +370,30 @@
       }
 
       /* Form inputs */
-      input, textarea, select {
+      input:not([class*="pl-"]):not([type="checkbox"]):not([type="radio"]):not([placeholder*="Search"]),
+      textarea, select {
         background-color: var(--bg) !important;
         border: 1px solid var(--border) !important;
         color: var(--fg) !important;
         border-radius: 6px !important;
         padding: 10px 14px !important;
+        transition: border-color 120ms ease, box-shadow 120ms ease !important;
+      }
+
+      /* Search input: preserve left padding for magnifying glass icon */
+      header input[type="text"],
+      input[class*="pl-12"],
+      input[placeholder*="Search"] {
+        background-color: var(--bg) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--fg) !important;
+        border-radius: 10px !important;
+        padding-left: 48px !important;
+        padding-right: 16px !important;
+        padding-top: 9px !important;
+        padding-bottom: 9px !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
         transition: border-color 120ms ease, box-shadow 120ms ease !important;
       }
       [data-theme="light"] input, [data-theme="light"] textarea, [data-theme="light"] select {
@@ -578,6 +596,26 @@
         background-color: #ffffff !important;
         border: none !important;
         border-radius: 0 0 14px 14px !important;
+      }
+
+      /* Eliminate clipped/broken tooltip boxes above action buttons (native browser title handles tooltips cleanly) */
+      .group > div.absolute.bottom-full,
+      button > div.absolute.bottom-full,
+      a > div.absolute.bottom-full,
+      [class*="bottom-full"][class*="group-hover:opacity-100"] {
+        display: none !important;
+      }
+
+      /* Clean styling for email toolbar action buttons */
+      .p-2\.5.rounded-xl,
+      button[title].rounded-xl {
+        border-radius: 8px !important;
+        transition: background-color 120ms ease, color 120ms ease !important;
+      }
+      .p-2\.5.rounded-xl:hover,
+      button[title].rounded-xl:hover {
+        background-color: var(--bg-3) !important;
+        color: var(--accent) !important;
       }
 
       /* Selection highlight */
