@@ -554,6 +554,32 @@
         background: var(--border-strong);
       }
 
+      /* ═══════════════════════════════════════════════════════════════════
+         Email Detail Body & Iframe Canvas
+         ═══════════════════════════════════════════════════════════════════ */
+      .flex-grow:has(iframe),
+      div:has(> iframe) {
+        flex: 1 1 0% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 520px !important;
+        background-color: #ffffff !important;
+        border-radius: 0 0 14px 14px !important;
+        overflow: hidden !important;
+      }
+
+      iframe[sandbox],
+      iframe[srcdoc],
+      .flex-grow > iframe {
+        width: 100% !important;
+        min-height: 520px !important;
+        height: 100% !important;
+        display: block !important;
+        background-color: #ffffff !important;
+        border: none !important;
+        border-radius: 0 0 14px 14px !important;
+      }
+
       /* Selection highlight */
       ::selection {
         background: var(--selection) !important;
