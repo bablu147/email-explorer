@@ -1,32 +1,85 @@
-import { EmailExplorer } from "email-explorer";
+import { EmailExplorer } from "./worker";
 
-export { MailboxDO } from "email-explorer";
+export { MailboxDO } from "./durableObject";
 
-// RECOMMENDED: Smart Mode (Default)
-// - First user to register automatically becomes admin
-// - Registration closes after first user
-// - Admins can create additional users via admin panel
-// - Perfect for production deployments
-export default EmailExplorer({
+const baseHandler = EmailExplorer({
 	auth: {
 		enabled: true,
-		// registerEnabled not specified = smart mode
 	},
 });
 
-// OTHER CONFIGURATION OPTIONS:
+const ROBOTS_TXT_POLICY = `# Reflect Internal Mail Service — Access Forbidden for All Crawlers & AI Scrapers
+User-agent: *
+Disallow: /
 
-// Open Registration (Development/Testing)
-// export default EmailExplorer({
-//   auth: {
-//     enabled: true,
-//     registerEnabled: true  // Anyone can register
-//   }
-// })
+User-agent: GPTBot
+Disallow: /
 
-// No Authentication (Single User)
-// export default EmailExplorer({
-//   auth: {
-//     enabled: false
-//   }
-// })
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: Cohere-ai
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+`;
+
+export default {
+	email: baseHandler.email,
+	async fetch(request: Request, env: any, context: any) {
+		const url = new URL(request.url);
+
+		if (url.pathname === "/robots.txt") {
+			return new Response(ROBOTS_TXT_POLICY, {
+				status: 200,
+				headers: {
+					"Content-Type": "text/plain; charset=utf-8",
+					"Cache-Control": "public, max-age=86400",
+					"X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+				},
+			});
+		}
+
+		const res = await baseHandler.fetch(request, env, context);
+
+		const headers = new Headers(res.headers);
+		headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet, noimageindex");
+
+		return new Response(res.body, {
+			status: res.status,
+			statusText: res.statusText,
+			headers,
+		});
+	},
+};

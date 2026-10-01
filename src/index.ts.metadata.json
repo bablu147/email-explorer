@@ -1,0 +1,4 @@
+{
+  "summary": "Wrapper for EmailExplorer worker to serve strict anti-crawler robots.txt and inject X-Robots-Tag headers across all responses.",
+  "updatedAt": "2026-09-08T15:38:32.473179Z"
+}
