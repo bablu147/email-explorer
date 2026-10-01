@@ -486,6 +486,32 @@ class GetEmails extends OpenAPIRoute {
 	}
 }
 
+export function injectEmailTracking(
+	htmlContent: string | undefined,
+	mailboxId: string,
+	messageId: string,
+): string | undefined {
+	if (!htmlContent) return htmlContent;
+	const trackingBase = "https://mail.reflect.cloud";
+	const openPixel = `<img src="${trackingBase}/api/v1/track/open/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`;
+
+	let trackedHtml = htmlContent.replace(
+		/<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi,
+		(match, prefix, quote, originalUrl, suffix) => {
+			if (originalUrl.includes("/api/v1/track/")) return match;
+			const trackedUrl = `${trackingBase}/api/v1/track/click/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}?url=${encodeURIComponent(originalUrl)}`;
+			return `<a ${prefix}href="${trackedUrl}"${suffix}>`;
+		},
+	);
+
+	if (trackedHtml.includes("</body>")) {
+		trackedHtml = trackedHtml.replace("</body>", `${openPixel}</body>`);
+	} else {
+		trackedHtml += openPixel;
+	}
+	return trackedHtml;
+}
+
 class PostEmail extends OpenAPIRoute {
 	schema = {
 		summary: "Send an email",
@@ -555,11 +581,15 @@ class PostEmail extends OpenAPIRoute {
 			new Set([...toList, ...ccList, ...bccList]),
 		);
 
+		const messageId = crypto.randomUUID();
+
 		// If not a draft, send email via Cloudflare Email Sending
 		if (!is_draft) {
 			if (allEnvelopeRecipients.length === 0) {
 				return c.json({ error: "No valid recipient email provided" }, 400);
 			}
+
+			const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
 
 			// Build MIME message using RFC 5322 builder
 			const mimeMessage = buildMimeMessage({
@@ -569,7 +599,7 @@ class PostEmail extends OpenAPIRoute {
 				bcc: bccList.length > 0 ? bccList : undefined,
 				subject,
 				text,
-				html,
+				html: outboundHtml,
 				attachments: attachments?.map((att) => ({
 					filename: att.filename,
 					content: att.content,
@@ -590,8 +620,6 @@ class PostEmail extends OpenAPIRoute {
 				return c.json({ error: (e as Error).message }, 500);
 			}
 		}
-
-		const messageId = crypto.randomUUID();
 
 		const ns = c.env.MAILBOX;
 		const id = ns.idFromName(mailboxId);
@@ -1627,6 +1655,7 @@ function isPublicRoute(pathname: string): boolean {
 		"/api/v1/settings",
 		"/api/docs",
 		"/api/openapi.json",
+		"/api/v1/track/",
 	];
 	return publicRoutes.some((route) => pathname.startsWith(route));
 }
@@ -1643,6 +1672,53 @@ function requiresSession(pathname: string): boolean {
 
 const app = new Hono<{ Bindings: Env; Variables: { session?: Session } }>();
 app.use("/api/*", cors());
+
+// Transparent 1x1 GIF for open tracking
+const TRANSPARENT_GIF_BYTES = Uint8Array.from(
+	atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+	(c) => c.charCodeAt(0),
+);
+
+app.get("/api/v1/track/open/:mailboxId/:emailId", async (c) => {
+	const mailboxId = c.req.param("mailboxId");
+	const emailId = c.req.param("emailId");
+	try {
+		const ns = c.env.MAILBOX;
+		const id = ns.idFromName(mailboxId);
+		const stub = ns.get(id);
+		await stub.recordOpen(emailId);
+	} catch (e) {
+		// Suppress tracking errors so the recipient image load never fails
+	}
+	return new Response(TRANSPARENT_GIF_BYTES, {
+		status: 200,
+		headers: {
+			"Content-Type": "image/gif",
+			"Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+			"Pragma": "no-cache",
+			"Expires": "0",
+		},
+	});
+});
+
+app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
+	const mailboxId = c.req.param("mailboxId");
+	const emailId = c.req.param("emailId");
+	const targetUrl = c.req.query("url");
+	try {
+		const ns = c.env.MAILBOX;
+		const id = ns.idFromName(mailboxId);
+		const stub = ns.get(id);
+		await stub.recordClick(emailId);
+	} catch (e) {
+		// Ignore recording failure, still redirect user
+	}
+	if (!targetUrl || (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://"))) {
+		return c.redirect("https://reflect.cloud", 302);
+	}
+	return c.redirect(targetUrl, 302);
+});
+
 const openapi = fromHono(app);
 
 // Auth endpoints

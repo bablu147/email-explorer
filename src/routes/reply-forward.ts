@@ -4,6 +4,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { buildMimeMessage } from "../mime-builder";
 import type { Env, Session } from "../types";
+import { injectEmailTracking } from "../worker";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
 
@@ -128,6 +129,9 @@ export class PostReplyEmail extends OpenAPIRoute {
 			return c.json({ error: "No valid recipient found" }, 400);
 		}
 
+		const messageId = crypto.randomUUID();
+		const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
+
 		// Build MIME message
 		const mimeMessage = buildMimeMessage({
 			from,
@@ -136,7 +140,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 			bcc: bccList.length > 0 ? bccList : undefined,
 			subject,
 			text,
-			html,
+			html: outboundHtml,
 			attachments: attachments?.map((att) => ({
 				filename: att.filename,
 				content: att.content,
@@ -156,8 +160,6 @@ export class PostReplyEmail extends OpenAPIRoute {
 		} catch (e) {
 			return c.json({ error: (e as Error).message }, 500);
 		}
-
-		const messageId = crypto.randomUUID();
 
 		const attachmentData = [];
 		if (attachments) {
@@ -260,6 +262,9 @@ export class PostForwardEmail extends OpenAPIRoute {
 			return c.json({ error: "No valid recipient found" }, 400);
 		}
 
+		const messageId = crypto.randomUUID();
+		const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
+
 		// Forwarded emails don't have threading headers
 		const mimeMessage = buildMimeMessage({
 			from,
@@ -268,7 +273,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 			bcc: bccList.length > 0 ? bccList : undefined,
 			subject,
 			text,
-			html,
+			html: outboundHtml,
 			attachments: attachments?.map((att) => ({
 				filename: att.filename,
 				content: att.content,
@@ -286,8 +291,6 @@ export class PostForwardEmail extends OpenAPIRoute {
 		} catch (e) {
 			return c.json({ error: (e as Error).message }, 500);
 		}
-
-		const messageId = crypto.randomUUID();
 
 		const attachmentData = [];
 		if (attachments) {

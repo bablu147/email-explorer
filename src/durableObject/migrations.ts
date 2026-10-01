@@ -69,6 +69,15 @@ export const mailboxMigrations: Migration[] = [
                 ('drafts', 'Drafts', 0);
         `,
 	},
+	{
+		name: "4_add_tracking_columns",
+		sql: `
+            ALTER TABLE emails ADD COLUMN opened_at TEXT;
+            ALTER TABLE emails ADD COLUMN opened_count INTEGER DEFAULT 0;
+            ALTER TABLE emails ADD COLUMN clicked_at TEXT;
+            ALTER TABLE emails ADD COLUMN clicked_count INTEGER DEFAULT 0;
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [

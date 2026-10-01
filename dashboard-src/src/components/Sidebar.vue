@@ -37,14 +37,14 @@
         </li>
         <li>
           <router-link 
-            :to="{ name: 'EmailList', params: { mailboxId: route.params.mailboxId, folder: 'draft' } }" 
+            :to="{ name: 'EmailList', params: { mailboxId: route.params.mailboxId, folder: 'drafts' } }" 
             class="flex items-center gap-3 py-3 px-4 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-gray-700/50 transition-all duration-200 group"
             active-class="bg-gradient-to-r from-indigo-100 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-700 dark:text-indigo-300 font-semibold shadow-sm"
           >
             <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span>Draft</span>
+            <span>Drafts</span>
           </router-link>
         </li>
         <li>
@@ -116,10 +116,12 @@ const { folders } = storeToRefs(folderStore);
 const uiStore = useUIStore();
 const route = useRoute();
 
-const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft"];
+const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft", "drafts"];
 const customFolders = computed(() => {
 	return folders.value.filter(
-		(folder) => !defaultFolderIds.includes(folder.name.toLowerCase()),
+		(folder) =>
+			!defaultFolderIds.includes(folder.name.toLowerCase()) &&
+			!defaultFolderIds.includes(folder.id.toLowerCase()),
 	);
 });
 

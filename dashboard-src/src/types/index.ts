@@ -29,6 +29,10 @@ export interface Email {
 	read: boolean;
 	starred: boolean;
 	body?: string | null;
+	opened_at?: string | null;
+	opened_count?: number;
+	clicked_at?: string | null;
+	clicked_count?: number;
 	attachments?: Attachment[];
 }
 

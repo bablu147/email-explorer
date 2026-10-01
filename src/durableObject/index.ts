@@ -37,6 +37,10 @@ interface EmailData {
 	thread_id?: string | null;
 	cc?: string | null;
 	bcc?: string | null;
+	opened_at?: string | null;
+	opened_count?: number;
+	clicked_at?: string | null;
+	clicked_count?: number;
 }
 
 interface AttachmentData {
@@ -428,6 +432,11 @@ export class MailboxDO extends DurableObject<Env> {
 				"in_reply_to",
 				"email_references",
 				"thread_id",
+				"opened_at",
+				"opened_count",
+				"clicked_at",
+				"clicked_count",
+				"body",
 			]);
 
 		if (folder) {
@@ -479,6 +488,26 @@ export class MailboxDO extends DurableObject<Env> {
 			starred: !!email.results.starred,
 			attachments: attachments.results || [],
 		};
+	}
+
+	async recordOpen(id: string) {
+		const now = new Date().toISOString();
+		this.ctx.storage.sql.exec(
+			"UPDATE emails SET opened_at = COALESCE(opened_at, ?), opened_count = COALESCE(opened_count, 0) + 1 WHERE id = ?",
+			now,
+			id,
+		);
+		return true;
+	}
+
+	async recordClick(id: string) {
+		const now = new Date().toISOString();
+		this.ctx.storage.sql.exec(
+			"UPDATE emails SET clicked_at = ?, clicked_count = COALESCE(clicked_count, 0) + 1 WHERE id = ?",
+			now,
+			id,
+		);
+		return true;
 	}
 
 	async updateEmail(
@@ -707,6 +736,11 @@ export class MailboxDO extends DurableObject<Env> {
 				"in_reply_to",
 				"email_references",
 				"thread_id",
+				"opened_at",
+				"opened_count",
+				"clicked_at",
+				"clicked_count",
+				"body",
 			]);
 
 		if (folder) {

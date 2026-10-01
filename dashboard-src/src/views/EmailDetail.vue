@@ -73,16 +73,76 @@
       </div>
       <div class="flex items-center justify-between mt-6">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
             {{ email.sender.charAt(0).toUpperCase() }}
           </div>
           <div>
             <p class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ email.sender }}</p>
             <p class="text-sm text-gray-600 dark:text-gray-400">To: {{ email.recipient }}</p>
             <p v-if="email.cc" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Cc: {{ email.cc }}</p>
+            <p v-if="email.bcc" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Bcc: {{ email.bcc }} (hidden)</p>
           </div>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">{{ email.date }}</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium" :title="formatTooltipDate(email.date)">
+          {{ formatFriendlyDate(email.date) }}
+        </p>
+      </div>
+
+      <!-- Engagement & Tracking Stats Bar -->
+      <div v-if="isSentEmail" class="mt-5 pt-3.5 border-t border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- Delivery Status -->
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Delivered
+          </span>
+
+          <!-- Open / View Tracking -->
+          <span 
+            v-if="email.opened_count && email.opened_count > 0"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+            :title="email.opened_at ? 'First viewed: ' + formatTooltipDate(email.opened_at) : 'Recipient opened this email'"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Viewed {{ email.opened_count }} time{{ email.opened_count > 1 ? 's' : '' }}
+            <span v-if="email.opened_at" class="font-normal text-gray-500 text-[11px] ml-0.5">({{ formatFriendlyDate(email.opened_at) }})</span>
+          </span>
+          <span 
+            v-else
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
+            title="Awaiting recipient to open"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
+            Not viewed yet
+          </span>
+
+          <!-- Link Click Tracking -->
+          <span 
+            v-if="email.clicked_count && email.clicked_count > 0"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+            :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
+          >
+            <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            {{ email.clicked_count }} Link Click{{ email.clicked_count > 1 ? 's' : '' }}
+            <span v-if="email.clicked_at" class="font-normal text-gray-500 text-[11px] ml-0.5">({{ formatFriendlyDate(email.clicked_at) }})</span>
+          </span>
+          <span 
+            v-else
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 text-[11px]"
+          >
+            No link clicks yet
+          </span>
+        </div>
+
+        <div class="text-[11px] text-gray-400 flex items-center gap-1 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Live Tracking
+        </div>
       </div>
     </div>
     <div class="flex-grow">
@@ -180,6 +240,71 @@ const emailBodyWithInlineImages = computed(() => {
 
 	return body;
 });
+
+const fromFolder = computed(() => route.query.fromFolder as string);
+const isSentEmail = computed(() => {
+	if (!email.value) return false;
+	return fromFolder.value === "sent" || (email.value.opened_count !== undefined && email.value.opened_count !== null);
+});
+
+const formatFriendlyDate = (dateStr?: string): string => {
+	if (!dateStr) return "";
+	const date = new Date(dateStr);
+	if (isNaN(date.getTime())) return dateStr;
+
+	const now = new Date();
+	const isToday =
+		date.getDate() === now.getDate() &&
+		date.getMonth() === now.getMonth() &&
+		date.getFullYear() === now.getFullYear();
+
+	if (isToday) {
+		return `Today, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+	}
+
+	const yesterday = new Date(now);
+	yesterday.setDate(now.getDate() - 1);
+	const isYesterday =
+		date.getDate() === yesterday.getDate() &&
+		date.getMonth() === yesterday.getMonth() &&
+		date.getFullYear() === yesterday.getFullYear();
+
+	if (isYesterday) {
+		return `Yesterday, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+	}
+
+	if (date.getFullYear() === now.getFullYear()) {
+		return date.toLocaleDateString([], {
+			month: "short",
+			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+		});
+	}
+
+	return date.toLocaleDateString([], {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	});
+};
+
+const formatTooltipDate = (dateStr?: string): string => {
+	if (!dateStr) return "";
+	const date = new Date(dateStr);
+	if (isNaN(date.getTime())) return dateStr;
+	return date.toLocaleString([], {
+		weekday: "short",
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		second: "2-digit",
+	});
+};
 
 const getAttachmentUrl = (attachmentId: string) => {
 	const mailboxId = route.params.mailboxId as string;
