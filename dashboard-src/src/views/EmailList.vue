@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col">
-    <!-- Header with Folder Name, Metrics, Filter Pills, and Refresh -->
+  <div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col relative">
+    <!-- Header with Folder Name, Live Search, Filter Pills, and Refresh -->
     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white capitalize tracking-tight flex items-center gap-2">
@@ -11,9 +11,31 @@
         </span>
       </div>
 
-      <div class="flex items-center gap-2">
-        <!-- Quick Filter Pills -->
+      <!-- Search & Filters Container -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Quick In-Folder Filter Search -->
+        <div class="relative w-48 sm:w-64">
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="folderId === 'sent' ? 'Search recipients or subjects...' : 'Search in this folder...'"
+            class="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+          />
+          <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <button 
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Folder Specific Quick Filter Pills -->
         <div class="flex items-center bg-gray-200 dark:bg-gray-700/60 p-0.5 rounded-lg text-xs font-medium">
+          <!-- All -->
           <button
             type="button"
             @click="filterMode = 'all'"
@@ -22,7 +44,49 @@
           >
             All
           </button>
+
+          <!-- Sent Folder Specific: Opened -->
           <button
+            v-if="folderId === 'sent'"
+            type="button"
+            @click="filterMode = 'viewed'"
+            :class="filterMode === 'viewed' ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            title="Emails opened by recipients"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Opened
+            <span v-if="sentStats.opened > 0" class="text-[10px] opacity-80">({{ sentStats.opened }})</span>
+          </button>
+
+          <!-- Sent Folder Specific: Awaiting Open -->
+          <button
+            v-if="folderId === 'sent'"
+            type="button"
+            @click="filterMode = 'unopened'"
+            :class="filterMode === 'unopened' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            title="Awaiting recipient to open"
+          >
+            Pending
+            <span v-if="sentStats.pending > 0" class="text-[10px] opacity-80">({{ sentStats.pending }})</span>
+          </button>
+
+          <!-- Sent Folder Specific: Clicked -->
+          <button
+            v-if="folderId === 'sent' && sentStats.clicked > 0"
+            type="button"
+            @click="filterMode = 'clicked'"
+            :class="filterMode === 'clicked' ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            title="Emails where recipient clicked a link"
+          >
+            🔗 Clicked ({{ sentStats.clicked }})
+          </button>
+
+          <!-- Non-sent folders: Unread -->
+          <button
+            v-if="folderId !== 'sent'"
             type="button"
             @click="filterMode = 'unread'"
             :class="filterMode === 'unread' ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
@@ -31,6 +95,8 @@
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             Unread
           </button>
+
+          <!-- Starred -->
           <button
             type="button"
             @click="filterMode = 'starred'"
@@ -38,15 +104,6 @@
             class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
           >
             ★ Starred
-          </button>
-          <button
-            v-if="folderId === 'sent'"
-            type="button"
-            @click="filterMode = 'viewed'"
-            :class="filterMode === 'viewed' ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
-          >
-            👁 Viewed
           </button>
         </div>
 
@@ -68,6 +125,113 @@
       </div>
     </div>
 
+    <!-- 📊 Executive Deliverability & Engagement Metrics Bar (Sent Folder Specific) -->
+    <div 
+      v-if="folderId === 'sent' && emails.length > 0" 
+      class="px-6 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs"
+    >
+      <!-- Total Sent Card -->
+      <div 
+        @click="filterMode = 'all'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group"
+        :class="filterMode === 'all' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+      >
+        <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 font-medium mb-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold">Total Sent</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        </div>
+        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+          {{ sentStats.total }}
+          <span class="text-xs font-normal text-gray-500">messages</span>
+        </div>
+      </div>
+
+      <!-- Open Rate Card -->
+      <div 
+        @click="filterMode = 'viewed'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group"
+        :class="filterMode === 'viewed' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+      >
+        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            Open Rate
+          </span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            {{ sentStats.opened }}/{{ sentStats.total }}
+          </span>
+        </div>
+        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+          {{ sentStats.openRate }}%
+          <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">viewed</span>
+        </div>
+      </div>
+
+      <!-- Click-Through Rate Card -->
+      <div 
+        @click="filterMode = 'clicked'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group"
+        :class="filterMode === 'clicked' ? 'bg-white dark:bg-gray-800 border-blue-500 shadow-sm ring-1 ring-blue-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+      >
+        <div class="flex items-center justify-between text-blue-600 dark:text-blue-400 font-medium mb-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            CTR
+          </span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            {{ sentStats.clicked }} clicks
+          </span>
+        </div>
+        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+          {{ sentStats.clickRate }}%
+          <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">engaged</span>
+        </div>
+      </div>
+
+      <!-- Primary Inbox Placement Card -->
+      <div 
+        @click="filterMode = 'delivered'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group"
+        :class="filterMode === 'delivered' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+      >
+        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Inbox Placement
+          </span>
+          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">SPF/DKIM ✓</span>
+        </div>
+        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+          {{ sentStats.inboxRate }}%
+          <span class="text-xs font-normal text-gray-500">primary inbox</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Action Header: Select All + Column Labels -->
+    <div class="px-4 sm:px-6 py-2 bg-gray-100/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700/80 flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400 select-none">
+      <div class="flex items-center gap-3">
+        <!-- Select All Checkbox -->
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            :checked="isAllSelected"
+            @change="toggleSelectAll"
+            class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+          />
+          <span class="hover:text-gray-900 dark:hover:text-white transition-colors">Select all</span>
+        </label>
+        <span v-if="selectedEmailIds.length > 0" class="text-emerald-600 dark:text-emerald-400 font-bold ml-1">
+          ({{ selectedEmailIds.length }} selected)
+        </span>
+      </div>
+
+      <div class="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-wider">
+        <span class="hidden sm:inline">Status & Activity</span>
+        <span class="w-20 text-right">Date</span>
+      </div>
+    </div>
+
     <!-- Email List Table / Rows -->
     <ul v-if="filteredEmails.length > 0" class="divide-y divide-gray-100 dark:divide-gray-800/80">
       <li 
@@ -75,72 +239,98 @@
         :key="email.id" 
         class="group relative transition-all duration-150 border-l-4"
         :class="[
-          !email.read 
-            ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-500 font-semibold' 
-            : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800/40',
+          selectedEmailIds.includes(email.id)
+            ? 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-950/20'
+            : !email.read 
+              ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-500 font-semibold' 
+              : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800/40',
           'hover:bg-gray-50 dark:hover:bg-gray-800/90'
         ]"
       >
-        <router-link 
-          :to="{ name: 'EmailDetail', params: { id: email.id }, query: { fromFolder: folderId } }" 
-          class="block px-4 sm:px-6 py-3.5"
-        >
-          <div class="flex items-center gap-3 sm:gap-4">
-            <!-- Left: Selection / Star / Unread Dot / Avatar -->
-            <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <!-- Unread status dot -->
-              <div 
-                v-if="!email.read" 
-                class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 flex-shrink-0"
-                title="Unread"
-              ></div>
-              <div v-else class="w-2.5 h-2.5 flex-shrink-0"></div>
+        <div class="flex items-center px-4 sm:px-6 py-3.5 gap-3 sm:gap-4">
+          <!-- Left: Selection Checkbox / Star / Avatar -->
+          <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <!-- Row Selection Checkbox -->
+            <input 
+              type="checkbox"
+              :checked="selectedEmailIds.includes(email.id)"
+              @click.stop="toggleSelectEmail(email.id)"
+              class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500 cursor-pointer flex-shrink-0"
+            />
 
-              <!-- Quick Star Button -->
-              <button 
-                type="button"
-                @click.stop.prevent="toggleStarStatus(email)" 
-                class="p-1 text-gray-400 hover:text-yellow-500 transition-colors"
-                :class="{'text-yellow-500': email.starred}"
-                :title="email.starred ? 'Unstar' : 'Star'"
-              >
-                <svg v-if="email.starred" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-              </button>
+            <!-- Quick Star Button -->
+            <button 
+              type="button"
+              @click.stop.prevent="toggleStarStatus(email)" 
+              class="p-1 text-gray-400 hover:text-yellow-500 transition-colors flex-shrink-0"
+              :class="{'text-yellow-500': email.starred}"
+              :title="email.starred ? 'Unstar' : 'Star'"
+            >
+              <svg v-if="email.starred" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+            </button>
 
-              <!-- Initials Avatar -->
+            <!-- Initials Avatar with Live Engagement Badge Indicator -->
+            <div class="relative flex-shrink-0">
               <div 
-                class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 border"
+                class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border"
                 :class="folderId === 'sent' 
                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
                   : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'"
               >
                 {{ getAvatarInitial(email, folderId) }}
               </div>
+              <!-- Activity Dot: Green pulse if opened, Blue if clicked -->
+              <span 
+                v-if="folderId === 'sent' && email.opened_count && email.opened_count > 0"
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800"
+                title="Opened by recipient"
+              ></span>
+              <span 
+                v-else-if="folderId === 'sent' && email.clicked_count && email.clicked_count > 0"
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800"
+                title="Links clicked"
+              ></span>
             </div>
+          </div>
 
-            <!-- Middle: Recipient/Sender Name, Subject & Preview Snippet, Tracking Badges -->
-            <div class="flex-grow min-w-0 pr-2">
-              <!-- Top Row: Recipient/Sender + Engagement & Deliverability Badges -->
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <!-- If Sent or Drafts: Show crisp "To:" pill + Bold Recipient Address -->
-                <div v-if="folderId === 'sent' || folderId === 'drafts'" class="flex items-center gap-1.5 truncate max-w-[420px]">
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+          <!-- Middle: Recipient/Sender Name, Subject & Preview Snippet -->
+          <router-link 
+            :to="{ name: 'EmailDetail', params: { id: email.id }, query: { fromFolder: folderId } }" 
+            class="flex-grow min-w-0 block pr-2 cursor-pointer"
+          >
+            <!-- Top Row: Recipient/Sender + Chips -->
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <!-- If Sent or Drafts: Show crisp "To:" pill + Structured Recipient Address -->
+              <template v-if="folderId === 'sent' || folderId === 'drafts'">
+                <div class="flex items-center gap-1.5 truncate max-w-[420px]">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                     {{ folderId === 'drafts' ? 'Draft to' : 'To' }}
                   </span>
+                  <!-- Primary Recipient -->
                   <span 
                     class="text-sm truncate font-bold"
                     style="color: var(--fg) !important;"
                   >
-                    {{ email.recipient || '(No recipient)' }}
+                    {{ getParsedRecipients(email.recipient).primary }}
+                  </span>
+                  <!-- Additional Recipients Tag -->
+                  <span 
+                    v-if="getParsedRecipients(email.recipient).extrasCount > 0"
+                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300"
+                    :title="'All recipients: ' + email.recipient"
+                  >
+                    +{{ getParsedRecipients(email.recipient).extrasCount }} more
                   </span>
                 </div>
-                <!-- If Inbox or other folders: Show bold Sender -->
-                <div v-else class="flex items-center gap-1.5 truncate max-w-[420px]">
+              </template>
+              <!-- If Inbox or other folders: Show bold Sender -->
+              <template v-else>
+                <div class="flex items-center gap-1.5 truncate max-w-[420px]">
                   <span 
                     class="text-sm truncate"
                     :class="!email.read ? 'font-extrabold' : 'font-bold'"
@@ -149,159 +339,247 @@
                     {{ email.sender }}
                   </span>
                 </div>
+              </template>
 
-                <!-- CC summary if present -->
-                <span 
-                  v-if="email.cc" 
-                  class="text-xs truncate max-w-[200px]"
-                  style="color: var(--fg-dim) !important;"
-                  :title="'Cc: ' + email.cc"
-                >
-                  (Cc: {{ email.cc }})
-                </span>
+              <!-- CC summary if present -->
+              <span 
+                v-if="email.cc" 
+                class="text-xs truncate max-w-[180px] font-medium"
+                style="color: var(--fg-dim) !important;"
+                :title="'Cc: ' + email.cc"
+              >
+                (Cc: {{ email.cc }})
+              </span>
 
-                <!-- 📬 Delivery Destination & Spam Placement Badges -->
-                <template v-if="folderId === 'sent'">
-                  <!-- Spam Placement Detected -->
-                  <span 
-                    v-if="email.delivery_status === 'spam'"
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                    title="Warning: Email routed to recipient Spam folder"
-                  >
-                    <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    Delivered · Spam
-                  </span>
-
-                  <!-- Opened in Inbox -->
-                  <span 
-                    v-else-if="email.opened_count && email.opened_count > 0"
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                    :title="email.opened_at ? 'Delivered to recipient Inbox and opened: ' + formatTooltipDate(email.opened_at) : 'Recipient opened this email in their Inbox'"
-                  >
-                    <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Opened · Inbox ({{ email.opened_count }}x)
-                  </span>
-
-                  <!-- Delivered to Primary Inbox (Unopened yet) -->
-                  <span 
-                    v-else
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
-                    title="Delivered to recipient primary Inbox (SPF/DKIM/DMARC verified)"
-                  >
-                    <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Delivered · Inbox
-                  </span>
-
-                  <!-- 🔗 Click Tracking Badge -->
-                  <span 
-                    v-if="email.clicked_count && email.clicked_count > 0"
-                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
-                    :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
-                  >
-                    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    Clicked ({{ email.clicked_count }}x)
-                  </span>
-                </template>
-
-                <!-- Unread Badge Pill -->
-                <span 
-                  v-if="!email.read" 
-                  class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                >
-                  Unread
-                </span>
-              </div>
-
-              <!-- Bottom Row: Subject + Live Snippet -->
-              <p class="text-sm truncate leading-snug">
-                <span 
-                  :class="!email.read ? 'font-bold' : 'font-medium'"
-                  style="color: var(--fg) !important;"
-                >
-                  {{ email.subject || "(No subject)" }}
-                </span>
-                <span 
-                  v-if="getSnippet(email.body)" 
-                  class="font-normal ml-1.5"
-                  style="color: var(--fg-dim) !important;"
-                >
-                  — {{ getSnippet(email.body) }}
-                </span>
-              </p>
+              <!-- Unread Badge Pill (for Inbox) -->
+              <span 
+                v-if="folderId !== 'sent' && !email.read" 
+                class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+              >
+                Unread
+              </span>
             </div>
 
-            <!-- Right: Date & Attachment Indicator & Hover Actions -->
-            <div class="flex-shrink-0 flex items-center gap-3">
-              <!-- Attachment paperclip icon if email has attachments -->
-              <div v-if="email.attachments && email.attachments.length > 0" class="text-gray-400 dark:text-gray-500" title="Has attachments">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-              </div>
+            <!-- Bottom Row: Subject + Live Snippet -->
+            <p class="text-sm truncate leading-snug">
+              <span 
+                :class="!email.read ? 'font-bold' : 'font-medium'"
+                style="color: var(--fg) !important;"
+              >
+                {{ email.subject || "(No subject)" }}
+              </span>
+              <span 
+                v-if="getSnippet(email.body)" 
+                class="font-normal ml-1.5"
+                style="color: var(--fg-dim) !important;"
+              >
+                — {{ getSnippet(email.body) }}
+              </span>
+            </p>
+          </router-link>
 
-              <!-- Friendly Date (visible when not hovered) -->
+          <!-- Right Column: Deliverability & Engagement Status Badge + Date / Hover Actions -->
+          <div class="flex-shrink-0 flex items-center gap-3">
+            <!-- 📬 Dedicated Delivery & Engagement Status Pillar (Visible on Sent) -->
+            <div v-if="folderId === 'sent'" class="hidden md:flex flex-col items-end gap-1 min-w-[140px]">
+              <!-- Spam Placement Detected -->
+              <span 
+                v-if="email.delivery_status === 'spam'"
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                title="Warning: Email routed to recipient Spam folder"
+              >
+                <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Delivered · Spam
+              </span>
+
+              <!-- Opened in Inbox with Pulse Dot -->
+              <span 
+                v-else-if="email.opened_count && email.opened_count > 0"
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs"
+                :title="email.opened_at ? 'Delivered to recipient Inbox and opened: ' + formatTooltipDate(email.opened_at) : 'Recipient opened this email in their Inbox'"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Opened · Inbox ({{ email.opened_count }}x)
+              </span>
+
+              <!-- Delivered to Primary Inbox (Unopened yet) -->
+              <span 
+                v-else
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                title="Delivered to recipient primary Inbox with verified SPF/DKIM/DMARC"
+              >
+                <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+                Delivered · Inbox
+              </span>
+
+              <!-- Link Clicks Mini Tag if clicks occurred -->
+              <span 
+                v-if="email.clicked_count && email.clicked_count > 0"
+                class="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400"
+                :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
+              >
+                🔗 {{ email.clicked_count }} click{{ email.clicked_count > 1 ? 's' : '' }}
+              </span>
+            </div>
+
+            <!-- Attachment paperclip icon if email has attachments -->
+            <div v-if="email.attachments && email.attachments.length > 0" class="text-gray-400 dark:text-gray-500" title="Has attachments">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </div>
+
+            <!-- Friendly Sent/Received Date & Open Timestamp (visible when not hovered) -->
+            <div class="group-hover:hidden flex flex-col items-end min-w-[70px]">
               <p 
-                class="text-xs text-gray-500 dark:text-gray-400 group-hover:hidden whitespace-nowrap font-medium"
+                class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium"
                 :title="formatTooltipDate(email.date)"
               >
                 {{ formatFriendlyDate(email.date) }}
               </p>
+              <p 
+                v-if="folderId === 'sent' && email.opened_at" 
+                class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap mt-0.5"
+                :title="'First viewed: ' + formatTooltipDate(email.opened_at)"
+              >
+                👁 {{ formatShortTime(email.opened_at) }}
+              </p>
+            </div>
 
-              <!-- Quick Action Buttons (shown on hover) -->
-              <div class="hidden group-hover:flex items-center gap-1">
-                <button 
-                  type="button"
-                  @click.stop.prevent="toggleReadStatus(email)" 
-                  class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all"
-                  :title="email.read ? 'Mark as unread' : 'Mark as read'"
-                >
-                  <svg v-if="email.read" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <svg v-else class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                  </svg>
-                </button>
-                <button 
-                  type="button"
-                  @click.stop.prevent="handleDelete(email.id)" 
-                  class="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-gray-700/60 transition-all"
-                  title="Delete message"
-                >
-                  <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-              </div>
+            <!-- ⚡ High-Productivity Quick Action Buttons (shown on hover) -->
+            <div class="hidden group-hover:flex items-center gap-1 min-w-[70px] justify-end">
+              <!-- Follow-up / Send Again (for Sent emails) -->
+              <button 
+                v-if="folderId === 'sent'"
+                type="button"
+                @click.stop.prevent="handleFollowUp(email)" 
+                class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all cursor-pointer"
+                title="Send follow-up to this recipient"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+              </button>
+
+              <!-- Copy Recipient Email -->
+              <button 
+                v-if="folderId === 'sent' && email.recipient"
+                type="button"
+                @click.stop.prevent="copyRecipient(email.recipient, email.id)" 
+                class="p-1.5 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all cursor-pointer relative"
+                :title="copyFeedbackId === email.id ? 'Copied!' : 'Copy recipient email'"
+              >
+                <svg v-if="copyFeedbackId !== email.id" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <svg v-else class="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+
+              <!-- Mark Read/Unread -->
+              <button 
+                type="button"
+                @click.stop.prevent="toggleReadStatus(email)" 
+                class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all cursor-pointer"
+                :title="email.read ? 'Mark as unread' : 'Mark as read'"
+              >
+                <svg v-if="email.read" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <svg v-else class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                </svg>
+              </button>
+
+              <!-- Delete Email -->
+              <button 
+                type="button"
+                @click.stop.prevent="handleDelete(email.id)" 
+                class="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-gray-700/60 transition-all cursor-pointer"
+                title="Delete message"
+              >
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+                </svg>
+              </button>
             </div>
           </div>
-        </router-link>
+        </div>
       </li>
     </ul>
 
-    <!-- Empty State -->
+    <!-- Refined Empty State -->
     <div v-else class="p-16 text-center">
       <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg v-if="filterMode === 'viewed'" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <svg v-else class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
         </svg>
       </div>
       <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-1">
-        {{ filterMode === 'all' ? 'No emails in this folder' : `No ${filterMode} emails found` }}
+        <span v-if="searchQuery">No emails matching "{{ searchQuery }}"</span>
+        <span v-else-if="filterMode === 'viewed'">No opened emails yet</span>
+        <span v-else-if="filterMode === 'unopened'">All sent emails have been opened!</span>
+        <span v-else-if="filterMode === 'clicked'">No link clicks recorded yet</span>
+        <span v-else-if="filterMode === 'starred'">No starred emails in this folder</span>
+        <span v-else-if="filterMode === 'unread'">No unread emails</span>
+        <span v-else>No messages in this folder</span>
       </h2>
-      <p class="text-xs text-gray-500 dark:text-gray-400">
-        {{ filterMode === 'all' ? 'Any new messages will appear here.' : 'Try changing your filter above.' }}
+      <p class="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-4">
+        <span v-if="searchQuery">Try adjusting your search keywords or clear the filter.</span>
+        <span v-else-if="filterMode === 'viewed'">When recipients view your sent emails, their engagement will appear here live.</span>
+        <span v-else-if="filterMode === 'all'">Any sent messages will appear here with live deliverability and open tracking.</span>
+        <span v-else>Try selecting a different filter above.</span>
       </p>
+      <button
+        v-if="filterMode !== 'all' || searchQuery"
+        type="button"
+        @click="filterMode = 'all'; searchQuery = ''"
+        class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm"
+      >
+        Reset filters
+      </button>
+    </div>
+
+    <!-- ⚡ Floating Batch Actions Bar (slides up when 1+ emails selected) -->
+    <div 
+      v-if="selectedEmailIds.length > 0"
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-md text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-gray-700/80 flex items-center gap-4 text-xs font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200"
+    >
+      <span class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        {{ selectedEmailIds.length }} selected
+      </span>
+      <div class="h-4 w-px bg-gray-700"></div>
+
+      <!-- Delete Selected -->
+      <button 
+        type="button" 
+        @click="deleteSelected" 
+        class="hover:text-red-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+        title="Delete selected emails"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Delete
+      </button>
+
+      <!-- Deselect All -->
+      <button 
+        type="button" 
+        @click="selectedEmailIds = []" 
+        class="text-gray-400 hover:text-white transition-colors cursor-pointer"
+      >
+        Deselect
+      </button>
     </div>
   </div>
 </template>
@@ -312,15 +590,20 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
+import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
 
 const emailStore = useEmailStore();
 const { emails, isRefreshing } = storeToRefs(emailStore);
 const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
+const uiStore = useUIStore();
 const route = useRoute();
 
-const filterMode = ref<"all" | "unread" | "starred" | "viewed">("all");
+const filterMode = ref<"all" | "unread" | "starred" | "viewed" | "unopened" | "clicked" | "delivered">("all");
+const searchQuery = ref("");
+const selectedEmailIds = ref<string[]>([]);
+const copyFeedbackId = ref<string | null>(null);
 let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 const folderId = computed(() => route.params.folder as string);
@@ -330,30 +613,77 @@ const folderName = computed(() => {
 	return foundFolder ? foundFolder.name : folderId.value;
 });
 
-// Filter emails by current filter mode
-const filteredEmails = computed(() => {
-	if (!emails.value) return [];
-	if (filterMode.value === "unread") {
-		return emails.value.filter((e) => !e.read);
+// Real-time deliverability & engagement metrics for Sent folder
+const sentStats = computed(() => {
+	if (!emails.value || folderId.value !== "sent") {
+		return { total: 0, opened: 0, openRate: 0, clicked: 0, clickRate: 0, inboxRate: 100, pending: 0 };
 	}
-	if (filterMode.value === "starred") {
-		return emails.value.filter((e) => e.starred);
-	}
-	if (filterMode.value === "viewed") {
-		return emails.value.filter((e) => e.opened_count && e.opened_count > 0);
-	}
-	return emails.value;
+	const total = emails.value.length;
+	const opened = emails.value.filter((e) => e.opened_count && e.opened_count > 0).length;
+	const clicked = emails.value.filter((e) => e.clicked_count && e.clicked_count > 0).length;
+	const spamCount = emails.value.filter((e) => e.delivery_status === "spam").length;
+	const openRate = total > 0 ? Math.round((opened / total) * 100) : 0;
+	const clickRate = total > 0 ? Math.round((clicked / total) * 100) : 0;
+	const inboxRate = total > 0 ? Math.round(((total - spamCount) / total) * 100) : 100;
+	const pending = total - opened;
+
+	return {
+		total,
+		opened,
+		openRate,
+		clicked,
+		clickRate,
+		inboxRate,
+		pending,
+	};
 });
 
-// Display sender or recipient depending on folder
-const getDisplayAddress = (email: Email, folder: string): string => {
-	if (folder === "sent") {
-		return email.recipient ? `To: ${email.recipient}` : "To: (No recipient)";
+// Filter emails by current filter mode & live in-folder search query
+const filteredEmails = computed(() => {
+	if (!emails.value) return [];
+	let list = emails.value;
+
+	if (filterMode.value === "unread") {
+		list = list.filter((e) => !e.read);
+	} else if (filterMode.value === "starred") {
+		list = list.filter((e) => e.starred);
+	} else if (filterMode.value === "viewed") {
+		list = list.filter((e) => e.opened_count && e.opened_count > 0);
+	} else if (filterMode.value === "unopened") {
+		list = list.filter((e) => !e.opened_count || e.opened_count === 0);
+	} else if (filterMode.value === "clicked") {
+		list = list.filter((e) => e.clicked_count && e.clicked_count > 0);
+	} else if (filterMode.value === "delivered") {
+		list = list.filter((e) => e.delivery_status !== "spam");
 	}
-	if (folder === "drafts") {
-		return email.recipient ? `Draft to: ${email.recipient}` : "Draft (No recipient)";
+
+	if (searchQuery.value.trim()) {
+		const q = searchQuery.value.toLowerCase().trim();
+		list = list.filter(
+			(e) =>
+				(e.subject && e.subject.toLowerCase().includes(q)) ||
+				(e.recipient && e.recipient.toLowerCase().includes(q)) ||
+				(e.sender && e.sender.toLowerCase().includes(q)) ||
+				(e.body && e.body.toLowerCase().includes(q)),
+		);
 	}
-	return email.sender || "Unknown Sender";
+
+	return list;
+});
+
+// Split comma-separated recipients into primary and extra count
+const getParsedRecipients = (recipientStr?: string | null): { primary: string; extrasCount: number; all: string[] } => {
+	if (!recipientStr) return { primary: "(No recipient)", extrasCount: 0, all: [] };
+	const parts = recipientStr
+		.split(/[,;\n]+/)
+		.map((s) => s.trim())
+		.filter(Boolean);
+	if (parts.length === 0) return { primary: "(No recipient)", extrasCount: 0, all: [] };
+	return {
+		primary: parts[0],
+		extrasCount: parts.length - 1,
+		all: parts,
+	};
 };
 
 // Avatar initial letter
@@ -415,6 +745,13 @@ const formatFriendlyDate = (dateStr?: string): string => {
 	return date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
 };
 
+const formatShortTime = (dateStr?: string): string => {
+	if (!dateStr) return "";
+	const date = new Date(dateStr);
+	if (isNaN(date.getTime())) return "";
+	return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+};
+
 // Tooltip full date
 const formatTooltipDate = (dateStr?: string): string => {
 	if (!dateStr) return "";
@@ -429,6 +766,64 @@ const formatTooltipDate = (dateStr?: string): string => {
 		minute: "2-digit",
 		second: "2-digit",
 	});
+};
+
+// Selection helpers
+const isAllSelected = computed(() => {
+	return (
+		filteredEmails.value.length > 0 &&
+		selectedEmailIds.value.length === filteredEmails.value.length
+	);
+});
+
+const toggleSelectAll = () => {
+	if (isAllSelected.value) {
+		selectedEmailIds.value = [];
+	} else {
+		selectedEmailIds.value = filteredEmails.value.map((e) => e.id);
+	}
+};
+
+const toggleSelectEmail = (emailId: string) => {
+	const idx = selectedEmailIds.value.indexOf(emailId);
+	if (idx === -1) {
+		selectedEmailIds.value.push(emailId);
+	} else {
+		selectedEmailIds.value.splice(idx, 1);
+	}
+};
+
+const deleteSelected = async () => {
+	if (
+		selectedEmailIds.value.length > 0 &&
+		confirm(`Are you sure you want to delete ${selectedEmailIds.value.length} selected email(s)?`)
+	) {
+		const mailboxId = route.params.mailboxId as string;
+		for (const id of selectedEmailIds.value) {
+			await emailStore.deleteEmail(mailboxId, id);
+		}
+		selectedEmailIds.value = [];
+	}
+};
+
+// Follow-up helper
+const handleFollowUp = (email: Email) => {
+	uiStore.openComposeModal({ mode: "reply", originalEmail: email });
+};
+
+// Copy recipient to clipboard
+const copyRecipient = async (recipient: string, emailId: string) => {
+	try {
+		await navigator.clipboard.writeText(recipient);
+		copyFeedbackId.value = emailId;
+		setTimeout(() => {
+			if (copyFeedbackId.value === emailId) {
+				copyFeedbackId.value = null;
+			}
+		}, 1800);
+	} catch (e) {
+		// Fallback
+	}
 };
 
 const startAutoRefresh = () => {
@@ -466,6 +861,8 @@ onUnmounted(() => {
 
 watch(folderId, (newFolderId) => {
 	filterMode.value = "all";
+	searchQuery.value = "";
+	selectedEmailIds.value = [];
 	emailStore.fetchEmails(route.params.mailboxId as string, {
 		folder: newFolderId,
 	});
