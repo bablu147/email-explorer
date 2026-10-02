@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { DOQB } from "workers-qb";
-import type { AppBinding, Env, Session, User } from "../types";
+import type { AppBinding, DiscoverLead, Env, Session, User } from "../types";
 import { authMigrations, mailboxMigrations } from "./migrations";
 
 const ALLOWED_SORT_COLUMNS = [
@@ -108,6 +108,33 @@ export class MailboxDO extends DurableObject<Env> {
 					updated_at INTEGER NOT NULL
 				);
 				CREATE INDEX IF NOT EXISTS idx_app_bindings_platform ON app_bindings(platform);
+
+				CREATE TABLE IF NOT EXISTS discover_leads (
+					id TEXT PRIMARY KEY,
+					bundle_id TEXT NOT NULL,
+					platform TEXT NOT NULL,
+					app_name TEXT NOT NULL,
+					app_icon_url TEXT NOT NULL,
+					app_url TEXT NOT NULL,
+					developer_name TEXT,
+					developer_email TEXT,
+					developer_website TEXT,
+					installs_bracket TEXT,
+					rating REAL,
+					reviews_count INTEGER,
+					category TEXT,
+					country TEXT,
+					has_iap INTEGER DEFAULT 0,
+					has_ads INTEGER DEFAULT 0,
+					release_date TEXT,
+					updated_date TEXT,
+					status TEXT DEFAULT 'uncontacted',
+					notes TEXT,
+					created_at INTEGER NOT NULL,
+					updated_at INTEGER NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS idx_discover_leads_bundle ON discover_leads(bundle_id, platform);
+				CREATE INDEX IF NOT EXISTS idx_discover_leads_email ON discover_leads(developer_email);
 			`);
 		} else {
 			this.#qb.migrations({ migrations: mailboxMigrations }).apply();
@@ -963,6 +990,218 @@ export class MailboxDO extends DurableObject<Env> {
 			cleanEmail,
 		);
 		return true;
+	}
+
+	// Discover Leads methods (AUTH DO singleton)
+	async getAllDiscoverLeads(): Promise<DiscoverLead[]> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const rows = this.ctx.storage.sql
+			.exec(
+				"SELECT id, bundle_id, platform, app_name, app_icon_url, app_url, developer_name, developer_email, developer_website, installs_bracket, rating, reviews_count, category, country, has_iap, has_ads, release_date, updated_date, status, notes, created_at, updated_at FROM discover_leads ORDER BY updated_at DESC",
+			)
+			.toArray();
+		return rows.map((r: any) => ({
+			id: String(r.id),
+			bundle_id: String(r.bundle_id),
+			platform: String(r.platform) as any,
+			app_name: String(r.app_name),
+			app_icon_url: String(r.app_icon_url),
+			app_url: String(r.app_url),
+			developer_name: r.developer_name ? String(r.developer_name) : null,
+			developer_email: r.developer_email ? String(r.developer_email) : null,
+			developer_website: r.developer_website ? String(r.developer_website) : null,
+			installs_bracket: r.installs_bracket ? String(r.installs_bracket) : null,
+			rating: r.rating !== null && r.rating !== undefined ? Number(r.rating) : null,
+			reviews_count: r.reviews_count !== null && r.reviews_count !== undefined ? Number(r.reviews_count) : null,
+			category: r.category ? String(r.category) : null,
+			country: r.country ? String(r.country) : null,
+			has_iap: Boolean(r.has_iap),
+			has_ads: Boolean(r.has_ads),
+			release_date: r.release_date ? String(r.release_date) : null,
+			updated_date: r.updated_date ? String(r.updated_date) : null,
+			status: (r.status as any) || "uncontacted",
+			notes: r.notes ? String(r.notes) : null,
+			created_at: Number(r.created_at),
+			updated_at: Number(r.updated_at),
+		}));
+	}
+
+	async getDiscoverLead(id: string): Promise<DiscoverLead | null> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const rows = this.ctx.storage.sql
+			.exec(
+				"SELECT id, bundle_id, platform, app_name, app_icon_url, app_url, developer_name, developer_email, developer_website, installs_bracket, rating, reviews_count, category, country, has_iap, has_ads, release_date, updated_date, status, notes, created_at, updated_at FROM discover_leads WHERE id = ?",
+				id,
+			)
+			.toArray();
+		if (rows.length === 0) return null;
+		const r: any = rows[0];
+		return {
+			id: String(r.id),
+			bundle_id: String(r.bundle_id),
+			platform: String(r.platform) as any,
+			app_name: String(r.app_name),
+			app_icon_url: String(r.app_icon_url),
+			app_url: String(r.app_url),
+			developer_name: r.developer_name ? String(r.developer_name) : null,
+			developer_email: r.developer_email ? String(r.developer_email) : null,
+			developer_website: r.developer_website ? String(r.developer_website) : null,
+			installs_bracket: r.installs_bracket ? String(r.installs_bracket) : null,
+			rating: r.rating !== null && r.rating !== undefined ? Number(r.rating) : null,
+			reviews_count: r.reviews_count !== null && r.reviews_count !== undefined ? Number(r.reviews_count) : null,
+			category: r.category ? String(r.category) : null,
+			country: r.country ? String(r.country) : null,
+			has_iap: Boolean(r.has_iap),
+			has_ads: Boolean(r.has_ads),
+			release_date: r.release_date ? String(r.release_date) : null,
+			updated_date: r.updated_date ? String(r.updated_date) : null,
+			status: (r.status as any) || "uncontacted",
+			notes: r.notes ? String(r.notes) : null,
+			created_at: Number(r.created_at),
+			updated_at: Number(r.updated_at),
+		};
+	}
+
+	async setDiscoverLead(lead: {
+		id?: string;
+		bundle_id: string;
+		platform: string;
+		app_name: string;
+		app_icon_url: string;
+		app_url: string;
+		developer_name?: string | null;
+		developer_email?: string | null;
+		developer_website?: string | null;
+		installs_bracket?: string | null;
+		rating?: number | null;
+		reviews_count?: number | null;
+		category?: string | null;
+		country?: string | null;
+		has_iap?: boolean;
+		has_ads?: boolean;
+		release_date?: string | null;
+		updated_date?: string | null;
+		status?: string;
+		notes?: string | null;
+	}): Promise<DiscoverLead> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const id = lead.id || `${lead.platform}_${lead.bundle_id}`;
+		const now = Date.now();
+		const existing = this.ctx.storage.sql
+			.exec("SELECT created_at FROM discover_leads WHERE id = ?", id)
+			.toArray();
+		const createdAt = existing.length > 0 ? Number(existing[0].created_at) : now;
+
+		this.ctx.storage.sql.exec(
+			`INSERT INTO discover_leads (
+				id, bundle_id, platform, app_name, app_icon_url, app_url,
+				developer_name, developer_email, developer_website, installs_bracket,
+				rating, reviews_count, category, country, has_iap, has_ads,
+				release_date, updated_date, status, notes, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				app_name = excluded.app_name,
+				app_icon_url = excluded.app_icon_url,
+				app_url = excluded.app_url,
+				developer_name = excluded.developer_name,
+				developer_email = excluded.developer_email,
+				developer_website = excluded.developer_website,
+				installs_bracket = excluded.installs_bracket,
+				rating = excluded.rating,
+				reviews_count = excluded.reviews_count,
+				category = excluded.category,
+				country = excluded.country,
+				has_iap = excluded.has_iap,
+				has_ads = excluded.has_ads,
+				release_date = excluded.release_date,
+				updated_date = excluded.updated_date,
+				status = excluded.status,
+				notes = excluded.notes,
+				updated_at = excluded.updated_at`,
+			id,
+			lead.bundle_id,
+			lead.platform,
+			lead.app_name,
+			lead.app_icon_url,
+			lead.app_url,
+			lead.developer_name || null,
+			lead.developer_email || null,
+			lead.developer_website || null,
+			lead.installs_bracket || null,
+			lead.rating !== undefined ? lead.rating : null,
+			lead.reviews_count !== undefined ? lead.reviews_count : null,
+			lead.category || null,
+			lead.country || null,
+			lead.has_iap ? 1 : 0,
+			lead.has_ads ? 1 : 0,
+			lead.release_date || null,
+			lead.updated_date || null,
+			lead.status || "uncontacted",
+			lead.notes || null,
+			createdAt,
+			now,
+		);
+
+		return {
+			id,
+			bundle_id: lead.bundle_id,
+			platform: lead.platform as any,
+			app_name: lead.app_name,
+			app_icon_url: lead.app_icon_url,
+			app_url: lead.app_url,
+			developer_name: lead.developer_name || null,
+			developer_email: lead.developer_email || null,
+			developer_website: lead.developer_website || null,
+			installs_bracket: lead.installs_bracket || null,
+			rating: lead.rating !== undefined ? lead.rating : null,
+			reviews_count: lead.reviews_count !== undefined ? lead.reviews_count : null,
+			category: lead.category || null,
+			country: lead.country || null,
+			has_iap: Boolean(lead.has_iap),
+			has_ads: Boolean(lead.has_ads),
+			release_date: lead.release_date || null,
+			updated_date: lead.updated_date || null,
+			status: (lead.status as any) || "uncontacted",
+			notes: lead.notes || null,
+			created_at: createdAt,
+			updated_at: now,
+		};
+	}
+
+	async deleteDiscoverLead(id: string): Promise<boolean> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		this.ctx.storage.sql.exec("DELETE FROM discover_leads WHERE id = ?", id);
+		return true;
+	}
+
+	// Mailbox DO method: query recipient outreach stats from emails table
+	async getSentEmailRecipients(emails: string[]): Promise<Record<string, { sent: boolean; opened_count: number }>> {
+		if (emails.length === 0) return {};
+		const result: Record<string, { sent: boolean; opened_count: number }> = {};
+		for (const rawEmail of emails) {
+			const clean = rawEmail.trim().toLowerCase();
+			if (!clean) continue;
+			try {
+				const rows = this.ctx.storage.sql
+					.exec(
+						"SELECT opened_count, opened_at FROM emails WHERE LOWER(recipient) LIKE ? OR LOWER(recipient) = ? ORDER BY opened_count DESC LIMIT 1",
+						`%${clean}%`,
+						clean,
+					)
+					.toArray();
+				if (rows.length > 0) {
+					const r: any = rows[0];
+					const opened = Number(r.opened_count || 0) + (r.opened_at ? 1 : 0);
+					result[clean] = {
+						sent: true,
+						opened_count: opened,
+					};
+				}
+			} catch {
+				// Table might not exist or error, ignore
+			}
+		}
+		return result;
 	}
 }
 

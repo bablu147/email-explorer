@@ -6,6 +6,9 @@ export interface ComposeOptions {
 	mode: ComposeMode;
 	originalEmail?: any;
 	initialBody?: string;
+	initialTo?: string;
+	initialSubject?: string;
+	appBinding?: any;
 }
 
 export const useUIStore = defineStore("ui", {

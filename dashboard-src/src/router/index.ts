@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import Admin from "@/views/Admin.vue";
 import Contacts from "@/views/Contacts.vue";
+import DiscoverApps from "@/views/DiscoverApps.vue";
 import EmailDetail from "@/views/EmailDetail.vue";
 import EmailList from "@/views/EmailList.vue";
 import ForgotPassword from "@/views/ForgotPassword.vue";
@@ -88,6 +89,12 @@ const router = createRouter({
 					name: "Settings",
 					component: Settings,
 					meta: { title: "Settings" },
+				},
+				{
+					path: "discover",
+					name: "DiscoverApps",
+					component: DiscoverApps,
+					meta: { title: "App Discovery & MMP Outreach" },
 				},
 				{
 					path: "search",

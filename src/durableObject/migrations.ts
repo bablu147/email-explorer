@@ -137,5 +137,37 @@ export const authMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_app_bindings_platform ON app_bindings(platform);
         `,
 	},
+	{
+		name: "3_discover_leads",
+		sql: `
+            CREATE TABLE IF NOT EXISTS discover_leads (
+                id TEXT PRIMARY KEY,
+                bundle_id TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                app_name TEXT NOT NULL,
+                app_icon_url TEXT NOT NULL,
+                app_url TEXT NOT NULL,
+                developer_name TEXT,
+                developer_email TEXT,
+                developer_website TEXT,
+                installs_bracket TEXT,
+                rating REAL,
+                reviews_count INTEGER,
+                category TEXT,
+                country TEXT,
+                has_iap INTEGER DEFAULT 0,
+                has_ads INTEGER DEFAULT 0,
+                release_date TEXT,
+                updated_date TEXT,
+                status TEXT DEFAULT 'uncontacted',
+                notes TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_discover_leads_bundle ON discover_leads(bundle_id, platform);
+            CREATE INDEX IF NOT EXISTS idx_discover_leads_email ON discover_leads(developer_email);
+        `,
+	},
 ];
 

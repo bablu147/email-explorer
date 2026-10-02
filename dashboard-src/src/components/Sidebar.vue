@@ -20,13 +20,33 @@
     <button 
       type="button"
       @click="openComposeModal" 
-      class="w-full mb-6 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transform hover:-translate-y-0.5 transition-all duration-200 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
+      class="w-full mb-3 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transform hover:-translate-y-0.5 transition-all duration-200 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
     >
       <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
       </svg>
       <span>Compose</span>
     </button>
+
+    <!-- App Discovery & MMP Outreach -->
+    <div class="mb-4">
+      <router-link
+        :to="{ name: 'DiscoverApps', params: { mailboxId: route.params.mailboxId } }"
+        class="flex items-center justify-between py-2 px-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-all text-xs sm:text-sm font-medium group"
+        :class="{ 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-semibold border-r-2 border-emerald-500': route.name === 'DiscoverApps' }"
+      >
+        <div class="flex items-center gap-2.5 min-w-0">
+          <svg class="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke-width="2" />
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke-width="1.5" />
+          </svg>
+          <span class="truncate">Discover Apps</span>
+        </div>
+        <span class="px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          MMP
+        </span>
+      </router-link>
+    </div>
 
     <!-- Navigation Menu -->
     <nav class="flex-1 overflow-y-auto space-y-6 pr-1">

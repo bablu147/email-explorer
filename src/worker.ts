@@ -23,6 +23,12 @@ import {
 	GetAppLookup,
 	PostAppBinding,
 } from "./routes/app-bindings";
+import {
+	DeleteDiscoverLead,
+	GetDiscoverApps,
+	GetDiscoverLeads,
+	PostDiscoverLead,
+} from "./routes/discover";
 import { PostForwardEmail, PostReplyEmail } from "./routes/reply-forward";
 import type { EmailExplorerOptions, Env, Session } from "./types";
 
@@ -1762,6 +1768,12 @@ openapi.get("/api/v1/app-bindings/:email", GetAppBindingByEmail);
 openapi.post("/api/v1/app-bindings", PostAppBinding);
 openapi.delete("/api/v1/app-bindings/:email", DeleteAppBinding);
 openapi.get("/api/v1/app-lookup", GetAppLookup);
+
+// App Discovery & MMP Outreach endpoints
+openapi.get("/api/v1/discover/apps", GetDiscoverApps);
+openapi.get("/api/v1/discover/leads", GetDiscoverLeads);
+openapi.post("/api/v1/discover/leads", PostDiscoverLead);
+openapi.delete("/api/v1/discover/leads/:id", DeleteDiscoverLead);
 
 // Existing endpoints
 openapi.post("/api/v1/debug/create-mailbox", CreateDummyMailbox);

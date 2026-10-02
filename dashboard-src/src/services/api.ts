@@ -158,5 +158,20 @@ export default {
 		apiClient.delete(`/api/v1/app-bindings/${encodeURIComponent(email)}`),
 	lookupApp: (query: string, platform?: string) =>
 		apiClient.get("/api/v1/app-lookup", { params: { query, platform } }),
+
+	// App Discovery & MMP Outreach
+	discoverApps: (params: {
+		platform?: string;
+		country?: string;
+		chart?: string;
+		category?: string;
+		limit?: number;
+		page?: number;
+		query?: string;
+	}) => apiClient.get("/api/v1/discover/apps", { params }),
+	getDiscoverLeads: () => apiClient.get("/api/v1/discover/leads"),
+	saveDiscoverLead: (lead: any) => apiClient.post("/api/v1/discover/leads", lead),
+	deleteDiscoverLead: (id: string) =>
+		apiClient.delete(`/api/v1/discover/leads/${encodeURIComponent(id)}`),
 };
 

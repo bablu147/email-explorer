@@ -720,11 +720,16 @@ watch(isComposeModalOpen, (isOpen) => {
 ${original.body || ""}
 </div>`;
 		} else {
-			to.value = "";
+			to.value = options.initialTo || "";
 			cc.value = "";
 			bcc.value = "";
-			subject.value = "";
-			body.value = sigBlock ? `<br><br>${sigBlock}` : "";
+			subject.value = options.initialSubject || "";
+			const initialText = options.initialBody || "";
+			body.value = initialText
+				? `${initialText}${sigBlock ? `<br><br>${sigBlock}` : ""}`
+				: sigBlock
+					? `<br><br>${sigBlock}`
+					: "";
 		}
 	}
 });
