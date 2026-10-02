@@ -69,23 +69,23 @@ export function buildMimeMessage(options: MimeMessageOptions): string {
 		// Text version
 		mime += `--${altBoundary}\r\n`;
 		mime += `Content-Type: text/plain; charset=utf-8\r\n`;
-		mime += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`;
+		mime += `Content-Transfer-Encoding: 8bit\r\n\r\n`;
 		mime += `${text}\r\n\r\n`;
 
 		// HTML version
 		mime += `--${altBoundary}\r\n`;
 		mime += `Content-Type: text/html; charset=utf-8\r\n`;
-		mime += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`;
+		mime += `Content-Transfer-Encoding: 8bit\r\n\r\n`;
 		mime += `${html}\r\n\r\n`;
 
 		mime += `--${altBoundary}--\r\n`;
 	} else if (html) {
 		mime += `Content-Type: text/html; charset=utf-8\r\n`;
-		mime += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`;
+		mime += `Content-Transfer-Encoding: 8bit\r\n\r\n`;
 		mime += `${html}\r\n`;
 	} else if (text) {
 		mime += `Content-Type: text/plain; charset=utf-8\r\n`;
-		mime += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`;
+		mime += `Content-Transfer-Encoding: 8bit\r\n\r\n`;
 		mime += `${text}\r\n`;
 	}
 

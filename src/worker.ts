@@ -493,7 +493,9 @@ export function injectEmailTracking(
 ): string | undefined {
 	if (!htmlContent) return htmlContent;
 	const trackingBase = "https://mail.reflect.cloud";
-	const openPixel = `<img src="${trackingBase}/api/v1/track/open/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;border:0;" />`;
+	// Gmail & webmail clients skip fetching images with display:none!
+	// Using standard 1x1 inline pixel with opacity:0.01 guarantees GoogleImageProxy loads it upon open.
+	const openPixel = `<img src="${trackingBase}/api/v1/track/open/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}" width="1" height="1" alt="" border="0" style="width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;max-width:1px!important;max-height:1px!important;opacity:0.01;pointer-events:none;border:none!important;display:inline!important;margin:0!important;padding:0!important;" />`;
 
 	let trackedHtml = htmlContent.replace(
 		/<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi,
@@ -506,8 +508,10 @@ export function injectEmailTracking(
 
 	if (trackedHtml.includes("</body>")) {
 		trackedHtml = trackedHtml.replace("</body>", `${openPixel}</body>`);
+	} else if (trackedHtml.includes("</html>")) {
+		trackedHtml = trackedHtml.replace("</html>", `${openPixel}</html>`);
 	} else {
-		trackedHtml += openPixel;
+		trackedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;">${trackedHtml}${openPixel}</body></html>`;
 	}
 	return trackedHtml;
 }
@@ -1682,7 +1686,8 @@ const TRANSPARENT_GIF_BYTES = Uint8Array.from(
 );
 
 app.get("/api/v1/track/open/:mailboxId/:emailId", async (c) => {
-	const mailboxId = c.req.param("mailboxId");
+	const rawMailboxId = c.req.param("mailboxId");
+	const mailboxId = decodeURIComponent(rawMailboxId);
 	const emailId = c.req.param("emailId");
 	try {
 		const ns = c.env.MAILBOX;
@@ -1699,12 +1704,17 @@ app.get("/api/v1/track/open/:mailboxId/:emailId", async (c) => {
 			"Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
 			"Pragma": "no-cache",
 			"Expires": "0",
+			"Access-Control-Allow-Origin": "*",
+			"Timing-Allow-Origin": "*",
+			"Surrogate-Control": "no-store",
+			"X-Content-Type-Options": "nosniff",
 		},
 	});
 });
 
 app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
-	const mailboxId = c.req.param("mailboxId");
+	const rawMailboxId = c.req.param("mailboxId");
+	const mailboxId = decodeURIComponent(rawMailboxId);
 	const emailId = c.req.param("emailId");
 	const targetUrl = c.req.query("url");
 	try {
