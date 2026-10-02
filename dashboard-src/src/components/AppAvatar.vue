@@ -84,12 +84,14 @@
     <!-- Activity Indicator Dot (for Sent emails: opened or clicked) -->
     <span
       v-if="folder === 'sent' && openedCount && openedCount > 0"
-      class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800 pointer-events-none"
+      class="absolute w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800 pointer-events-none z-10"
+      :class="binding ? '-bottom-0.5 -left-0.5' : '-bottom-0.5 -right-0.5'"
       title="Opened by recipient"
     ></span>
     <span
       v-else-if="folder === 'sent' && clickedCount && clickedCount > 0"
-      class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800 pointer-events-none"
+      class="absolute w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800 pointer-events-none z-10"
+      :class="binding ? '-bottom-0.5 -left-0.5' : '-bottom-0.5 -right-0.5'"
       title="Links clicked"
     ></span>
   </div>
@@ -211,12 +213,19 @@ const formatPlatform = (platform: AppPlatform) => {
 
 const handleImgError = (event: Event) => {
 	const img = event.target as HTMLImageElement;
+	if (img.dataset.hasError) return;
+	img.dataset.hasError = "true";
 	if (binding.value?.platform === "playstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=play.google.com&sz=128";
 	} else if (binding.value?.platform === "appstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=apple.com&sz=128";
 	} else {
-		img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		try {
+			const u = new URL(binding.value?.app_url || "");
+			img.src = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=128`;
+		} catch {
+			img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		}
 	}
 };
 

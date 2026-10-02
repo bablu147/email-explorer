@@ -82,12 +82,19 @@ const formatPlatform = (platform: AppPlatform) => {
 
 const handleImgError = (event: Event) => {
 	const img = event.target as HTMLImageElement;
+	if (img.dataset.hasError) return;
+	img.dataset.hasError = "true";
 	if (binding.value?.platform === "playstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=play.google.com&sz=128";
 	} else if (binding.value?.platform === "appstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=apple.com&sz=128";
 	} else {
-		img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		try {
+			const u = new URL(binding.value?.app_url || "");
+			img.src = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=128`;
+		} catch {
+			img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		}
 	}
 };
 

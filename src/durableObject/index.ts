@@ -847,7 +847,10 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async getAppBinding(email: string): Promise<AppBinding | null> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
-		const cleanEmail = email.trim().toLowerCase();
+		const match = email.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+		const cleanEmail = match
+			? match[0].toLowerCase()
+			: email.split(",")[0].replace(/^["']|["']$/g, "").trim().toLowerCase();
 		const rows = this.ctx.storage.sql
 			.exec(
 				"SELECT email, app_name, app_icon_url, app_url, platform, developer_name, created_at, updated_at FROM app_bindings WHERE email = ?",
@@ -877,9 +880,17 @@ export class MailboxDO extends DurableObject<Env> {
 		developer_name?: string | null;
 	}): Promise<AppBinding> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
-		const cleanEmail = binding.email.trim().toLowerCase();
+		const match = binding.email.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+		const cleanEmail = match
+			? match[0].toLowerCase()
+			: binding.email.split(",")[0].replace(/^["']|["']$/g, "").trim().toLowerCase();
 		const now = Date.now();
 		const devName = binding.developer_name?.trim() || null;
+
+		const existing = this.ctx.storage.sql
+			.exec("SELECT created_at FROM app_bindings WHERE email = ?", cleanEmail)
+			.toArray();
+		const createdAt = existing.length > 0 ? Number(existing[0].created_at) : now;
 
 		this.ctx.storage.sql.exec(
 			`INSERT INTO app_bindings (email, app_name, app_icon_url, app_url, platform, developer_name, created_at, updated_at)
@@ -897,7 +908,7 @@ export class MailboxDO extends DurableObject<Env> {
 			binding.app_url.trim(),
 			binding.platform,
 			devName,
-			now,
+			createdAt,
 			now,
 		);
 
@@ -908,14 +919,17 @@ export class MailboxDO extends DurableObject<Env> {
 			app_url: binding.app_url.trim(),
 			platform: binding.platform as any,
 			developer_name: devName,
-			created_at: now,
+			created_at: createdAt,
 			updated_at: now,
 		};
 	}
 
 	async deleteAppBinding(email: string): Promise<boolean> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
-		const cleanEmail = email.trim().toLowerCase();
+		const match = email.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+		const cleanEmail = match
+			? match[0].toLowerCase()
+			: email.split(",")[0].replace(/^["']|["']$/g, "").trim().toLowerCase();
 		this.ctx.storage.sql.exec(
 			"DELETE FROM app_bindings WHERE email = ?",
 			cleanEmail,

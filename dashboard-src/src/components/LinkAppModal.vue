@@ -94,6 +94,7 @@
               ref="searchInputRef"
               v-model="searchQuery"
               @input="onSearchInput"
+              @paste="onSearchPaste"
               @keydown.enter.prevent="executeLookup"
               type="text"
               placeholder="e.g. Instagram, Slack, play.google.com/..., apps.apple.com/..., or stripe.com"
@@ -293,10 +294,18 @@
 
         <!-- Empty State if no selection -->
         <div v-else-if="!isSearching && searchResults.length === 0" class="text-center py-6 px-4 bg-gray-50/60 dark:bg-gray-900/40 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
-          <p class="text-sm font-semibold mb-1">Search for an app or paste a link</p>
-          <p class="text-xs">
-            Search iOS/Android apps by name, or paste a Google Play link, Apple App Store link, or website URL above.
-          </p>
+          <template v-if="searchQuery.trim()">
+            <p class="text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">No apps found for "{{ searchQuery.trim() }}"</p>
+            <p class="text-xs">
+              Try searching by exact app name, or paste a Google Play link, App Store link, or official website URL.
+            </p>
+          </template>
+          <template v-else>
+            <p class="text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Search for an app or paste a link</p>
+            <p class="text-xs">
+              Search iOS/Android apps by name, or paste a Google Play link, Apple App Store link, or website URL above.
+            </p>
+          </template>
         </div>
       </div>
 
@@ -479,11 +488,21 @@ const selectPlatformTab = (tab: "all" | "playstore" | "appstore" | "website") =>
 const onSearchInput = () => {
 	if (debounceTimeout) clearTimeout(debounceTimeout);
 	const q = searchQuery.value.trim();
+	if (!q) {
+		searchResults.value = [];
+		return;
+	}
 	if (q.length >= 2) {
 		debounceTimeout = setTimeout(() => {
 			executeLookup();
-		}, 450);
+		}, 400);
 	}
+};
+
+const onSearchPaste = () => {
+	nextTick(() => {
+		executeLookup();
+	});
 };
 
 const clearSearch = () => {
@@ -555,13 +574,19 @@ const getPlatformIcon = (platform: AppPlatform) => {
 
 const onImgError = (event: Event, platform: AppPlatform) => {
 	const img = event.target as HTMLImageElement;
-	// Fallback to domain or playstore favicon
+	if (img.dataset.hasError) return;
+	img.dataset.hasError = "true";
 	if (platform === "playstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=play.google.com&sz=128";
 	} else if (platform === "appstore") {
 		img.src = "https://www.google.com/s2/favicons?domain=apple.com&sz=128";
 	} else {
-		img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		try {
+			const u = new URL(selectedItem.value?.app_url || "");
+			img.src = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=128`;
+		} catch {
+			img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		}
 	}
 };
 
@@ -572,13 +597,23 @@ const closeModal = () => {
 const handleSave = async () => {
 	if (!selectedItem.value || !modalEmail.value) return;
 
+	let appUrl = selectedItem.value.app_url.trim();
+	if (!/^https?:\/\//i.test(appUrl)) {
+		appUrl = "https://" + appUrl;
+	}
+
+	let appIconUrl = selectedItem.value.app_icon_url.trim();
+	if (!/^https?:\/\//i.test(appIconUrl)) {
+		appIconUrl = "https://" + appIconUrl;
+	}
+
 	isSaving.value = true;
 	try {
 		await appBindingsStore.saveBinding({
 			email: modalEmail.value,
 			app_name: selectedItem.value.app_name.trim(),
-			app_icon_url: selectedItem.value.app_icon_url.trim(),
-			app_url: selectedItem.value.app_url.trim(),
+			app_icon_url: appIconUrl,
+			app_url: appUrl,
 			platform: selectedItem.value.platform,
 			developer_name: selectedItem.value.developer_name?.trim() || null,
 		});

@@ -87,7 +87,7 @@
         <div class="flex items-center gap-3">
           <AppAvatar
             :email="isSentEmail ? email.recipient : email.sender"
-            :initial="(isSentEmail ? email.recipient : email.sender).charAt(0).toUpperCase()"
+            :initial="((isSentEmail ? email.recipient : email.sender) || '?').charAt(0).toUpperCase()"
             size="lg"
           />
           <div>

@@ -584,12 +584,14 @@ import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
+import { useAppBindingsStore } from "@/stores/appBindings";
 import type { Email } from "@/types";
 
 const getTargetEmail = (email: Email, folder: string): string => {
 	return (folder === "sent" || folder === "drafts") ? email.recipient : email.sender;
 };
 
+const appBindingsStore = useAppBindingsStore();
 const emailStore = useEmailStore();
 const { emails, isRefreshing } = storeToRefs(emailStore);
 const folderStore = useFolderStore();
@@ -829,6 +831,7 @@ const startAutoRefresh = () => {
 		emailStore.fetchEmails(route.params.mailboxId as string, {
 			folder: folderId.value,
 		});
+		appBindingsStore.fetchBindings(true);
 	}, 30000);
 };
 
@@ -843,6 +846,7 @@ const handleRefresh = () => {
 	emailStore.fetchEmails(route.params.mailboxId as string, {
 		folder: folderId.value,
 	});
+	appBindingsStore.fetchBindings(true);
 };
 
 onMounted(() => {

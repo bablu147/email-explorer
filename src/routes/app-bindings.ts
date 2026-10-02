@@ -5,6 +5,39 @@ import type { AppBinding, Env, Session } from "../types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
 
+// Helpers
+export function normalizeEmail(email: string): string {
+	if (!email) return "";
+	const match = email.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+	if (match) return match[0].toLowerCase();
+	return email.split(",")[0].replace(/^["']|["']$/g, "").trim().toLowerCase();
+}
+
+export function safeDecode(val: string): string {
+	try {
+		return decodeURIComponent(val);
+	} catch {
+		return val;
+	}
+}
+
+export function decodeHtmlEntities(str: string): string {
+	if (!str) return "";
+	return str
+		.replace(/&amp;/g, "&")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&apos;/g, "'")
+		.replace(/&#x27;/gi, "'")
+		.replace(/&#x2F;/gi, "/")
+		.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+		.replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 // Schemas
 export const AppPlatformEnum = z.enum(["playstore", "appstore", "website"]);
 
@@ -28,12 +61,30 @@ export const AppMetadataItemSchema = z.object({
 });
 
 export const UpsertAppBindingRequestSchema = z.object({
-	email: z.string().min(1, "Email is required"),
-	app_name: z.string().min(1, "App name is required"),
-	app_icon_url: z.string().url("Valid icon URL is required"),
-	app_url: z.string().url("Valid app URL is required"),
+	email: z.string().min(1, "Email is required").transform((v) => normalizeEmail(v)),
+	app_name: z.string().min(1, "App name is required").transform((v) => decodeHtmlEntities(v)),
+	app_icon_url: z
+		.string()
+		.min(1, "Valid icon URL is required")
+		.transform((v) => {
+			const t = decodeHtmlEntities(v);
+			return /^https?:\/\//i.test(t) ? t : "https://" + t;
+		})
+		.pipe(z.string().url("Valid icon URL is required")),
+	app_url: z
+		.string()
+		.min(1, "Valid app URL is required")
+		.transform((v) => {
+			const t = v.trim();
+			return /^https?:\/\//i.test(t) ? t : "https://" + t;
+		})
+		.pipe(z.string().url("Valid app URL is required")),
 	platform: AppPlatformEnum,
-	developer_name: z.string().nullable().optional(),
+	developer_name: z
+		.string()
+		.nullable()
+		.optional()
+		.transform((v) => (v ? decodeHtmlEntities(v) : null)),
 });
 
 export const ErrorResponseSchema = z.object({
@@ -88,11 +139,14 @@ async function searchItunes(query: string, limit = 8): Promise<AppMetadataItem[]
 				icon = icon.replace("100x100bb", "512x512bb");
 			}
 			return {
-				app_name: item.trackName || item.trackCensoredName || query,
+				app_name: decodeHtmlEntities(item.trackName || item.trackCensoredName || query),
 				app_icon_url: icon,
 				app_url: item.trackViewUrl,
 				platform: "appstore",
-				developer_name: item.artistName || item.sellerName || null,
+				developer_name:
+					item.artistName || item.sellerName
+						? decodeHtmlEntities(item.artistName || item.sellerName)
+						: null,
 			};
 		});
 	} catch {
@@ -119,11 +173,14 @@ async function lookupItunesById(id: string, isBundleId = false): Promise<AppMeta
 			icon = icon.replace("100x100bb", "512x512bb");
 		}
 		return {
-			app_name: item.trackName || item.trackCensoredName,
+			app_name: decodeHtmlEntities(item.trackName || item.trackCensoredName),
 			app_icon_url: icon,
 			app_url: item.trackViewUrl,
 			platform: "appstore",
-			developer_name: item.artistName || item.sellerName || null,
+			developer_name:
+				item.artistName || item.sellerName
+					? decodeHtmlEntities(item.artistName || item.sellerName)
+					: null,
 		};
 	} catch {
 		return null;
@@ -143,27 +200,39 @@ async function lookupPlayStoreDetails(packageId: string): Promise<AppMetadataIte
 		if (!res.ok) return null;
 		const html = await res.text();
 
-		const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:title["']/i)?.[1]
-			|| "";
-		let name = ogTitle.replace(/\s*-\s*Apps on Google Play$/i, "").replace(/&amp;/g, "&").trim();
+		const ogTitle =
+			html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] ||
+			html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:title["']/i)?.[1] ||
+			"";
+		let name = ogTitle.replace(/\s*-\s*Apps on Google Play$/i, "").trim();
 		if (!name) {
 			const h1 = html.match(/<h1[^>]*itemprop=["']name["'][^>]*>(?:<span[^>]*>)?([^<]+)/i)?.[1];
 			name = h1 ? h1.trim() : packageId;
 		}
+		name = decodeHtmlEntities(name);
 
-		let icon = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i)?.[1]
-			|| "";
+		let icon =
+			html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] ||
+			html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i)?.[1] ||
+			"";
 		if (icon) {
-			icon = icon.replace(/=s\d+(-rw)?/, "=s256");
+			icon = decodeHtmlEntities(icon).replace(/=s\d+(-rw)?/, "=s256");
 		}
 
-		const devMatch = html.match(/\/store\/apps\/developer\?id=([^"&'\s]+)/i)
-			|| html.match(/\/store\/apps\/dev\?id=([^"&'\s]+)/i);
+		// Prefer text inside anchor link to developer page: <a href=".../store/apps/dev...">(<span>)?([^<]+)
+		const devTextMatch = html.match(
+			/<a\s+href="[^"]*\/store\/apps\/(?:developer|dev)\?[^"]*"[^>]*>(?:<span[^>]*>)?([^<]+)/i,
+		);
 		let devName: string | null = null;
-		if (devMatch && devMatch[1]) {
-			devName = decodeURIComponent(devMatch[1].replace(/\+/g, " "));
+		if (devTextMatch && devTextMatch[1] && !devTextMatch[1].includes("http")) {
+			devName = decodeHtmlEntities(devTextMatch[1]);
+		} else {
+			const devMatch =
+				html.match(/\/store\/apps\/developer\?id=([^"&'\s]+)/i) ||
+				html.match(/\/store\/apps\/dev\?id=([^"&'\s]+)/i);
+			if (devMatch && devMatch[1] && !/^\d+$/.test(devMatch[1])) {
+				devName = decodeHtmlEntities(decodeURIComponent(devMatch[1].replace(/\+/g, " ")));
+			}
 		}
 
 		if (!icon) {
@@ -203,9 +272,7 @@ async function searchPlayStore(query: string, limit = 5): Promise<AppMetadataIte
 
 		if (uniquePkgs.length === 0) return [];
 
-		const results = await Promise.all(
-			uniquePkgs.map((pkg) => lookupPlayStoreDetails(pkg)),
-		);
+		const results = await Promise.all(uniquePkgs.map((pkg) => lookupPlayStoreDetails(pkg)));
 
 		return results.filter((item): item is AppMetadataItem => item !== null);
 	} catch {
@@ -241,23 +308,32 @@ async function lookupWebsite(inputUrl: string): Promise<AppMetadataItem | null> 
 		const html = await res.text();
 
 		// Title extraction
-		const ogSiteName = html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i)?.[1];
-		const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1];
+		const ogSiteName =
+			html.match(/<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+			html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:site_name["']/i)?.[1];
+		const ogTitle =
+			html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1] ||
+			html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1];
 		const htmlTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
 
 		let appName = ogSiteName || ogTitle || htmlTitle || parsed.hostname;
-		appName = appName.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+		appName = decodeHtmlEntities(appName);
 
 		// Icon extraction: apple-touch-icon preferred for high res, then standard icon/favicon
-		const touchIcon = html.match(/<link[^>]+rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["'][^>]+href=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["']/i)?.[1];
-		const favicon = html.match(/<link[^>]+rel=["'](?:shortcut icon|icon)["'][^>]+href=["']([^"']+)["']/i)?.[1]
-			|| html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:shortcut icon|icon)["']/i)?.[1];
+		const touchIcon =
+			html.match(
+				/<link[^>]+rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["'][^>]+href=["']([^"']+)["']/i,
+			)?.[1] ||
+			html.match(
+				/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["']/i,
+			)?.[1];
+		const favicon =
+			html.match(/<link[^>]+rel=["'](?:shortcut icon|icon)["'][^>]+href=["']([^"']+)["']/i)?.[1] ||
+			html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["'](?:shortcut icon|icon)["']/i)?.[1];
 
 		let iconUrl = touchIcon || favicon;
 		if (iconUrl) {
+			iconUrl = decodeHtmlEntities(iconUrl);
 			try {
 				iconUrl = new URL(iconUrl, targetUrl).toString();
 			} catch {
@@ -296,19 +372,20 @@ export async function performAppLookup(
 	const query = rawQuery.trim();
 	if (!query) return [];
 
-	// 1. Direct App Store URL check
-	const appStoreUrlMatch = query.match(/apps\.apple\.com\/[^/]*\/(?:app\/[^/]*\/)?id(\d+)/i)
-		|| query.match(/itunes\.apple\.com\/[^/]*\/(?:app\/[^/]*\/)?id(\d+)/i);
+	// 1. Direct App Store URL check (all variations: /us/app/.../id..., /app/.../id..., /id..., itunes...)
+	const appStoreUrlMatch = query.match(/(?:apps|itunes)\.apple\.com\/.*?\bid(\d+)/i);
 	if (appStoreUrlMatch && appStoreUrlMatch[1]) {
 		const item = await lookupItunesById(appStoreUrlMatch[1]);
-		return item ? [item] : [];
+		if (item) return [item];
 	}
 
 	// 2. Direct Play Store URL check
-	const playStoreUrlMatch = query.match(/play\.google\.com\/store\/apps\/details\?(?:[^&]*&)*id=([a-zA-Z0-9._]+)/i);
+	const playStoreUrlMatch = query.match(
+		/play\.google\.com\/store\/apps\/details\?[^#]*\bid=([a-zA-Z0-9._]+)/i,
+	);
 	if (playStoreUrlMatch && playStoreUrlMatch[1]) {
 		const item = await lookupPlayStoreDetails(playStoreUrlMatch[1]);
-		return item ? [item] : [];
+		if (item) return [item];
 	}
 
 	// 3. Platform specific handling
@@ -322,8 +399,8 @@ export async function performAppLookup(
 	}
 
 	if (platformFilter === "playstore") {
-		// If query looks like an android package ID
-		if (/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+){2,}$/.test(query)) {
+		// If query looks like an android package ID (at least 2 segments e.g. com.whatsapp)
+		if (/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(query)) {
 			const item = await lookupPlayStoreDetails(query);
 			if (item) return [item];
 		}
@@ -341,16 +418,23 @@ export async function performAppLookup(
 		return site ? [site] : [];
 	}
 
-	// Check if package name format
-	if (/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+){2,}$/.test(query)) {
+	// Check if iTunes ID in "all" view
+	const allIdMatch = query.match(/^id(\d{7,})$/i) || query.match(/^(\d{8,})$/);
+	if (allIdMatch && allIdMatch[1]) {
+		const itunesItem = await lookupItunesById(allIdMatch[1]);
+		if (itunesItem) return [itunesItem];
+	}
+
+	// Check if package name format (e.g. com.spotify.music, com.whatsapp)
+	if (/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(query)) {
 		const playItem = await lookupPlayStoreDetails(query);
 		if (playItem) return [playItem];
 		const itunesItem = await lookupItunesById(query, true);
 		if (itunesItem) return [itunesItem];
 	}
 
-	// Check if domain name format (e.g. stripe.com, getreflect.com)
-	if (/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/.*)?$/i.test(query) && !query.includes(" ")) {
+	// Check if domain name format (e.g. stripe.com, mail.reflect.cloud, sub.example.co.uk)
+	if (/^[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}(?:\/.*)?$/i.test(query) && !query.includes(" ")) {
 		const site = await lookupWebsite(query);
 		if (site) return [site];
 	}
@@ -423,7 +507,7 @@ export class GetAppBindingByEmail extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const email = decodeURIComponent(data.params.email);
+		const email = normalizeEmail(safeDecode(data.params.email));
 		const authDO = getAuthDO(c.env);
 		const binding = await authDO.getAppBinding(email);
 
@@ -498,7 +582,7 @@ export class DeleteAppBinding extends OpenAPIRoute {
 
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
-		const email = decodeURIComponent(data.params.email);
+		const email = normalizeEmail(safeDecode(data.params.email));
 		const authDO = getAuthDO(c.env);
 		await authDO.deleteAppBinding(email);
 		return c.json({ status: "success" });

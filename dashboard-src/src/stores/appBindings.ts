@@ -4,9 +4,9 @@ import type { AppBinding } from "@/types";
 
 export function extractCleanEmail(raw?: string | null): string {
 	if (!raw) return "";
-	const bracketMatch = raw.match(/<([^>]+)>/);
-	if (bracketMatch && bracketMatch[1]) {
-		return bracketMatch[1].trim().toLowerCase();
+	const match = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+	if (match) {
+		return match[0].toLowerCase();
 	}
 	const first = raw.split(",")[0].trim();
 	return first.replace(/^["']|["']$/g, "").trim().toLowerCase();
@@ -57,7 +57,8 @@ export const useAppBindingsStore = defineStore("appBindings", {
 				const map: Record<string, AppBinding> = {};
 				for (const item of list) {
 					if (item.email) {
-						map[item.email.trim().toLowerCase()] = item;
+						const clean = extractCleanEmail(item.email);
+						if (clean) map[clean] = item;
 					}
 				}
 				this.bindingsMap = map;
@@ -86,7 +87,11 @@ export const useAppBindingsStore = defineStore("appBindings", {
 			const saved: AppBinding = response.data?.binding || response.data || payload;
 			const savedEmail = extractCleanEmail(saved.email);
 
-			this.bindingsMap[savedEmail] = saved;
+			this.bindingsMap = {
+				...this.bindingsMap,
+				[savedEmail]: saved,
+			};
+
 			const idx = this.bindings.findIndex(
 				(b) => extractCleanEmail(b.email) === savedEmail,
 			);
@@ -108,7 +113,10 @@ export const useAppBindingsStore = defineStore("appBindings", {
 			const clean = extractCleanEmail(email);
 			await api.deleteAppBinding(clean);
 
-			delete this.bindingsMap[clean];
+			const updated = { ...this.bindingsMap };
+			delete updated[clean];
+			this.bindingsMap = updated;
+
 			this.bindings = this.bindings.filter(
 				(b) => extractCleanEmail(b.email) !== clean,
 			);

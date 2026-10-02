@@ -34,7 +34,7 @@
         class="hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-all border-l-4"
         :class="!email.read ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-500' : 'border-transparent'"
       >
-        <router-link :to="{ name: 'EmailDetail', params: { id: email.id } }" class="block px-6 py-3.5">
+        <div @click="openEmail(email.id)" class="block px-6 py-3.5 cursor-pointer">
           <div class="flex items-center gap-4">
             <!-- App Avatar -->
             <AppAvatar
@@ -92,7 +92,7 @@
               </p>
             </div>
           </div>
-        </router-link>
+        </div>
       </li>
     </ul>
   </div>
@@ -100,12 +100,18 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import { useSearchStore } from "@/stores/search";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 
+const router = useRouter();
 const searchStore = useSearchStore();
 const { results, isLoading } = storeToRefs(searchStore);
+
+const openEmail = (id: string) => {
+	router.push({ name: "EmailDetail", params: { id } });
+};
 
 const getSnippet = (body?: string | null, maxLen = 90): string => {
 	if (!body) return "";
