@@ -9,7 +9,7 @@
 					Or
 					<router-link
 						to="/login"
-						class="font-medium text-indigo-600 hover:text-indigo-500"
+						class="font-medium text-emerald-600 hover:text-emerald-500"
 					>
 						return to login
 					</router-link>
@@ -33,7 +33,7 @@
 							v-model="email"
 							type="email"
 							required
-							class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+							class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
 							placeholder="Email address"
 						/>
 					</div>
@@ -43,7 +43,7 @@
 					<button
 						type="submit"
 						:disabled="isLoading"
-						class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+						class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
 					>
 						{{ isLoading ? "Sending..." : "Send reset link" }}
 					</button>
@@ -52,7 +52,7 @@
 				<div v-if="successMessage" class="text-center">
 					<router-link
 						to="/login"
-						class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+						class="text-sm font-medium text-emerald-600 hover:text-emerald-500"
 					>
 						Back to login
 					</router-link>

@@ -65,7 +65,7 @@ const badgeColorClasses = computed(() => {
 			return "bg-blue-500/10 hover:bg-blue-500/20 text-blue-800 dark:text-blue-300 border-blue-500/25";
 		case "website":
 		default:
-			return "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 border-indigo-500/25";
+			return "bg-teal-500/10 hover:bg-teal-500/20 text-teal-800 dark:text-teal-300 border-teal-500/25";
 	}
 });
 

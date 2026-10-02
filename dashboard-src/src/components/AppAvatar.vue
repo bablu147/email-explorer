@@ -32,7 +32,7 @@
             ? 'bg-emerald-600' 
             : binding.platform === 'appstore' 
             ? 'bg-blue-600' 
-            : 'bg-indigo-600'
+            : 'bg-teal-600'
         ]"
         :title="formatPlatform(binding.platform)"
       >

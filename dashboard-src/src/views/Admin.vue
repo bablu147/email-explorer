@@ -3,32 +3,32 @@
 		<!-- Header -->
 		<div class="mb-8 flex items-center justify-between">
 			<div>
-				<h1 class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+				<h1 class="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent mb-1.5 tracking-tight">
 					Admin Panel
 				</h1>
-				<p class="text-gray-600 dark:text-gray-400">Manage users and mailbox access</p>
+				<p class="text-sm text-gray-600 dark:text-gray-400">Manage user credentials and mailbox security permissions</p>
 			</div>
 			<router-link
 				to="/"
-				class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+				class="px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
 			>
-				← Back to Home
+				← Back to Mailboxes
 			</router-link>
 		</div>
 
 		<!-- Register New User Section -->
-		<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
-			<h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Register New User</h2>
+		<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-8 border border-gray-200 dark:border-gray-700">
+			<h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Register New User</h2>
 			<form @submit.prevent="handleRegisterUser" class="space-y-4">
-				<div v-if="registerError" class="rounded-md bg-red-50 p-4">
-					<p class="text-sm text-red-800">{{ registerError }}</p>
+				<div v-if="registerError" class="rounded-xl bg-red-50 dark:bg-red-900/20 p-4 border border-red-200 dark:border-red-800">
+					<p class="text-xs sm:text-sm text-red-800 dark:text-red-300">{{ registerError }}</p>
 				</div>
-				<div v-if="registerSuccess" class="rounded-md bg-green-50 p-4">
-					<p class="text-sm text-green-800">{{ registerSuccess }}</p>
+				<div v-if="registerSuccess" class="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 p-4 border border-emerald-500/20">
+					<p class="text-xs sm:text-sm text-emerald-800 dark:text-emerald-300">{{ registerSuccess }}</p>
 				</div>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<label for="new-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						<label for="new-email" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
 							Email Address
 						</label>
 						<input
@@ -36,12 +36,12 @@
 							v-model="newUser.email"
 							type="email"
 							required
-							class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+							class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-900/50 dark:border-gray-600 dark:text-white"
 							placeholder="user@example.com"
 						/>
 					</div>
 					<div>
-						<label for="new-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+						<label for="new-password" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
 							Password
 						</label>
 						<input
@@ -50,7 +50,7 @@
 							type="password"
 							required
 							minlength="8"
-							class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+							class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-900/50 dark:border-gray-600 dark:text-white"
 							placeholder="Min 8 characters"
 						/>
 					</div>
@@ -58,7 +58,7 @@
 				<button
 					type="submit"
 					:disabled="registerLoading"
-					class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+					class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 disabled:opacity-50 transition-all font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg cursor-pointer"
 				>
 					{{ registerLoading ? "Creating..." : "Create User" }}
 				</button>
@@ -66,23 +66,23 @@
 		</div>
 
 		<!-- Users List -->
-		<div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
+		<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-8 border border-gray-200 dark:border-gray-700">
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-xl font-bold text-gray-900 dark:text-white">Users</h2>
+				<h2 class="text-lg font-bold text-gray-900 dark:text-white">Active Users</h2>
 				<button
 					@click="loadUsers"
 					:disabled="usersLoading"
-					class="px-3 py-1 text-sm text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+					class="px-3 py-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 disabled:opacity-50 cursor-pointer"
 				>
 					{{ usersLoading ? "Loading..." : "Refresh" }}
 				</button>
 			</div>
 
-			<div v-if="usersLoading && users.length === 0" class="text-center py-8 text-gray-500">
+			<div v-if="usersLoading && users.length === 0" class="text-center py-8 text-gray-500 text-sm">
 				Loading users...
 			</div>
 
-			<div v-else-if="users.length === 0" class="text-center py-8 text-gray-500">
+			<div v-else-if="users.length === 0" class="text-center py-8 text-gray-500 text-sm">
 				No users found
 			</div>
 
@@ -90,30 +90,30 @@
 				<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
 					<thead>
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Role</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+							<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+							<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+							<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+							<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-						<tr v-for="user in users" :key="user.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
-							<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ user.email }}</td>
+						<tr v-for="user in users" :key="user.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+							<td class="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100">{{ user.email }}</td>
 							<td class="px-4 py-3 text-sm">
-								<span v-if="user.isAdmin" class="px-2 py-1 text-xs font-semibold text-indigo-800 bg-indigo-100 rounded-full">
+								<span v-if="user.isAdmin" class="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-500/15 dark:text-emerald-300 rounded-full border border-emerald-500/25">
 									Admin
 								</span>
-								<span v-else class="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-100 rounded-full">
+								<span v-else class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded-full">
 									User
 								</span>
 							</td>
-							<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+							<td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
 								{{ formatDate(user.createdAt) }}
 							</td>
 							<td class="px-4 py-3 text-sm">
 								<button
 									@click="openAccessModal(user)"
-									class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+									class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer"
 								>
 									Manage Access
 								</button>
@@ -127,58 +127,56 @@
 		<!-- Access Management Modal -->
 		<div
 			v-if="selectedUser"
-			class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+			class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
 			@click.self="closeAccessModal"
 		>
-			<div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-				<div class="p-6 border-b border-gray-200 dark:border-gray-700">
-					<div class="flex items-center justify-between">
-						<h3 class="text-xl font-bold text-gray-900 dark:text-white">
-							Manage Access for {{ selectedUser.email }}
-						</h3>
-						<button
-							@click="closeAccessModal"
-							class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-						>
-							<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							</svg>
-						</button>
-					</div>
+			<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95 duration-150">
+				<div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+					<h3 class="text-lg font-bold text-gray-900 dark:text-white">
+						Manage Access for <span class="text-emerald-600 dark:text-emerald-400">{{ selectedUser.email }}</span>
+					</h3>
+					<button
+						@click="closeAccessModal"
+						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 cursor-pointer"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
 				</div>
 
 				<div class="p-6">
 					<!-- Grant Access Form -->
 					<div class="mb-6">
-						<h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Grant Mailbox Access</h4>
+						<h4 class="text-sm font-bold text-gray-900 dark:text-white mb-3">Grant Mailbox Access</h4>
 						<form @submit.prevent="handleGrantAccess" class="space-y-4">
-							<div v-if="accessError" class="rounded-md bg-red-50 p-4">
-								<p class="text-sm text-red-800">{{ accessError }}</p>
+							<div v-if="accessError" class="rounded-xl bg-red-50 dark:bg-red-900/20 p-3 border border-red-200 dark:border-red-800">
+								<p class="text-xs text-red-800 dark:text-red-300">{{ accessError }}</p>
 							</div>
-							<div v-if="accessSuccess" class="rounded-md bg-green-50 p-4">
-								<p class="text-sm text-green-800">{{ accessSuccess }}</p>
+							<div v-if="accessSuccess" class="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 p-3 border border-emerald-500/20">
+								<p class="text-xs text-emerald-800 dark:text-emerald-300">{{ accessSuccess }}</p>
 							</div>
 							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<div>
-									<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-										Mailbox ID
+									<label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+										Mailbox ID / Email
 									</label>
 									<input
 										v-model="accessForm.mailboxId"
 										type="text"
 										required
-										class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+										class="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-900/50 dark:border-gray-600 dark:text-white"
 										placeholder="user@example.com"
 									/>
 								</div>
 								<div>
-									<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									<label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
 										Role
 									</label>
 									<select
 										v-model="accessForm.role"
 										required
-										class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+										class="w-full px-3.5 py-2 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent dark:bg-gray-900/50 dark:border-gray-600 dark:text-white"
 									>
 										<option value="owner">Owner</option>
 										<option value="admin">Admin</option>
@@ -187,11 +185,11 @@
 									</select>
 								</div>
 							</div>
-							<div class="flex gap-2">
+							<div class="flex gap-2.5">
 								<button
 									type="submit"
 									:disabled="accessLoading"
-									class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+									class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 font-bold text-xs disabled:opacity-50 transition-all shadow-sm cursor-pointer"
 								>
 									{{ accessLoading ? "Granting..." : "Grant Access" }}
 								</button>
@@ -199,7 +197,7 @@
 									type="button"
 									@click="handleRevokeAccess"
 									:disabled="accessLoading || !accessForm.mailboxId"
-									class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+									class="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold text-xs disabled:opacity-50 transition-all cursor-pointer"
 								>
 									{{ accessLoading ? "Revoking..." : "Revoke Access" }}
 								</button>
@@ -209,12 +207,12 @@
 
 					<!-- Role Descriptions -->
 					<div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-						<h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Role Descriptions:</h4>
-						<ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-							<li><strong>Owner:</strong> Full control of the mailbox</li>
-							<li><strong>Admin:</strong> Can manage settings and users</li>
-							<li><strong>Write:</strong> Can send and manage emails</li>
-							<li><strong>Read:</strong> Can only view emails</li>
+						<h4 class="text-xs font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">Role Permissions:</h4>
+						<ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+							<li><strong class="text-gray-900 dark:text-gray-200">Owner:</strong> Full control of mailbox domain, keys, and deletion</li>
+							<li><strong class="text-gray-900 dark:text-gray-200">Admin:</strong> Can configure settings, signatures, and manage member access</li>
+							<li><strong class="text-gray-900 dark:text-gray-200">Write:</strong> Can compose, send, and triage incoming and outgoing emails</li>
+							<li><strong class="text-gray-900 dark:text-gray-200">Read:</strong> View-only read access to message threads</li>
 						</ul>
 					</div>
 				</div>
@@ -275,7 +273,6 @@ async function handleRegisterUser() {
 		await api.adminRegisterUser(newUser.value.email, newUser.value.password);
 		registerSuccess.value = `User ${newUser.value.email} created successfully!`;
 		newUser.value = { email: "", password: "" };
-		// Reload users list
 		await loadUsers();
 	} catch (error: any) {
 		registerError.value =

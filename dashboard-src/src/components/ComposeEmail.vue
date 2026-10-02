@@ -121,7 +121,7 @@
                       ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30'
                       : toAppBinding.platform === 'appstore'
                       ? 'bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30'
-                      : 'bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/30'"
+                      : 'bg-teal-500/15 text-teal-800 dark:text-teal-300 border-teal-500/30'"
                   >
                     <component :is="getPlatformIcon(toAppBinding.platform)" class="w-3 h-3" />
                     <span>{{ formatPlatform(toAppBinding.platform) }}</span>
@@ -487,7 +487,7 @@ const AppleIcon = () =>
 	]);
 
 const WebIcon = () =>
-	h("svg", { class: "w-3 h-3 text-indigo-500 flex-shrink-0", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, [
+	h("svg", { class: "w-3 h-3 text-teal-500 flex-shrink-0", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, [
 		h("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" }),
 	]);
 
@@ -663,7 +663,8 @@ watch(isComposeModalOpen, (isOpen) => {
 			subject.value = original.subject.startsWith("Re: ")
 				? original.subject
 				: `Re: ${original.subject}`;
-			body.value = `<br>${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
+			const initialText = options.initialBody ? `<p>${options.initialBody.replace(/\n/g, "<br>")}</p><br>` : "";
+			body.value = `${initialText}${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
 		} else if (options.mode === "reply-all" && original) {
 			// Reply all: original sender goes to 'To', original recipient and original CC go to 'Cc'
 			to.value = original.sender;

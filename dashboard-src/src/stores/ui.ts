@@ -5,6 +5,7 @@ export type ComposeMode = "new" | "reply" | "reply-all" | "forward";
 export interface ComposeOptions {
 	mode: ComposeMode;
 	originalEmail?: any;
+	initialBody?: string;
 }
 
 export const useUIStore = defineStore("ui", {

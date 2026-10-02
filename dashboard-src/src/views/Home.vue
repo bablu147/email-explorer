@@ -1,18 +1,32 @@
 <template>
   <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-    <div class="mb-8 flex items-center justify-between">
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">Mailboxes</h1>
-        <p class="text-gray-600 dark:text-gray-400">Manage your email accounts</p>
+        <h1 class="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent mb-1.5 tracking-tight">Mailboxes</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Manage and explore your corporate email domains & routing</p>
       </div>
-      <div class="flex items-center gap-4">
-        <div class="text-right">
-          <p class="text-sm text-gray-600 dark:text-gray-400">{{ authStore.currentUser?.email }}</p>
-          <p v-if="authStore.isAdmin" class="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">Admin</p>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="text-right hidden sm:block">
+          <p class="text-xs font-medium text-gray-600 dark:text-gray-400">{{ authStore.currentUser?.email }}</p>
+          <p v-if="authStore.isAdmin" class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-extrabold">Admin</p>
         </div>
+        <!-- Dark Mode Toggle in Home -->
+        <button
+          type="button"
+          @click="toggleTheme"
+          class="p-2.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all cursor-pointer"
+          :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+        >
+          <svg v-if="isDark" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg v-else class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
         <button
           @click="openCreateMailboxModal"
-          class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+          class="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-500 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -22,128 +36,141 @@
         <router-link
           v-if="authStore.isAdmin"
           to="/admin"
-          class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+          class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
         >
           Admin Panel
         </router-link>
         <button
           @click="handleLogout"
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors"
+          class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
         >
           Logout
         </button>
       </div>
     </div>
+
+    <!-- Mailboxes Grid -->
     <div v-if="mailboxes.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <router-link 
         v-for="mailbox in mailboxes" 
         :key="mailbox.id" 
         :to="{ name: 'Mailbox', params: { mailboxId: mailbox.id } }"
-        class="group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400"
+        class="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-emerald-500 dark:hover:border-emerald-400 p-6 flex flex-col justify-between"
       >
-        <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <div class="relative p-6">
+        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 dark:from-emerald-500/10 dark:to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+        <div class="relative">
           <div class="flex items-center justify-between mb-4">
-            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shadow-sm ring-4 ring-emerald-500/10">
               {{ mailbox.name.charAt(0).toUpperCase() }}
             </div>
-            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transform group-hover:translate-x-1 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
+            <div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700/60 flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30 transition-all">
+              <svg class="w-4 h-4 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
           </div>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">{{ mailbox.name }}</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-1.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200">{{ mailbox.name }}</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 truncate">
+            <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            {{ mailbox.email }}
+            <span class="truncate">{{ mailbox.email }}</span>
           </p>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-[11px] text-gray-400">
+          <span>Reflect Mailbox</span>
+          <span class="font-semibold text-emerald-600 dark:text-emerald-400 group-hover:underline">Open Inbox →</span>
         </div>
       </router-link>
     </div>
-    <div v-else class="text-center bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl p-12 border border-gray-200 dark:border-gray-700">
-      <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+    <!-- Empty State -->
+    <div v-else class="text-center bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-12 border border-gray-200 dark:border-gray-700">
+      <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       </div>
-      <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">No mailboxes found</h2>
-      <p class="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-        Get started by setting up email routing to send emails into this worker.
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">No mailboxes found</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+        Create your first mailbox or configure Cloudflare Email Routing to receive emails directly.
       </p>
-      <div class="bg-indigo-50 dark:bg-gray-800 rounded-lg p-6 max-w-2xl mx-auto border border-indigo-200 dark:border-gray-700">
-        <p class="text-gray-700 dark:text-gray-300 mb-2">
-          To configure, you need to add a DNS record to your domain to allow Cloudflare to route your emails.
+      <div class="bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl p-6 max-w-2xl mx-auto border border-emerald-500/20 text-left">
+        <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-3">
+          To configure inbound email, configure your domain's MX and SPF/DKIM DNS records on Cloudflare to route incoming mail to this worker.
         </p>
         <a 
           href="https://developers.cloudflare.com/email-routing/setup/email-routing-addresses/" 
           target="_blank" 
           rel="noopener noreferrer" 
-          class="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium transition-colors duration-200"
+          class="inline-flex items-center text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold transition-colors gap-1.5"
         >
           View Cloudflare Email Routing documentation
-          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
       </div>
     </div>
+
+    <!-- Create Mailbox Modal -->
     <div v-if="isCreateModalOpen" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="flex justify-between items-center bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-5">
-          <h2 class="text-xl font-bold text-white">Create New Mailbox</h2>
-          <button @click="closeCreateMailboxModal" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-all duration-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex justify-between items-center bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5">
+          <h2 class="text-lg font-bold text-white">Create New Mailbox</h2>
+          <button @click="closeCreateMailboxModal" class="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-all cursor-pointer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         <form @submit.prevent="handleCreateMailbox" class="p-6">
-          <div v-if="createError" class="bg-red-50 border-l-4 border-red-500 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-start gap-3" role="alert">
-            <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <div v-if="createError" class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg mb-6 flex items-start gap-3 text-xs" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
             </svg>
-            <span class="block sm:inline">{{ createError }}</span>
+            <span>{{ createError }}</span>
           </div>
-          <div class="mb-5">
-            <label for="mailbox-email" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+          <div class="mb-4">
+            <label for="mailbox-email" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Email Address</label>
             <input 
               type="email" 
               id="mailbox-email" 
               v-model="newMailboxEmail" 
-              class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent dark:focus:ring-green-400 text-gray-900 dark:text-gray-100 px-4 py-3 transition-all duration-200" 
-              placeholder="mailbox@example.com"
+              class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-gray-100 px-3.5 py-2.5 text-sm transition-all duration-150" 
+              placeholder="e.g. info@reflect.cloud"
               required 
             />
           </div>
           <div class="mb-6">
-            <label for="mailbox-name" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Display Name</label>
+            <label for="mailbox-name" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Display Name</label>
             <input 
               type="text" 
               id="mailbox-name" 
               v-model="newMailboxName" 
-              class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-green-500 focus:border-transparent dark:focus:ring-green-400 text-gray-900 dark:text-gray-100 px-4 py-3 transition-all duration-200" 
-              placeholder="My Mailbox"
+              class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-gray-100 px-3.5 py-2.5 text-sm transition-all duration-150" 
+              placeholder="e.g. Reflect Customer Support"
               required 
             />
           </div>
-          <div class="flex justify-end gap-3">
+          <div class="flex justify-end gap-2.5">
             <button 
               type="button" 
               @click="closeCreateMailboxModal" 
-              class="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 font-semibold transition-all duration-200"
+              class="px-4 py-2.5 bg-gray-100 dark:bg-gray-700/60 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl font-semibold text-xs transition-all cursor-pointer"
             >
               Cancel
             </button>
             <button 
               type="submit" 
               :disabled="isCreatingMailbox"
-              class="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
-              <svg v-if="!isCreatingMailbox" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg v-if="!isCreatingMailbox" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
               </svg>
-              <svg v-else class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg v-else class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -161,6 +188,7 @@ import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "@/composables/useToast";
+import { useTheme } from "@/composables/useTheme";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import { useMailboxStore } from "@/stores/mailboxes";
@@ -170,6 +198,7 @@ const mailboxStore = useMailboxStore();
 const authStore = useAuthStore();
 const { mailboxes } = storeToRefs(mailboxStore);
 const { success: showSuccessToast, error: showErrorToast } = useToast();
+const { isDark, toggleTheme } = useTheme();
 
 const isCreateModalOpen = ref(false);
 const newMailboxEmail = ref("");
