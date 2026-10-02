@@ -186,7 +186,12 @@
     </div>
 
     <!-- Responsive Filter Control Bar -->
-    <div class="px-4 sm:px-6 py-3.5 bg-white dark:bg-gray-900/90 border-b border-gray-200 dark:border-gray-800 shadow-xs flex-shrink-0">
+    <div class="relative px-4 sm:px-6 py-3.5 bg-white dark:bg-gray-900/90 border-b border-gray-200 dark:border-gray-800 shadow-xs flex-shrink-0">
+      <!-- Loading Progress Shimmer Bar -->
+      <div v-if="loading" class="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-100 dark:bg-emerald-950 overflow-hidden z-10">
+        <div class="h-full bg-emerald-500 animate-pulse w-full"></div>
+      </div>
+
       <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
         <!-- Search Input -->
         <div class="relative flex-1 min-w-[220px]">
@@ -219,24 +224,27 @@
             <button
               type="button"
               @click="setPlatform('all')"
+              :disabled="loading"
               :class="filters.platform === 'all' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs font-bold' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-70"
             >
               All Stores
             </button>
             <button
               type="button"
               @click="setPlatform('playstore')"
+              :disabled="loading"
               :class="filters.platform === 'playstore' ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-70"
             >
               <span>🤖 Google Play</span>
             </button>
             <button
               type="button"
               @click="setPlatform('appstore')"
+              :disabled="loading"
               :class="filters.platform === 'appstore' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-70"
             >
               <span>🍏 App Store</span>
             </button>
@@ -246,7 +254,8 @@
           <select
             v-model="filters.country"
             @change="onFilterChange"
-            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            :disabled="loading"
+            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
             <option value="US">🇺🇸 United States</option>
             <option value="GB">🇬🇧 United Kingdom</option>
@@ -265,7 +274,8 @@
           <select
             v-model="filters.category"
             @change="onFilterChange"
-            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            :disabled="loading"
+            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
             <option value="all">📁 All Categories</option>
             <option value="Games">🎮 All Games</option>
@@ -282,19 +292,55 @@
           <select
             v-model="filters.chart"
             @change="onFilterChange"
-            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+            :disabled="loading"
+            class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
             <option value="topgrossing">💎 Top Grossing (Monetizers)</option>
             <option value="topfree">📈 Top Free (UA Spenders)</option>
             <option value="newfree">🚀 New Soft Launches</option>
             <option value="trending">🔥 Trending Breakouts</option>
           </select>
+
+          <!-- Live Updating Indicator Badge -->
+          <div
+            v-if="loading"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-pulse"
+          >
+            <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Loading...</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Main Content Area: Apps Grid or Table -->
-    <div class="flex-1 p-4 sm:p-6">
+    <div class="flex-1 p-4 sm:p-6 relative min-h-[420px]">
+      <!-- Active Loading State Glass Overlay (when changing filters or pagination with apps already rendered) -->
+      <transition name="fade">
+        <div
+          v-if="loading && displayedApps.length > 0"
+          class="absolute inset-0 z-30 bg-white/70 dark:bg-gray-900/70 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-6 rounded-2xl"
+        >
+          <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl rounded-2xl p-6 flex flex-col items-center gap-3.5 max-w-sm text-center">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-xs">
+              <svg class="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm font-extrabold text-gray-900 dark:text-white">
+                Loading Store Apps...
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Fetching {{ filters.chart === 'newfree' ? 'new soft launches & early access games' : filters.chart === 'topfree' ? 'top free apps' : filters.chart === 'trending' ? 'trending breakout apps' : 'top grossing apps' }} for {{ filters.country }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </transition>
+
       <!-- Loading Skeletons -->
       <div v-if="loading && displayedApps.length === 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
         <div v-for="i in 8" :key="i" class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-5 animate-pulse flex flex-col space-y-4">
@@ -893,6 +939,9 @@ const setTab = (tab: "discover" | "leads") => {
 };
 
 const onFilterChange = () => {
+	if (filters.value.activeTab !== "discover") {
+		filters.value.activeTab = "discover";
+	}
 	filters.value.page = 1;
 	discoverStore.fetchApps();
 };
@@ -968,3 +1017,14 @@ onMounted(() => {
 	discoverStore.fetchApps();
 });
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

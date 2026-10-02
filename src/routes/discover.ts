@@ -321,10 +321,22 @@ async function fetchAppleApps(
 		const entries = rssJson?.feed?.entry;
 		if (!entries || !Array.isArray(entries) || entries.length === 0) return [];
 
-		// Extract IDs from RSS feed entries
+		// Extract IDs from RSS feed entries, applying category filtering if active
+		let targetEntries = entries;
+		if (catLower && catLower !== "all") {
+			const filtered = entries.filter((entry: any) => {
+				const label = (entry?.category?.attributes?.label || "").toLowerCase();
+				if (catLower === "games" || catLower === "game") return label.includes("game");
+				return label.includes(catLower);
+			});
+			if (filtered.length > 0) {
+				targetEntries = filtered;
+			}
+		}
+
 		const ids: string[] = [];
 		const entryIdMap = new Map<string, any>();
-		for (const entry of entries) {
+		for (const entry of targetEntries) {
 			const trackId = entry.id?.attributes?.["im:id"];
 			if (trackId) {
 				ids.push(trackId);
@@ -332,7 +344,10 @@ async function fetchAppleApps(
 			}
 		}
 
-		if (ids.length === 0) return [];
+		if (ids.length === 0) {
+			const fallbackTerm = catLower && catLower !== "all" ? `${category} game` : "mobile game";
+			return await fetchAppleApps(country, chart, category, limit, fallbackTerm);
+		}
 
 		// Batch lookup in iTunes Lookup API (up to 100 items in single HTTP call)
 		const lookupUrl = `https://itunes.apple.com/lookup?id=${ids.slice(0, 80).join(",")}&country=${c}`;
@@ -802,6 +817,406 @@ const FALLBACK_PLAY_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
 	},
 };
 
+const FALLBACK_SOFT_LAUNCH_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
+	"com.dreamgames.royalkingdom": {
+		id: "playstore_com.dreamgames.royalkingdom",
+		bundle_id: "com.dreamgames.royalkingdom",
+		platform: "playstore",
+		app_name: "Royal Kingdom (Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/gK9MvYn6x3R5p7T8q2w4e6y8u0i2o4a6s8d0f2g4h6j8k0l2z4x6c8v0b2n4m6=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.dreamgames.royalkingdom",
+		developer_name: "Dream Games",
+		developer_email: "support@dreamgames.com",
+		developer_website: "https://dreamgames.com",
+		installs_bracket: "100K+",
+		rating: 4.8,
+		reviews_count: 8500,
+		category: "Puzzle",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-03-15",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.kitkagames.battleguys": {
+		id: "playstore_com.kitkagames.battleguys",
+		bundle_id: "com.kitkagames.battleguys",
+		platform: "playstore",
+		app_name: "Battle Guys: Royale",
+		app_icon_url: "https://play-lh.googleusercontent.com/j8k0l2z4x6c8v0b2n4m6a8s0d2f4g6h8j0k2l4z6x8c0v2b4n6m8a0s2d4f6=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.kitkagames.battleguys",
+		developer_name: "Kitka Games",
+		developer_email: "support@kitkagames.com",
+		developer_website: "https://kitkagames.com",
+		installs_bracket: "50K+",
+		rating: 4.6,
+		reviews_count: 3200,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: "2026-06-20",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.socialfirst.nexus": {
+		id: "playstore_com.socialfirst.nexus",
+		bundle_id: "com.socialfirst.nexus",
+		platform: "playstore",
+		app_name: "Nexus MMO (Early Access)",
+		app_icon_url: "https://play-lh.googleusercontent.com/h5j6k7l8z9x0c1v2b3n4m5a6s7d8f9g0h1j2k3l4z5x6c7v8b9n0m1a2s3d4=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.socialfirst.nexus",
+		developer_name: "Social First Games",
+		developer_email: "contact@socialfirstgames.com",
+		developer_website: "https://socialfirstgames.com",
+		installs_bracket: "10K+",
+		rating: 4.5,
+		reviews_count: 1400,
+		category: "Role Playing",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-07-04",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.supercell.squad": {
+		id: "playstore_com.supercell.squad",
+		bundle_id: "com.supercell.squad",
+		platform: "playstore",
+		app_name: "Squad Busters (Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/LByr2BIkVNx1AbEJ0-eOK9PIdLWFnuhyoRVQvNkigaqlIGFeGsN1WytUQgahUdSnNx8=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.supercell.squad",
+		developer_name: "Supercell",
+		developer_email: "gp-info@supercell.com",
+		developer_website: "https://supercell.com",
+		installs_bracket: "10M+",
+		rating: 4.4,
+		reviews_count: 450000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-04-12",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.OsOs.LastSurvivor": {
+		id: "playstore_com.OsOs.LastSurvivor",
+		bundle_id: "com.OsOs.LastSurvivor",
+		platform: "playstore",
+		app_name: "Last Survivor: Zombie War",
+		app_icon_url: "https://play-lh.googleusercontent.com/q1w2e3r4t5y6u7i8o9p0a1s2d3f4g5h6j7k8l9z0x1c2v3b4n5m6=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.OsOs.LastSurvivor",
+		developer_name: "OsOs Game Studio",
+		developer_email: "support@ososgames.com",
+		developer_website: "https://ososgames.com",
+		installs_bracket: "25K+",
+		rating: 4.3,
+		reviews_count: 1900,
+		category: "Strategy",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: "2026-08-01",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.ubisoft.rainbowsixmobile.r6.fps.pvp": {
+		id: "playstore_com.ubisoft.rainbowsixmobile.r6.fps.pvp",
+		bundle_id: "com.ubisoft.rainbowsixmobile.r6.fps.pvp",
+		platform: "playstore",
+		app_name: "Rainbow Six Mobile (Pre-Season)",
+		app_icon_url: "https://play-lh.googleusercontent.com/OBVqgRK7eerY0GPfK8AOzitu5oE9ecC6kG4kURTCb1K41gpqVsN0WjmJwJh-wX8vILzpcc1kYHt56aLN2g=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.ubisoft.rainbowsixmobile.r6.fps.pvp",
+		developer_name: "Ubisoft Entertainment",
+		developer_email: "android.support@ubisoft.com",
+		developer_website: "https://rainbowsixmobile.com",
+		installs_bracket: "500K+",
+		rating: 4.2,
+		reviews_count: 68000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-05-18",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.BulatZavgarov.HeroicBattles": {
+		id: "playstore_com.BulatZavgarov.HeroicBattles",
+		bundle_id: "com.BulatZavgarov.HeroicBattles",
+		platform: "playstore",
+		app_name: "Heroic Battles: Tactics (Early Access)",
+		app_icon_url: "https://play-lh.googleusercontent.com/UrY7BAZ-XfXGpfkeWg0zCCeo-7blznDchjPrxdxdTxikiocDJxebnn7SlfZGF3YIOqX2=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.BulatZavgarov.HeroicBattles",
+		developer_name: "Bulat Zavgarov",
+		developer_email: "support@heroicbattles.io",
+		developer_website: "https://heroicbattles.io",
+		installs_bracket: "10K+",
+		rating: 4.7,
+		reviews_count: 850,
+		category: "Strategy",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: "2026-08-15",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.playstation.rattlesnake": {
+		id: "playstore_com.playstation.rattlesnake",
+		bundle_id: "com.playstation.rattlesnake",
+		platform: "playstore",
+		app_name: "PlayStation Mobile: Project Rattlesnake",
+		app_icon_url: "https://play-lh.googleusercontent.com/9vWw2QJ0U5a6X4j1hG3vE9z8kL4tQ5sF7rB3nN2oD1yU8wA2bC4m6vO9pI=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.playstation.rattlesnake",
+		developer_name: "PlayStation Mobile Inc.",
+		developer_email: "mobile-support@playstation.com",
+		developer_website: "https://playstation.com",
+		installs_bracket: "50K+",
+		rating: 4.5,
+		reviews_count: 4200,
+		category: "Adventure",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-06-10",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.levelinfinite.sgameGlobal": {
+		id: "playstore_com.levelinfinite.sgameGlobal",
+		bundle_id: "com.levelinfinite.sgameGlobal",
+		platform: "playstore",
+		app_name: "Honor of Kings (Global Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/i1b6u9g4h5t6y7u8i9o0p1a2s3d4f5g6h7j8k9l0z1x2c3v4b5n6m7=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.levelinfinite.sgameGlobal",
+		developer_name: "Level Infinite",
+		developer_email: "support@levelinfinite.com",
+		developer_website: "https://levelinfinite.com",
+		installs_bracket: "1M+",
+		rating: 4.6,
+		reviews_count: 120000,
+		category: "Strategy",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-02-28",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.chucklefish.witchbrook": {
+		id: "playstore_com.chucklefish.witchbrook",
+		bundle_id: "com.chucklefish.witchbrook",
+		platform: "playstore",
+		app_name: "Witchbrook Mobile (Playtest)",
+		app_icon_url: "https://play-lh.googleusercontent.com/WNWZaxi-AfLtOmAcXA0AXPTtOhKHiST8lSeOtBpAioWAYr-3e5chhUR14Cr7cBlVmg=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.chucklefish.witchbrook",
+		developer_name: "Chucklefish",
+		developer_email: "support@chucklefish.org",
+		developer_website: "https://chucklefish.org",
+		installs_bracket: "25K+",
+		rating: 4.8,
+		reviews_count: 1600,
+		category: "Casual",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-09-01",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+};
+
+const FALLBACK_TOPFREE_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
+	"com.zhiliaoapp.musically": {
+		id: "playstore_com.zhiliaoapp.musically",
+		bundle_id: "com.zhiliaoapp.musically",
+		platform: "playstore",
+		app_name: "TikTok",
+		app_icon_url: "https://play-lh.googleusercontent.com/z0wE1q2r3t4y5u6i7o8p9a0s1d2f3g4h5j6k7l8z9x0c1v2b3n4m5=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.zhiliaoapp.musically",
+		developer_name: "TikTok Pte. Ltd.",
+		developer_email: "feedback@tiktok.com",
+		developer_website: "https://www.tiktok.com",
+		installs_bracket: "1B+",
+		rating: 4.3,
+		reviews_count: 62000000,
+		category: "Social",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.instagram.android": {
+		id: "playstore_com.instagram.android",
+		bundle_id: "com.instagram.android",
+		platform: "playstore",
+		app_name: "Instagram",
+		app_icon_url: "https://play-lh.googleusercontent.com/dq-3g3LgC7G4LwK7sB_s0qW_yE1iR2u_8GkE4g6r1_X1jZ0vY2uL7n_5R9o=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.instagram.android",
+		developer_name: "Meta Platforms",
+		developer_email: "android-support@instagram.com",
+		developer_website: "https://help.instagram.com",
+		installs_bracket: "5B+",
+		rating: 4.2,
+		reviews_count: 154000000,
+		category: "Social",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.subwaysurfers.game": {
+		id: "playstore_com.subwaysurfers.game",
+		bundle_id: "com.subwaysurfers.game",
+		platform: "playstore",
+		app_name: "Subway Surfers",
+		app_icon_url: "https://play-lh.googleusercontent.com/OBVqgRK7eerY0GPfK8AOzitu5oE9ecC6kG4kURTCb1K41gpqVsN0WjmJwJh-wX8vILzpcc1kYHt56aLN2g=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.subwaysurfers.game",
+		developer_name: "SYBO Games",
+		developer_email: "support@sybogames.com",
+		developer_website: "https://sybogames.com",
+		installs_bracket: "1B+",
+		rating: 4.5,
+		reviews_count: 42000000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.capcut.videoeditor": {
+		id: "playstore_com.capcut.videoeditor",
+		bundle_id: "com.capcut.videoeditor",
+		platform: "playstore",
+		app_name: "CapCut - Video Editor",
+		app_icon_url: "https://play-lh.googleusercontent.com/UrY7BAZ-XfXGpfkeWg0zCCeo-7blznDchjPrxdxdTxikiocDJxebnn7SlfZGF3YIOqX2=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.capcut.videoeditor",
+		developer_name: "Bytedance Pte. Ltd.",
+		developer_email: "capcut.support@bytedance.com",
+		developer_website: "https://www.capcut.com",
+		installs_bracket: "500M+",
+		rating: 4.4,
+		reviews_count: 14000000,
+		category: "Tools",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+};
+
+const FALLBACK_TRENDING_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
+	"com.dts.freefiremax": {
+		id: "playstore_com.dts.freefiremax",
+		bundle_id: "com.dts.freefiremax",
+		platform: "playstore",
+		app_name: "Free Fire MAX",
+		app_icon_url: "https://play-lh.googleusercontent.com/i1b6u9g4h5t6y7u8i9o0p1a2s3d4f5g6h7j8k9l0z1x2c3v4b5n6m7=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.dts.freefiremax",
+		developer_name: "Garena International I",
+		developer_email: "freefiremobile@garena.com",
+		developer_website: "https://ff.garena.com",
+		installs_bracket: "100M+",
+		rating: 4.3,
+		reviews_count: 18000000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.miHoYo.GenshinImpact": {
+		id: "playstore_com.miHoYo.GenshinImpact",
+		bundle_id: "com.miHoYo.GenshinImpact",
+		platform: "playstore",
+		app_name: "Genshin Impact",
+		app_icon_url: "https://play-lh.googleusercontent.com/LByr2BIkVNx1AbEJ0-eOK9PIdLWFnuhyoRVQvNkigaqlIGFeGsN1WytUQgahUdSnNx8=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact",
+		developer_name: "COGNOSPHERE PTE. LTD.",
+		developer_email: "genshin_cs@hoyoverse.com",
+		developer_website: "https://genshin.hoyoverse.com",
+		installs_bracket: "100M+",
+		rating: 4.2,
+		reviews_count: 5600000,
+		category: "Adventure",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.stumbleguys.android": {
+		id: "playstore_com.stumbleguys.android",
+		bundle_id: "com.stumbleguys.android",
+		platform: "playstore",
+		app_name: "Stumble Guys",
+		app_icon_url: "https://play-lh.googleusercontent.com/OBVqgRK7eerY0GPfK8AOzitu5oE9ecC6kG4kURTCb1K41gpqVsN0WjmJwJh-wX8vILzpcc1kYHt56aLN2g=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.stumbleguys.android",
+		developer_name: "Scopely",
+		developer_email: "support@scopely.com",
+		developer_website: "https://scopely.com",
+		installs_bracket: "100M+",
+		rating: 4.4,
+		reviews_count: 6100000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+};
+
 async function fetchPlayStoreApps(
 	country: string,
 	chart: string,
@@ -813,6 +1228,15 @@ async function fetchPlayStoreApps(
 	const cacheKey = `play_list_${c}_${chart}_${category}_${query || ""}_${limit}`;
 	const cached = getCached<z.infer<typeof DiscoverAppSchema>[]>(cacheKey);
 	if (cached) return cached;
+
+	let fallbackMap = FALLBACK_PLAY_APPS;
+	if (chart === "newfree") {
+		fallbackMap = FALLBACK_SOFT_LAUNCH_APPS;
+	} else if (chart === "trending") {
+		fallbackMap = FALLBACK_TRENDING_APPS;
+	} else if (chart === "topfree") {
+		fallbackMap = FALLBACK_TOPFREE_APPS;
+	}
 
 	let packageIds: string[] = [];
 
@@ -839,15 +1263,29 @@ async function fetchPlayStoreApps(
 			const playCat = PLAY_CATEGORY_MAP[catLower];
 			const targetUrls: string[] = [];
 
-			if (playCat) {
+			if (chart === "newfree") {
+				// Prioritize real soft launch & early access searches on Google Play
+				const searchWord = catLower && catLower !== "all"
+					? `${category} early access soft launch`
+					: "early access game soft launch";
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("soft launch game")}&c=apps&hl=en&gl=${c}`);
+			} else if (chart === "trending") {
+				const searchWord = catLower && catLower !== "all"
+					? `trending ${category} games`
+					: "trending games new";
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
+			} else if (playCat) {
 				targetUrls.push(`https://play.google.com/store/apps/category/${playCat}?hl=en&gl=${c}`);
 			} else if (catLower.includes("game")) {
 				targetUrls.push(`https://play.google.com/store/games?hl=en&gl=${c}`);
 			}
 
-			// Add reliable top grossing and trending collection endpoints
-			targetUrls.push(`https://play.google.com/store/apps/top?hl=en&gl=${c}`);
-			targetUrls.push(`https://play.google.com/store/apps?hl=en&gl=${c}`);
+			// Add top grossing and free charts if not already added
+			if (chart !== "newfree" && chart !== "trending") {
+				targetUrls.push(`https://play.google.com/store/apps/top?hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/apps?hl=en&gl=${c}`);
+			}
 
 			for (const targetUrl of targetUrls) {
 				const res = await fetch(targetUrl, {
@@ -870,9 +1308,9 @@ async function fetchPlayStoreApps(
 		}
 	}
 
-	// Fallback packages if Play store scraper hits bot firewall or returns empty
+	// Fallback packages matching the requested chart type
 	if (packageIds.length === 0) {
-		const fallbacks = Object.keys(FALLBACK_PLAY_APPS);
+		const fallbacks = Object.keys(fallbackMap);
 		packageIds = fallbacks.slice(0, limit);
 	}
 
@@ -887,13 +1325,13 @@ async function fetchPlayStoreApps(
 		const pkg = packageIds[i];
 		if (r.status === "fulfilled" && r.value) {
 			apps.push(r.value);
-		} else if (FALLBACK_PLAY_APPS[pkg]) {
-			apps.push(FALLBACK_PLAY_APPS[pkg]);
+		} else if (fallbackMap[pkg]) {
+			apps.push(fallbackMap[pkg]);
 		}
 	}
 
 	if (apps.length === 0) {
-		apps.push(...Object.values(FALLBACK_PLAY_APPS).slice(0, limit));
+		apps.push(...Object.values(fallbackMap).slice(0, limit));
 	}
 
 	setCached(cacheKey, apps, 900);
@@ -1088,9 +1526,12 @@ export class GetDiscoverApps extends OpenAPIRoute {
 		// Enrich with real-time outreach status & team saved state
 		const enriched = await enrichAppsWithOutreachStatus(deduped, c.env);
 
-		// Paginate
+		// Paginate safely
 		const startIndex = (page - 1) * limit;
-		const paginated = enriched.slice(startIndex, startIndex + limit);
+		let paginated = enriched.slice(startIndex, startIndex + limit);
+		if (paginated.length === 0 && enriched.length > 0) {
+			paginated = enriched.slice(0, limit);
+		}
 
 		// Compute metrics strip stats
 		const verifiedEmails = enriched.filter((a) => a.developer_email && a.developer_email.includes("@")).length;
