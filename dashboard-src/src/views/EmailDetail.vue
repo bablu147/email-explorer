@@ -1,7 +1,7 @@
 <template>
-  <div v-if="email" class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden flex flex-col h-full border border-gray-200 dark:border-gray-700 transition-colors">
+  <div v-if="email" class="flex-1 flex flex-col min-h-full bg-white dark:bg-gray-900 transition-colors">
     <!-- Email Header -->
-    <div class="p-5 sm:p-7 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50/70 dark:bg-gray-900/50">
+    <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
       <div class="flex items-center justify-between mb-5 gap-3">
         <div class="flex items-center gap-3 min-w-0">
           <button 

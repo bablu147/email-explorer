@@ -1,5 +1,5 @@
 <template>
-  <header class="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-white/95 dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700/80 backdrop-blur-md sticky top-0 z-30 transition-colors">
+  <header class="h-14 flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 transition-colors">
     <!-- Left: Mailbox Switcher Dropdown & Live Search -->
     <div class="flex items-center gap-3 flex-1 max-w-2xl min-w-0">
       <!-- Quick Mailbox Switcher Dropdown -->
@@ -7,13 +7,13 @@
         <button
           type="button"
           @click.stop="toggleMailboxMenu"
-          class="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl bg-gray-100 hover:bg-gray-200/80 dark:bg-gray-700/60 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600/70 transition-all cursor-pointer shadow-xs group"
+          class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-gray-800 dark:hover:bg-gray-750 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/80 transition-all cursor-pointer shadow-xs group"
           :title="'Current mailbox: ' + (activeMailbox?.email || 'Select Mailbox')"
         >
           <div class="w-5 h-5 rounded-md bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-[11px] border border-emerald-500/30">
             {{ (activeMailbox?.name || 'M').charAt(0).toUpperCase() }}
           </div>
-          <div class="flex flex-col text-left max-w-[130px] sm:max-w-[170px] truncate">
+          <div class="flex flex-col text-left max-w-[120px] sm:max-w-[160px] truncate">
             <span class="truncate leading-tight font-bold text-gray-900 dark:text-white">{{ activeMailbox?.name || 'Mailbox' }}</span>
             <span class="truncate text-[10px] text-gray-500 dark:text-gray-400 font-normal leading-none mt-0.5">{{ activeMailbox?.email || '' }}</span>
           </div>
@@ -51,10 +51,10 @@
               type="button"
               @click="switchMailbox(mb.id)"
               class="w-full px-3.5 py-2.5 flex items-center gap-3 text-left hover:bg-emerald-50/70 dark:hover:bg-emerald-950/25 transition-colors cursor-pointer"
-              :class="mb.id === currentMailboxId ? 'bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'"
+              :class="mb.id === currentMailboxId ? 'bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
             >
               <div 
-                class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0"
+                class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0"
                 :class="mb.id === currentMailboxId ? 'bg-emerald-500 text-white shadow-xs' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
               >
                 {{ mb.name.charAt(0).toUpperCase() }}
@@ -92,8 +92,8 @@
 
       <!-- Live Search Bar -->
       <div class="relative flex-1 min-w-[160px]">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-          <svg class="h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <svg class="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </span>
@@ -101,26 +101,49 @@
           type="text" 
           v-model="searchQuery" 
           @keyup.enter="performSearch" 
-          placeholder="Search all emails..." 
-          class="w-full pl-10 pr-4 py-2 text-xs sm:text-sm border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200" 
+          placeholder="Search emails..." 
+          class="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
         />
       </div>
     </div>
 
-    <!-- Right: Quick Navigation, Theme Toggle, & Profile Menu -->
-    <div class="flex items-center gap-2 sm:gap-3 ml-4 flex-shrink-0">
+    <!-- Right: External Links, Theme Toggle, Settings, & Profile Menu -->
+    <div class="flex items-center gap-1 sm:gap-2 ml-4 flex-shrink-0">
+      <!-- External Links to Console & Docs -->
+      <a 
+        href="https://reflect.cloud" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title="Open Reflect Console"
+      >
+        <span>Console</span>
+        <span class="text-[11px] opacity-70">&rarr;</span>
+      </a>
+      <a 
+        href="https://docs.reflect.cloud" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="hidden lg:inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        title="Open Documentation"
+      >
+        <span>Docs</span>
+      </a>
+
+      <div class="hidden lg:block h-4 w-px bg-gray-200 dark:border-gray-800 mx-1"></div>
+
       <!-- Dark / Light Mode Toggle Button -->
       <button
         type="button"
         @click="toggleTheme"
-        class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all cursor-pointer relative"
+        class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
         :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
         aria-label="Toggle dark mode"
       >
         <!-- Sun icon (for dark mode -> switch to light) -->
         <svg 
           v-if="isDark" 
-          class="w-5 h-5 text-amber-400 transform hover:rotate-45 transition-transform duration-300" 
+          class="w-4 h-4 text-amber-400 transform hover:rotate-45 transition-transform duration-300" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
@@ -130,7 +153,7 @@
         <!-- Moon icon (for light mode -> switch to dark) -->
         <svg 
           v-else 
-          class="w-5 h-5 text-gray-600 transform hover:-rotate-12 transition-transform duration-300" 
+          class="w-4 h-4 text-gray-600 transform hover:-rotate-12 transition-transform duration-300" 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
@@ -143,10 +166,10 @@
       <button 
         type="button" 
         @click="handleSettingsClick" 
-        class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all cursor-pointer"
+        class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
         title="Mailbox Settings"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -157,10 +180,10 @@
         <button
           type="button"
           @click.stop="toggleUserMenu"
-          class="flex items-center gap-2 p-1 pl-1.5 pr-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/60 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all cursor-pointer group"
+          class="flex items-center gap-1.5 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer group"
           :title="authStore.currentUser?.email || 'User Profile'"
         >
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold text-xs flex items-center justify-center shadow-xs ring-2 ring-emerald-500/20">
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
             {{ userInitial }}
           </div>
           <svg 

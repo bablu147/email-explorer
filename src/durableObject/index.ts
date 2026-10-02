@@ -586,14 +586,26 @@ export class MailboxDO extends DurableObject<Env> {
 		return result.results;
 	}
 
-	async getFolders() {
-		const query = this.#qb.select("folders").fields(["id", "name"]);
-
-		const result = query.execute();
-		return result.results || [];
+	async getFolders(): Promise<Array<{ id: string; name: string; unreadCount: number }>> {
+		const rows = this.ctx.storage.sql
+			.exec(
+				`SELECT f.id, f.name, COUNT(CASE WHEN e.read = 0 THEN 1 END) as unreadCount
+				 FROM folders f
+				 LEFT JOIN emails e ON f.id = e.folder_id
+				 GROUP BY f.id, f.name`,
+			)
+			.toArray();
+		return rows.map((r: any) => ({
+			id: String(r.id),
+			name: String(r.name),
+			unreadCount: Number(r.unreadCount || 0),
+		}));
 	}
 
-	async createFolder(id: string, name: string) {
+	async createFolder(
+		id: string,
+		name: string,
+	): Promise<{ id: string; name: string; unreadCount: number } | null> {
 		try {
 			const result = this.#qb
 				.insert({
@@ -602,8 +614,8 @@ export class MailboxDO extends DurableObject<Env> {
 					returning: ["id", "name"],
 				})
 				.execute();
-			const newFolder = result.results;
-			return { ...newFolder, unreadCount: 0 };
+			const newFolder = result.results as any;
+			return { id: String(newFolder.id), name: String(newFolder.name), unreadCount: 0 };
 		} catch (e: any) {
 			if (e.message.includes("UNIQUE constraint failed")) {
 				return null;
@@ -612,7 +624,10 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 	}
 
-	async updateFolder(id: string, name: string) {
+	async updateFolder(
+		id: string,
+		name: string,
+	): Promise<{ id: string; name: string; unreadCount: number } | null> {
 		this.#qb
 			.update({
 				tableName: "folders",
@@ -623,12 +638,25 @@ export class MailboxDO extends DurableObject<Env> {
 				},
 			})
 			.execute();
-		const query = this.#qb
-			.select("folders")
-			.fields(["id", "name"])
-			.where("id = ?", id);
-		const result = query.one();
-		return result.results;
+		const rows = this.ctx.storage.sql
+			.exec(
+				`SELECT f.id, f.name, COUNT(CASE WHEN e.read = 0 THEN 1 END) as unreadCount
+				 FROM folders f
+				 LEFT JOIN emails e ON f.id = e.folder_id
+				 WHERE f.id = ?
+				 GROUP BY f.id, f.name`,
+				id,
+			)
+			.toArray();
+		if (rows.length > 0) {
+			const r: any = rows[0];
+			return {
+				id: String(r.id),
+				name: String(r.name),
+				unreadCount: Number(r.unreadCount || 0),
+			};
+		}
+		return null;
 	}
 
 	async deleteFolder(id: string) {

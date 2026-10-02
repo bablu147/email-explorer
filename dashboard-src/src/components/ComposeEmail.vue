@@ -657,7 +657,12 @@ watch(isComposeModalOpen, (isOpen) => {
 		const sigBlock = getSignatureBlock();
 
 		if (options.mode === "reply" && original) {
-			to.value = original.sender;
+			const isSent =
+				Boolean(currentMailbox.value?.email &&
+					original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
+				(original.delivery_status !== undefined && original.delivery_status !== null) ||
+				(original.opened_count !== undefined && original.opened_count !== null);
+			to.value = isSent ? original.recipient : original.sender;
 			cc.value = "";
 			bcc.value = "";
 			subject.value = original.subject.startsWith("Re: ")
@@ -666,8 +671,12 @@ watch(isComposeModalOpen, (isOpen) => {
 			const initialText = options.initialBody ? `<p>${options.initialBody.replace(/\n/g, "<br>")}</p><br>` : "";
 			body.value = `${initialText}${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
 		} else if (options.mode === "reply-all" && original) {
-			// Reply all: original sender goes to 'To', original recipient and original CC go to 'Cc'
-			to.value = original.sender;
+			const isSent =
+				Boolean(currentMailbox.value?.email &&
+					original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
+				(original.delivery_status !== undefined && original.delivery_status !== null) ||
+				(original.opened_count !== undefined && original.opened_count !== null);
+			to.value = isSent ? original.recipient : original.sender;
 
 			const ccRecipients = new Set<string>();
 			if (

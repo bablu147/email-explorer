@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col relative">
+  <div class="flex-1 flex flex-col min-h-full bg-white dark:bg-gray-900 relative">
     <!-- Header with Folder Name, Live Search, Filter Pills, and Refresh -->
-    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 flex flex-wrap items-center justify-between gap-3">
+    <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10">
       <div class="flex items-center gap-3">
         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white capitalize tracking-tight flex items-center gap-2">
           {{ folderName }}
@@ -43,6 +43,19 @@
             class="px-2.5 py-1 rounded-md transition-all cursor-pointer"
           >
             All
+          </button>
+
+          <!-- Sent Folder Specific: Delivered -->
+          <button
+            v-if="folderId === 'sent'"
+            type="button"
+            @click="filterMode = 'delivered'"
+            :class="filterMode === 'delivered' ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            title="Emails delivered to primary Inbox"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Delivered
           </button>
 
           <!-- Sent Folder Specific: Opened -->
@@ -249,7 +262,8 @@
         v-for="(email, idx) in filteredEmails" 
         :key="email.id" 
         :ref="(el) => setRowRef(el, idx)"
-        class="group relative transition-all duration-150 border-l-4"
+        @click="activeRowIndex = idx"
+        class="group relative transition-all duration-150 border-l-4 cursor-pointer"
         :class="[
           selectedEmailIds.includes(email.id)
             ? 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-950/20'
@@ -438,8 +452,8 @@
               </svg>
             </div>
 
-            <!-- Friendly Date (shown when row is NOT hovered) -->
-            <div class="group-hover:hidden flex flex-col items-end min-w-[70px]">
+            <!-- Friendly Date -->
+            <div class="flex flex-col items-end min-w-[70px]">
               <p 
                 class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium"
                 :title="formatTooltipDate(email.date)"
@@ -455,8 +469,11 @@
               </p>
             </div>
 
-            <!-- ⚡ Superhuman / Gmail-Style Floating Quick Action Bar (Revealed on Desktop Row Hover) -->
-            <div class="hidden group-hover:flex items-center gap-1 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md px-1.5 py-1 rounded-xl shadow-lg border border-gray-200/80 dark:border-gray-700/80 transition-all z-20">
+            <!-- ⚡ Superhuman / Gmail-Style Floating Quick Action Bar (Revealed on Desktop Row Hover or Active Keyboard Row) -->
+            <div 
+              class="hidden items-center gap-1 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md px-1.5 py-1 rounded-xl shadow-lg border border-gray-200/80 dark:border-gray-700/80 transition-all z-20 absolute right-4 sm:right-6 top-1/2 -translate-y-1/2"
+              :class="activeRowIndex === idx ? '!flex' : 'group-hover:flex'"
+            >
               <!-- Archive Quick Action (Shortcut: e) -->
               <button 
                 type="button"
@@ -542,7 +559,7 @@
     </ul>
 
     <!-- Refined Empty State -->
-    <div v-else class="p-16 text-center">
+    <div v-else class="p-16 flex-1 flex flex-col items-center justify-center text-center">
       <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
         <svg v-if="filterMode === 'viewed'" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

@@ -1,6 +1,6 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
-    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 flex items-center justify-between">
+  <div class="flex-1 flex flex-col min-h-full bg-white dark:bg-gray-900">
+    <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between sticky top-0 z-10">
       <h1 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <span>Search Results</span>
         <span v-if="!isLoading" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
