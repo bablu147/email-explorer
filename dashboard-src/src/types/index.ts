@@ -67,3 +67,17 @@ export interface Contact {
 	name: string;
 	email: string;
 }
+
+export type AppPlatform = "playstore" | "appstore" | "website";
+
+export interface AppBinding {
+	email: string;
+	app_name: string;
+	app_icon_url: string;
+	app_url: string;
+	platform: AppPlatform;
+	developer_name?: string | null;
+	created_at?: number;
+	updated_at?: number;
+}
+

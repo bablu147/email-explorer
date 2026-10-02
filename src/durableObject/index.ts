@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { DOQB } from "workers-qb";
-import type { Env, Session, User } from "../types";
+import type { AppBinding, Env, Session, User } from "../types";
 import { authMigrations, mailboxMigrations } from "./migrations";
 
 const ALLOWED_SORT_COLUMNS = [
@@ -96,6 +96,19 @@ export class MailboxDO extends DurableObject<Env> {
 		// Apply appropriate migrations
 		if (this.#isAuthDO) {
 			this.#qb.migrations({ migrations: authMigrations }).apply();
+			this.ctx.storage.sql.exec(`
+				CREATE TABLE IF NOT EXISTS app_bindings (
+					email TEXT PRIMARY KEY,
+					app_name TEXT NOT NULL,
+					app_icon_url TEXT NOT NULL,
+					app_url TEXT NOT NULL,
+					platform TEXT NOT NULL,
+					developer_name TEXT,
+					created_at INTEGER NOT NULL,
+					updated_at INTEGER NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS idx_app_bindings_platform ON app_bindings(platform);
+			`);
 		} else {
 			this.#qb.migrations({ migrations: mailboxMigrations }).apply();
 		}
@@ -811,4 +824,103 @@ export class MailboxDO extends DurableObject<Env> {
 				.execute();
 		}
 	}
+
+	// App Bindings methods (AUTH DO singleton)
+	async getAllAppBindings(): Promise<AppBinding[]> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const rows = this.ctx.storage.sql
+			.exec(
+				"SELECT email, app_name, app_icon_url, app_url, platform, developer_name, created_at, updated_at FROM app_bindings ORDER BY updated_at DESC",
+			)
+			.toArray();
+		return rows.map((r: any) => ({
+			email: String(r.email),
+			app_name: String(r.app_name),
+			app_icon_url: String(r.app_icon_url),
+			app_url: String(r.app_url),
+			platform: String(r.platform) as any,
+			developer_name: r.developer_name ? String(r.developer_name) : null,
+			created_at: Number(r.created_at),
+			updated_at: Number(r.updated_at),
+		}));
+	}
+
+	async getAppBinding(email: string): Promise<AppBinding | null> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const cleanEmail = email.trim().toLowerCase();
+		const rows = this.ctx.storage.sql
+			.exec(
+				"SELECT email, app_name, app_icon_url, app_url, platform, developer_name, created_at, updated_at FROM app_bindings WHERE email = ?",
+				cleanEmail,
+			)
+			.toArray();
+		if (rows.length === 0) return null;
+		const r: any = rows[0];
+		return {
+			email: String(r.email),
+			app_name: String(r.app_name),
+			app_icon_url: String(r.app_icon_url),
+			app_url: String(r.app_url),
+			platform: String(r.platform) as any,
+			developer_name: r.developer_name ? String(r.developer_name) : null,
+			created_at: Number(r.created_at),
+			updated_at: Number(r.updated_at),
+		};
+	}
+
+	async setAppBinding(binding: {
+		email: string;
+		app_name: string;
+		app_icon_url: string;
+		app_url: string;
+		platform: string;
+		developer_name?: string | null;
+	}): Promise<AppBinding> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const cleanEmail = binding.email.trim().toLowerCase();
+		const now = Date.now();
+		const devName = binding.developer_name?.trim() || null;
+
+		this.ctx.storage.sql.exec(
+			`INSERT INTO app_bindings (email, app_name, app_icon_url, app_url, platform, developer_name, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(email) DO UPDATE SET
+			   app_name = excluded.app_name,
+			   app_icon_url = excluded.app_icon_url,
+			   app_url = excluded.app_url,
+			   platform = excluded.platform,
+			   developer_name = excluded.developer_name,
+			   updated_at = excluded.updated_at`,
+			cleanEmail,
+			binding.app_name.trim(),
+			binding.app_icon_url.trim(),
+			binding.app_url.trim(),
+			binding.platform,
+			devName,
+			now,
+			now,
+		);
+
+		return {
+			email: cleanEmail,
+			app_name: binding.app_name.trim(),
+			app_icon_url: binding.app_icon_url.trim(),
+			app_url: binding.app_url.trim(),
+			platform: binding.platform as any,
+			developer_name: devName,
+			created_at: now,
+			updated_at: now,
+		};
+	}
+
+	async deleteAppBinding(email: string): Promise<boolean> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const cleanEmail = email.trim().toLowerCase();
+		this.ctx.storage.sql.exec(
+			"DELETE FROM app_bindings WHERE email = ?",
+			cleanEmail,
+		);
+		return true;
+	}
 }
+

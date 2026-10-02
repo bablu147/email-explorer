@@ -16,6 +16,13 @@ import {
 	PostRevokeAccess,
 	PutUser,
 } from "./routes/auth";
+import {
+	DeleteAppBinding,
+	GetAppBindingByEmail,
+	GetAppBindings,
+	GetAppLookup,
+	PostAppBinding,
+} from "./routes/app-bindings";
 import { PostForwardEmail, PostReplyEmail } from "./routes/reply-forward";
 import type { EmailExplorerOptions, Env, Session } from "./types";
 
@@ -1748,6 +1755,13 @@ openapi.post("/api/v1/auth/admin/revoke-access", PostRevokeAccess);
 
 // Settings endpoints
 openapi.get("/api/v1/settings", GetAppSettings);
+
+// App Bindings endpoints
+openapi.get("/api/v1/app-bindings", GetAppBindings);
+openapi.get("/api/v1/app-bindings/:email", GetAppBindingByEmail);
+openapi.post("/api/v1/app-bindings", PostAppBinding);
+openapi.delete("/api/v1/app-bindings/:email", DeleteAppBinding);
+openapi.get("/api/v1/app-lookup", GetAppLookup);
 
 // Existing endpoints
 openapi.post("/api/v1/debug/create-mailbox", CreateDummyMailbox);

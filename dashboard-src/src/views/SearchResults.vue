@@ -36,10 +36,12 @@
       >
         <router-link :to="{ name: 'EmailDetail', params: { id: email.id } }" class="block px-6 py-3.5">
           <div class="flex items-center gap-4">
-            <!-- Initials Avatar -->
-            <div class="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-xs flex-shrink-0">
-              {{ (email.sender || '?').charAt(0).toUpperCase() }}
-            </div>
+            <!-- App Avatar -->
+            <AppAvatar
+              :email="email.sender"
+              :initial="(email.sender || '?').charAt(0).toUpperCase()"
+              size="md"
+            />
 
             <!-- Content -->
             <div class="flex-grow min-w-0 pr-2">
@@ -50,6 +52,8 @@
                 >
                   {{ email.sender }}
                 </span>
+                <!-- Linked App Identity Chip -->
+                <AppBadge :email="email.sender" />
                 <span class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[220px]">
                   &rarr; {{ email.recipient }}
                 </span>
@@ -97,6 +101,8 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { useSearchStore } from "@/stores/search";
+import AppAvatar from "@/components/AppAvatar.vue";
+import AppBadge from "@/components/AppBadge.vue";
 
 const searchStore = useSearchStore();
 const { results, isLoading } = storeToRefs(searchStore);

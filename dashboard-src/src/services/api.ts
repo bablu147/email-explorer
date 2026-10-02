@@ -141,4 +141,22 @@ export default {
 		}),
 	adminRevokeAccess: (userId: string, mailboxId: string) =>
 		apiClient.post("/api/v1/auth/admin/revoke-access", { userId, mailboxId }),
+
+	// App Bindings
+	listAppBindings: () => apiClient.get("/api/v1/app-bindings"),
+	getAppBinding: (email: string) =>
+		apiClient.get(`/api/v1/app-bindings/${encodeURIComponent(email)}`),
+	saveAppBinding: (binding: {
+		email: string;
+		app_name: string;
+		app_icon_url: string;
+		app_url: string;
+		platform: string;
+		developer_name?: string | null;
+	}) => apiClient.post("/api/v1/app-bindings", binding),
+	deleteAppBinding: (email: string) =>
+		apiClient.delete(`/api/v1/app-bindings/${encodeURIComponent(email)}`),
+	lookupApp: (query: string, platform?: string) =>
+		apiClient.get("/api/v1/app-lookup", { params: { query, platform } }),
 };
+

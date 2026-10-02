@@ -120,4 +120,22 @@ export const authMigrations: Migration[] = [
             CREATE INDEX idx_user_mailboxes_mailbox_id ON user_mailboxes(mailbox_id);
         `,
 	},
+	{
+		name: "2_app_bindings",
+		sql: `
+            CREATE TABLE IF NOT EXISTS app_bindings (
+                email TEXT PRIMARY KEY,
+                app_name TEXT NOT NULL,
+                app_icon_url TEXT NOT NULL,
+                app_url TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                developer_name TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_app_bindings_platform ON app_bindings(platform);
+        `,
+	},
 ];
+

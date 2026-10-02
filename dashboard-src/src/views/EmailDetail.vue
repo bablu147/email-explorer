@@ -85,14 +85,20 @@
       </div>
       <div class="flex items-center justify-between mt-6">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
-            {{ email.sender.charAt(0).toUpperCase() }}
-          </div>
+          <AppAvatar
+            :email="isSentEmail ? email.recipient : email.sender"
+            :initial="(isSentEmail ? email.recipient : email.sender).charAt(0).toUpperCase()"
+            size="lg"
+          />
           <div>
-            <p class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ email.sender }}</p>
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ email.sender }}</p>
+              <AppBadge :email="email.sender" />
+            </div>
             <div class="flex items-center gap-2 flex-wrap mt-0.5">
               <span class="text-xs uppercase font-extrabold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">To</span>
               <span class="text-sm font-bold text-gray-900 dark:text-white" style="color: var(--fg) !important;">{{ email.recipient }}</span>
+              <AppBadge :email="email.recipient" />
               <span 
                 v-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
                 class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
@@ -229,6 +235,8 @@ import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import EmailIframe from "@/components/EmailIframe.vue";
+import AppAvatar from "@/components/AppAvatar.vue";
+import AppBadge from "@/components/AppBadge.vue";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";

@@ -274,28 +274,15 @@
               </svg>
             </button>
 
-            <!-- Initials Avatar with Live Engagement Badge Indicator -->
-            <div class="relative flex-shrink-0">
-              <div 
-                class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs border"
-                :class="folderId === 'sent' 
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
-                  : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'"
-              >
-                {{ getAvatarInitial(email, folderId) }}
-              </div>
-              <!-- Activity Dot: Green pulse if opened, Blue if clicked -->
-              <span 
-                v-if="folderId === 'sent' && email.opened_count && email.opened_count > 0"
-                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-800"
-                title="Opened by recipient"
-              ></span>
-              <span 
-                v-else-if="folderId === 'sent' && email.clicked_count && email.clicked_count > 0"
-                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800"
-                title="Links clicked"
-              ></span>
-            </div>
+            <!-- App Avatar (opens Store/Web on click, or opens Link Modal) -->
+            <AppAvatar
+              :email="getTargetEmail(email, folderId)"
+              :initial="getAvatarInitial(email, folderId)"
+              :folder="folderId"
+              :opened-count="email.opened_count"
+              :clicked-count="email.clicked_count"
+              size="md"
+            />
           </div>
 
           <!-- Middle: Recipient/Sender Name, Subject & Preview Snippet -->
@@ -326,6 +313,8 @@
                   >
                     +{{ getParsedRecipients(email.recipient).extrasCount }} more
                   </span>
+                  <!-- Linked App Identity Chip -->
+                  <AppBadge :email="email.recipient" />
                 </div>
               </template>
               <!-- If Inbox or other folders: Show bold Sender -->
@@ -338,6 +327,8 @@
                   >
                     {{ email.sender }}
                   </span>
+                  <!-- Linked App Identity Chip -->
+                  <AppBadge :email="email.sender" />
                 </div>
               </template>
 
@@ -591,7 +582,13 @@ import { useRoute } from "vue-router";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
+import AppAvatar from "@/components/AppAvatar.vue";
+import AppBadge from "@/components/AppBadge.vue";
 import type { Email } from "@/types";
+
+const getTargetEmail = (email: Email, folder: string): string => {
+	return (folder === "sent" || folder === "drafts") ? email.recipient : email.sender;
+};
 
 const emailStore = useEmailStore();
 const { emails, isRefreshing } = storeToRefs(emailStore);
