@@ -78,6 +78,13 @@ export const mailboxMigrations: Migration[] = [
             ALTER TABLE emails ADD COLUMN clicked_count INTEGER DEFAULT 0;
         `,
 	},
+	{
+		name: "5_add_delivery_status",
+		sql: `
+            ALTER TABLE emails ADD COLUMN delivery_status TEXT DEFAULT 'inbox';
+            ALTER TABLE emails ADD COLUMN spam_score REAL DEFAULT 0.0;
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [

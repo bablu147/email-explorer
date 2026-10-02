@@ -78,12 +78,31 @@
           </div>
           <div>
             <p class="text-base font-semibold text-gray-900 dark:text-gray-100">{{ email.sender }}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-400">To: {{ email.recipient }}</p>
-            <p v-if="email.cc" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Cc: {{ email.cc }}</p>
-            <p v-if="email.bcc" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Bcc: {{ email.bcc }} (hidden)</p>
+            <div class="flex items-center gap-2 flex-wrap mt-0.5">
+              <span class="text-xs uppercase font-extrabold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">To</span>
+              <span class="text-sm font-bold text-gray-900 dark:text-white" style="color: var(--fg) !important;">{{ email.recipient }}</span>
+              <span 
+                v-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+              >
+                ⚠️ Placed in Spam
+              </span>
+              <span 
+                v-else
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+              >
+                ✓ Delivered to Inbox
+              </span>
+            </div>
+            <p v-if="email.cc" class="text-xs text-gray-800 dark:text-gray-300 mt-1 font-medium">
+              <span class="font-bold text-gray-600 dark:text-gray-400">Cc:</span> {{ email.cc }}
+            </p>
+            <p v-if="email.bcc" class="text-xs text-gray-800 dark:text-gray-300 mt-0.5 font-medium">
+              <span class="font-bold text-gray-600 dark:text-gray-400">Bcc:</span> {{ email.bcc }} (hidden)
+            </p>
           </div>
         </div>
-        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium" :title="formatTooltipDate(email.date)">
+        <p class="text-sm text-gray-600 dark:text-gray-400 font-medium" :title="formatTooltipDate(email.date)">
           {{ formatFriendlyDate(email.date) }}
         </p>
       </div>
@@ -91,10 +110,30 @@
       <!-- Engagement & Tracking Stats Bar -->
       <div v-if="isSentEmail" class="mt-5 pt-3.5 border-t border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div class="flex items-center gap-2.5 flex-wrap">
-          <!-- Delivery Status -->
-          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            Delivered
+          <!-- Delivery Status & Placement -->
+          <span 
+            v-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+            title="Warning: Routed to recipient spam folder"
+          >
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            Delivered · Spam Folder
+          </span>
+          <span 
+            v-else-if="email.opened_count && email.opened_count > 0"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30"
+            title="Confirmed primary inbox delivery with recipient open activity"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Delivered · Primary Inbox
+          </span>
+          <span 
+            v-else
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+            title="Delivered to recipient inbox"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Delivered · Inbox
           </span>
 
           <!-- Open / View Tracking -->

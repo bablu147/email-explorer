@@ -660,6 +660,8 @@ class PostEmail extends OpenAPIRoute {
 				in_reply_to: in_reply_to || null,
 				email_references: references ? JSON.stringify(references) : null,
 				thread_id: thread_id || in_reply_to || messageId,
+				delivery_status: is_draft ? "draft" : "inbox",
+				spam_score: 0.0,
 			},
 			attachmentData,
 		);
@@ -1849,8 +1851,26 @@ async function receiveEmail(
 	const toAddresses = parsedEmail.to?.map((t) => t.address).filter(Boolean) || [];
 	const ccAddresses = parsedEmail.cc?.map((c) => c.address).filter(Boolean) || [];
 
+	// Determine spam classification from headers
+	const headers = parsedEmail.headers || [];
+	const findHeader = (name: string) => {
+		const h = headers.find((item: any) => item.key?.toLowerCase() === name.toLowerCase());
+		return h ? String(h.value).toLowerCase() : "";
+	};
+
+	const authResults = findHeader("authentication-results");
+	const spamStatus = findHeader("x-spam-status");
+	const isSpam =
+		spamStatus.includes("yes") ||
+		authResults.includes("dkim=fail") ||
+		authResults.includes("spf=fail") ||
+		authResults.includes("dmarc=fail");
+
+	const targetFolder = isSpam ? "spam" : "inbox";
+	const deliveryStatus = isSpam ? "spam" : "inbox";
+
 	await stub.createEmail(
-		"inbox",
+		targetFolder,
 		{
 			id: messageId,
 			subject: parsedEmail.subject || "",
@@ -1863,6 +1883,8 @@ async function receiveEmail(
 			email_references:
 				emailReferences.length > 0 ? JSON.stringify(emailReferences) : null,
 			thread_id: emailReferences[0] || inReplyTo || messageId,
+			delivery_status: deliveryStatus,
+			spam_score: isSpam ? 5.0 : 0.0,
 		},
 		attachmentData,
 	);

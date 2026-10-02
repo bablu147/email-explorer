@@ -125,65 +125,97 @@
 
             <!-- Middle: Recipient/Sender Name, Subject & Preview Snippet, Tracking Badges -->
             <div class="flex-grow min-w-0 pr-2">
-              <!-- Top Row: Recipient/Sender + Engagement Badges -->
-              <div class="flex items-center gap-2 flex-wrap mb-0.5">
-                <span 
-                  class="text-sm font-semibold truncate max-w-[320px]"
-                  :class="!email.read ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-800 dark:text-gray-200'"
-                >
-                  {{ getDisplayAddress(email, folderId) }}
-                </span>
+              <!-- Top Row: Recipient/Sender + Engagement & Deliverability Badges -->
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <!-- If Sent or Drafts: Show crisp "To:" pill + Bold Recipient Address -->
+                <div v-if="folderId === 'sent' || folderId === 'drafts'" class="flex items-center gap-1.5 truncate max-w-[420px]">
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    {{ folderId === 'drafts' ? 'Draft to' : 'To' }}
+                  </span>
+                  <span 
+                    class="text-sm truncate font-bold"
+                    style="color: var(--fg) !important;"
+                  >
+                    {{ email.recipient || '(No recipient)' }}
+                  </span>
+                </div>
+                <!-- If Inbox or other folders: Show bold Sender -->
+                <div v-else class="flex items-center gap-1.5 truncate max-w-[420px]">
+                  <span 
+                    class="text-sm truncate"
+                    :class="!email.read ? 'font-extrabold' : 'font-bold'"
+                    style="color: var(--fg) !important;"
+                  >
+                    {{ email.sender }}
+                  </span>
+                </div>
 
                 <!-- CC summary if present -->
                 <span 
                   v-if="email.cc" 
-                  class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
+                  class="text-xs truncate max-w-[200px]"
+                  style="color: var(--fg-dim) !important;"
                   :title="'Cc: ' + email.cc"
                 >
                   (Cc: {{ email.cc }})
                 </span>
 
-                <!-- 👁️ Open Tracking Badge (for Sent folder) -->
-                <span 
-                  v-if="folderId === 'sent' && email.opened_count && email.opened_count > 0"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                  :title="email.opened_at ? 'First viewed: ' + formatTooltipDate(email.opened_at) : 'Recipient opened this email'"
-                >
-                  <svg class="w-3 h-3 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  Viewed ({{ email.opened_count }}x)
-                </span>
+                <!-- 📬 Delivery Destination & Spam Placement Badges -->
+                <template v-if="folderId === 'sent'">
+                  <!-- Spam Placement Detected -->
+                  <span 
+                    v-if="email.delivery_status === 'spam'"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                    title="Warning: Email routed to recipient Spam folder"
+                  >
+                    <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Delivered · Spam
+                  </span>
 
-                <!-- Delivered badge if not viewed yet in Sent folder -->
-                <span 
-                  v-else-if="folderId === 'sent'"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600"
-                  title="Delivered to recipient mail server"
-                >
-                  <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Delivered
-                </span>
+                  <!-- Opened in Inbox -->
+                  <span 
+                    v-else-if="email.opened_count && email.opened_count > 0"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                    :title="email.opened_at ? 'Delivered to recipient Inbox and opened: ' + formatTooltipDate(email.opened_at) : 'Recipient opened this email in their Inbox'"
+                  >
+                    <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Opened · Inbox ({{ email.opened_count }}x)
+                  </span>
 
-                <!-- 🔗 Click Tracking Badge -->
-                <span 
-                  v-if="folderId === 'sent' && email.clicked_count && email.clicked_count > 0"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
-                  :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
-                >
-                  <svg class="w-3 h-3 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  Clicked ({{ email.clicked_count }}x)
-                </span>
+                  <!-- Delivered to Primary Inbox (Unopened yet) -->
+                  <span 
+                    v-else
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                    title="Delivered to recipient primary Inbox (SPF/DKIM/DMARC verified)"
+                  >
+                    <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Delivered · Inbox
+                  </span>
+
+                  <!-- 🔗 Click Tracking Badge -->
+                  <span 
+                    v-if="email.clicked_count && email.clicked_count > 0"
+                    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30"
+                    :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
+                  >
+                    <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Clicked ({{ email.clicked_count }}x)
+                  </span>
+                </template>
 
                 <!-- Unread Badge Pill -->
                 <span 
                   v-if="!email.read" 
-                  class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                 >
                   Unread
                 </span>
@@ -192,13 +224,15 @@
               <!-- Bottom Row: Subject + Live Snippet -->
               <p class="text-sm truncate leading-snug">
                 <span 
-                  :class="!email.read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-800 dark:text-gray-300'"
+                  :class="!email.read ? 'font-bold' : 'font-medium'"
+                  style="color: var(--fg) !important;"
                 >
                   {{ email.subject || "(No subject)" }}
                 </span>
                 <span 
                   v-if="getSnippet(email.body)" 
-                  class="text-gray-500 dark:text-gray-400 font-normal ml-1.5"
+                  class="font-normal ml-1.5"
+                  style="color: var(--fg-dim) !important;"
                 >
                   — {{ getSnippet(email.body) }}
                 </span>

@@ -33,6 +33,8 @@ export interface Email {
 	opened_count?: number;
 	clicked_at?: string | null;
 	clicked_count?: number;
+	delivery_status?: string | null;
+	spam_score?: number | null;
 	attachments?: Attachment[];
 }
 

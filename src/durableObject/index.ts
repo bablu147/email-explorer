@@ -41,6 +41,8 @@ interface EmailData {
 	opened_count?: number;
 	clicked_at?: string | null;
 	clicked_count?: number;
+	delivery_status?: string | null;
+	spam_score?: number | null;
 }
 
 interface AttachmentData {
@@ -436,6 +438,8 @@ export class MailboxDO extends DurableObject<Env> {
 				"opened_count",
 				"clicked_at",
 				"clicked_count",
+				"delivery_status",
+				"spam_score",
 				"body",
 			]);
 
@@ -740,6 +744,8 @@ export class MailboxDO extends DurableObject<Env> {
 				"opened_count",
 				"clicked_at",
 				"clicked_count",
+				"delivery_status",
+				"spam_score",
 				"body",
 			]);
 

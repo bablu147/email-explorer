@@ -538,11 +538,22 @@
       .text-gray-900, .dark\:text-white, .dark\:text-gray-100 {
         color: var(--fg) !important;
       }
-      .text-gray-700, .text-gray-600, .dark\:text-gray-300 {
+      .text-gray-800, .text-gray-700, .text-gray-600, .dark\:text-gray-300, .dark\:text-gray-200 {
         color: var(--fg-2) !important;
       }
       .text-gray-500, .text-gray-400, .dark\:text-gray-400 {
         color: var(--fg-dim) !important;
+      }
+
+      /* Explicit light mode text contrast enforcement */
+      [data-theme="light"] .text-gray-900,
+      [data-theme="light"] .text-gray-800,
+      [data-theme="light"] .text-gray-700 {
+        color: #0F172A !important;
+      }
+      [data-theme="light"] .text-gray-600,
+      [data-theme="light"] .text-gray-500 {
+        color: #334155 !important;
       }
 
       /* Unread Dot */
