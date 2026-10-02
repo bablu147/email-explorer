@@ -1,8 +1,8 @@
 <template>
   <div ref="scrollContainer" @scroll="handleScroll" class="flex-1 flex flex-col min-h-0 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 overflow-y-auto">
-    <!-- Top Hub Header & Lead Performance Metrics Strip -->
-    <div class="px-4 sm:px-6 pt-5 pb-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs flex-shrink-0">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+    <!-- Top Hub Header -->
+    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs flex-shrink-0">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div class="flex items-center gap-2.5">
             <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-xs">
@@ -41,9 +41,6 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m-9-9h18" />
               </svg>
               <span>Discovered</span>
-              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                {{ stats.total_discovered }}
-              </span>
             </button>
 
             <button
@@ -56,7 +53,7 @@
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               <span>Saved Targets</span>
-              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              <span v-if="stats.saved_targets > 0" class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300">
                 {{ stats.saved_targets }}
               </span>
             </button>
@@ -117,70 +114,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-        </div>
-      </div>
-
-      <!-- Lead Performance Metrics Strip -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <!-- Metric 1: Total Discovered Apps -->
-        <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60 rounded-xl p-3 flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" stroke-width="2" />
-              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke-width="1.5" />
-            </svg>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 truncate">Total Discovered</div>
-            <div class="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-tight">
-              {{ stats.total_discovered }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Metric 2: Verified Developer Emails -->
-        <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60 rounded-xl p-3 flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 truncate">Verified Dev Emails</div>
-            <div class="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-tight">
-              {{ stats.verified_emails }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Metric 3: Pitched / Contacted -->
-        <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60 rounded-xl p-3 flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 truncate">Pitched / Contacted</div>
-            <div class="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-tight">
-              {{ stats.contacted }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Metric 4: Saved Targets -->
-        <div class="bg-gray-50 dark:bg-gray-800/60 border border-gray-200/70 dark:border-gray-700/60 rounded-xl p-3 flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[11px] font-bold text-gray-500 dark:text-gray-400 truncate">Saved Targets</div>
-            <div class="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-tight">
-              {{ stats.saved_targets }}
-            </div>
-          </div>
         </div>
       </div>
     </div>
