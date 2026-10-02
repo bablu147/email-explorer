@@ -516,32 +516,11 @@
               </div>
             </div>
 
-            <!-- Quick Presets & Popular Apps -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 px-1">
-                <span>Popular App & Platform Presets</span>
-                <span class="text-[11px] font-normal text-gray-400">Instant lookup</span>
-              </div>
-
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="preset in popularPresets"
-                  :key="preset.name"
-                  type="button"
-                  @click="applyPreset(preset)"
-                  class="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-emerald-50 dark:bg-gray-800 dark:hover:bg-emerald-950/30 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 border border-gray-200 dark:border-gray-700 hover:border-emerald-500/30 text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>{{ preset.emoji }}</span>
-                  <span>{{ preset.name }}</span>
-                </button>
-              </div>
-            </div>
-
             <!-- Helpful Guidance Note -->
-            <div class="p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2.5">
-              <span class="text-base">💡</span>
-              <p>
-                <strong>Pro tip:</strong> Paste any direct <em>play.google.com</em> or <em>apps.apple.com</em> URL into the search box above for instantaneous auto-detection and metadata extraction.
+            <div class="p-3.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2.5">
+              <span class="text-base flex-shrink-0">💡</span>
+              <p class="leading-relaxed">
+                <strong>Fast lookup:</strong> Enter an app title, Android package ID (e.g. <code class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">com.example.app</code>), or paste any direct Google Play (<code class="font-mono text-[11px]">play.google.com/...</code>) or Apple App Store (<code class="font-mono text-[11px]">apps.apple.com/...</code>) link.
               </p>
             </div>
           </div>
@@ -694,26 +673,6 @@ const platformTabs = [
 	{ id: "website" as const, label: "Website", icon: WebIcon },
 ];
 
-const popularPresets = [
-	// Gaming
-	{ name: "Clash of Clans", emoji: "⚔️", platform: "playstore" as const, query: "Clash of Clans" },
-	{ name: "Candy Crush", emoji: "🍬", platform: "playstore" as const, query: "Candy Crush Saga" },
-	{ name: "Roblox", emoji: "🧱", platform: "playstore" as const, query: "Roblox" },
-	{ name: "Subway Surfers", emoji: "🛹", platform: "playstore" as const, query: "Subway Surfers" },
-	{ name: "PUBG Mobile", emoji: "🪖", platform: "playstore" as const, query: "PUBG Mobile" },
-	// SaaS & Tools
-	{ name: "Slack", emoji: "💬", platform: "website" as const, query: "slack.com" },
-	{ name: "Notion", emoji: "📝", platform: "website" as const, query: "notion.so" },
-	{ name: "Stripe", emoji: "💳", platform: "website" as const, query: "stripe.com" },
-	{ name: "Figma", emoji: "🎨", platform: "website" as const, query: "figma.com" },
-	{ name: "Discord", emoji: "🎧", platform: "playstore" as const, query: "Discord" },
-	{ name: "Linear", emoji: "📐", platform: "website" as const, query: "linear.app" },
-	// Social
-	{ name: "Spotify", emoji: "🎵", platform: "playstore" as const, query: "Spotify" },
-	{ name: "Instagram", emoji: "📸", platform: "playstore" as const, query: "Instagram" },
-	{ name: "TikTok", emoji: "🎬", platform: "playstore" as const, query: "TikTok" },
-	{ name: "Duolingo", emoji: "🦉", platform: "playstore" as const, query: "Duolingo" },
-];
 
 // Clean email validation
 const isValidEmail = computed(() => {
@@ -1002,11 +961,6 @@ const clearSelectedItem = () => {
 	});
 };
 
-const applyPreset = (preset: typeof popularPresets[0]) => {
-	activePlatformTab.value = preset.platform;
-	searchQuery.value = preset.query;
-	executeLookup();
-};
 
 const createFallbackWebsite = () => {
 	let domain = searchQuery.value.trim();
