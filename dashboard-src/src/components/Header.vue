@@ -45,6 +45,9 @@
           </div>
 
           <div class="max-h-64 overflow-y-auto py-1">
+            <div v-if="mailboxes.length === 0" class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 italic text-center">
+              Loading mailboxes...
+            </div>
             <button
               v-for="mb in mailboxes"
               :key="mb.id"
@@ -305,6 +308,9 @@ const toggleMailboxMenu = () => {
 	isMailboxMenuOpen.value = !isMailboxMenuOpen.value;
 	if (isMailboxMenuOpen.value) {
 		isUserMenuOpen.value = false;
+		if (mailboxes.value.length === 0) {
+			mailboxStore.fetchMailboxes();
+		}
 	}
 };
 
@@ -317,7 +323,11 @@ const toggleUserMenu = () => {
 
 const switchMailbox = (targetId: string) => {
 	isMailboxMenuOpen.value = false;
-	const folder = (route.params.folder as string) || "inbox";
+	if (targetId === currentMailboxId.value) return;
+	mailboxStore.fetchMailbox(targetId);
+	const standardFolders = ["inbox", "sent", "drafts", "draft", "archive", "trash", "spam"];
+	const currentFolder = (route.params.folder as string) || "inbox";
+	const folder = standardFolders.includes(currentFolder.toLowerCase()) ? currentFolder : "inbox";
 	router.push({
 		name: "EmailList",
 		params: { mailboxId: targetId, folder },
@@ -367,14 +377,23 @@ const handleClickOutside = (event: MouseEvent) => {
 	}
 };
 
+const handleKeydown = (event: KeyboardEvent) => {
+	if (event.key === "Escape") {
+		isMailboxMenuOpen.value = false;
+		isUserMenuOpen.value = false;
+	}
+};
+
 onMounted(() => {
 	if (mailboxes.value.length === 0) {
 		mailboxStore.fetchMailboxes();
 	}
 	document.addEventListener("click", handleClickOutside);
+	document.addEventListener("keydown", handleKeydown);
 });
 
 onBeforeUnmount(() => {
 	document.removeEventListener("click", handleClickOutside);
+	document.removeEventListener("keydown", handleKeydown);
 });
 </script>

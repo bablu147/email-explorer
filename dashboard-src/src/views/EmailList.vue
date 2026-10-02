@@ -955,6 +955,7 @@ const deleteSelected = async () => {
 		}
 		selectedEmailIds.value = [];
 		showSuccessToast("Selected email(s) deleted");
+		folderStore.fetchFolders(mailboxId);
 	}
 };
 
@@ -966,6 +967,7 @@ const archiveSelected = async () => {
 		}
 		selectedEmailIds.value = [];
 		showSuccessToast("Selected email(s) moved to Archive");
+		folderStore.fetchFolders(mailboxId);
 	}
 };
 
@@ -975,6 +977,7 @@ const handleArchive = async (email: Email) => {
 	try {
 		await emailStore.moveEmail(mailboxId, email.id, "archive");
 		showSuccessToast("Moved to Archive");
+		folderStore.fetchFolders(mailboxId);
 	} catch (err: any) {
 		showErrorToast("Failed to archive email");
 	}
@@ -982,19 +985,23 @@ const handleArchive = async (email: Email) => {
 
 const handleDelete = async (emailId: string) => {
 	if (confirm("Are you sure you want to delete this email?")) {
+		const mailboxId = route.params.mailboxId as string;
 		try {
-			await emailStore.deleteEmail(route.params.mailboxId as string, emailId);
+			await emailStore.deleteEmail(mailboxId, emailId);
 			showSuccessToast("Email deleted");
+			folderStore.fetchFolders(mailboxId);
 		} catch (err: any) {
 			showErrorToast("Failed to delete email");
 		}
 	}
 };
 
-const toggleReadStatus = (email: Email) => {
-	emailStore.updateEmail(route.params.mailboxId as string, email.id, {
+const toggleReadStatus = async (email: Email) => {
+	const mailboxId = route.params.mailboxId as string;
+	await emailStore.updateEmail(mailboxId, email.id, {
 		read: !email.read,
 	});
+	folderStore.fetchFolders(mailboxId);
 };
 
 const toggleStarStatus = (email: Email) => {
@@ -1028,10 +1035,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	const list = filteredEmails.value;
-	if (!list || list.length === 0) return;
-
-	// '?' to open shortcuts modal
+	// '?' to open/close shortcuts modal (works even in empty folders!)
 	if (e.key === "?" || (e.shiftKey && e.key === "/")) {
 		e.preventDefault();
 		showShortcutsModal.value = !showShortcutsModal.value;
@@ -1040,17 +1044,29 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 	if (showShortcutsModal.value) {
 		if (e.key === "Escape") {
+			e.preventDefault();
 			showShortcutsModal.value = false;
 		}
 		return;
 	}
 
-	// 'c' to open compose modal
+	// 'c' to open compose modal (works even in empty folders!)
 	if (e.key === "c" || e.key === "C") {
 		e.preventDefault();
 		uiStore.openComposeModal();
 		return;
 	}
+
+	// 'Escape' to deselect all or clear focus
+	if (e.key === "Escape") {
+		e.preventDefault();
+		selectedEmailIds.value = [];
+		activeRowIndex.value = -1;
+		return;
+	}
+
+	const list = filteredEmails.value;
+	if (!list || list.length === 0) return;
 
 	// 'j' or ArrowDown to navigate down
 	if (e.key === "j" || e.key === "ArrowDown") {
@@ -1136,14 +1152,6 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		handleQuickReply(activeEmail);
 		return;
 	}
-
-	// 'Escape' to deselect all or clear focus
-	if (e.key === "Escape") {
-		e.preventDefault();
-		selectedEmailIds.value = [];
-		activeRowIndex.value = -1;
-		return;
-	}
 };
 
 const scrollToActiveRow = () => {
@@ -1155,13 +1163,25 @@ const scrollToActiveRow = () => {
 	});
 };
 
+const loadEmails = () => {
+	const mailboxId = route.params.mailboxId as string;
+	if (!mailboxId) return;
+	emailStore.fetchEmails(mailboxId, {
+		folder: folderId.value,
+	});
+};
+
 const startAutoRefresh = () => {
 	if (refreshInterval) clearInterval(refreshInterval);
 	refreshInterval = setInterval(() => {
-		emailStore.fetchEmails(route.params.mailboxId as string, {
-			folder: folderId.value,
-		});
-		appBindingsStore.fetchBindings(true);
+		const mailboxId = route.params.mailboxId as string;
+		if (mailboxId) {
+			emailStore.fetchEmails(mailboxId, {
+				folder: folderId.value,
+			});
+			folderStore.fetchFolders(mailboxId);
+			appBindingsStore.fetchBindings(true);
+		}
 	}, 30000);
 };
 
@@ -1173,16 +1193,13 @@ const stopAutoRefresh = () => {
 };
 
 const handleRefresh = () => {
-	emailStore.fetchEmails(route.params.mailboxId as string, {
-		folder: folderId.value,
-	});
+	loadEmails();
+	folderStore.fetchFolders(route.params.mailboxId as string);
 	appBindingsStore.fetchBindings(true);
 };
 
 onMounted(() => {
-	emailStore.fetchEmails(route.params.mailboxId as string, {
-		folder: folderId.value,
-	});
+	loadEmails();
 	startAutoRefresh();
 	window.addEventListener("keydown", handleKeyDown);
 });
@@ -1192,13 +1209,24 @@ onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeyDown);
 });
 
-watch(folderId, (newFolderId) => {
-	filterMode.value = "all";
-	searchQuery.value = "";
-	selectedEmailIds.value = [];
-	activeRowIndex.value = -1;
-	emailStore.fetchEmails(route.params.mailboxId as string, {
-		folder: newFolderId,
-	});
-});
+watch(
+	[() => route.params.mailboxId, folderId],
+	() => {
+		filterMode.value = "all";
+		searchQuery.value = "";
+		selectedEmailIds.value = [];
+		activeRowIndex.value = -1;
+		rowElements.value = [];
+		loadEmails();
+	}
+);
+
+watch(
+	() => filteredEmails.value.length,
+	(newLen) => {
+		if (activeRowIndex.value >= newLen) {
+			activeRowIndex.value = newLen > 0 ? newLen - 1 : -1;
+		}
+	}
+);
 </script>

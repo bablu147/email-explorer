@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between mb-5 gap-3">
         <div class="flex items-center gap-3 min-w-0">
           <button 
-            @click="router.back()" 
+            @click="handleBack" 
             class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 group relative cursor-pointer flex-shrink-0" 
             title="Back"
           >
@@ -374,6 +374,7 @@ import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
+import { extractCleanEmail } from "@/stores/appBindings";
 
 const emailStore = useEmailStore();
 const { currentEmail: email } = storeToRefs(emailStore);
@@ -523,20 +524,37 @@ onMounted(async () => {
 
 	await emailStore.fetchEmail(mailboxId, emailId);
 	folderStore.fetchFolders(mailboxId);
-	if (!currentMailbox.value) {
-		mailboxStore.fetchMailbox(mailboxId);
+	if (!currentMailbox.value || currentMailbox.value.id !== mailboxId) {
+		await mailboxStore.fetchMailbox(mailboxId);
 	}
 
 	if (email.value && !email.value.read) {
-		emailStore.updateEmail(mailboxId, emailId, { read: true });
+		await emailStore.updateEmail(mailboxId, emailId, { read: true });
+		folderStore.fetchFolders(mailboxId);
 	}
 });
 
-const toggleReadStatus = () => {
+const handleBack = () => {
+	if (window.history.length > 1) {
+		router.back();
+	} else {
+		router.push({
+			name: "EmailList",
+			params: {
+				mailboxId: route.params.mailboxId,
+				folder: fromFolder.value || "inbox",
+			},
+		});
+	}
+};
+
+const toggleReadStatus = async () => {
 	if (email.value) {
-		emailStore.updateEmail(route.params.mailboxId as string, email.value.id, {
+		const mailboxId = route.params.mailboxId as string;
+		await emailStore.updateEmail(mailboxId, email.value.id, {
 			read: !email.value.read,
 		});
+		folderStore.fetchFolders(mailboxId);
 	}
 };
 
@@ -556,16 +574,19 @@ const handleMove = (targetFolderId: string) => {
 			targetFolderId,
 		);
 		isMoveMenuOpen.value = false;
-		router.back();
+		folderStore.fetchFolders(route.params.mailboxId as string);
+		handleBack();
 	}
 };
 
 const handleDelete = () => {
 	if (email.value && confirm("Are you sure you want to delete this email?")) {
-		emailStore.deleteEmail(route.params.mailboxId as string, email.value.id);
+		const mailboxId = route.params.mailboxId as string;
+		emailStore.deleteEmail(mailboxId, email.value.id);
+		folderStore.fetchFolders(mailboxId);
 		router.push({
 			name: "EmailList",
-			params: { mailboxId: route.params.mailboxId, folder: "inbox" },
+			params: { mailboxId, folder: "inbox" },
 		});
 	}
 };
@@ -612,7 +633,9 @@ const sendQuickReply = async () => {
 
 	isSendingQuickReply.value = true;
 	const mailboxId = route.params.mailboxId as string;
-	const replyTarget = isSentEmail.value ? email.value.recipient : email.value.sender;
+	const rawTarget = isSentEmail.value ? email.value.recipient : email.value.sender;
+	const cleanTo = extractCleanEmail(rawTarget) || rawTarget;
+	const cleanFrom = currentMailbox.value?.email || extractCleanEmail(email.value.recipient);
 	const textContent = quickReplyText.value.trim();
 	const htmlContent = `<p>${textContent.replace(/\n/g, "<br>")}</p>`;
 	const replySubject = email.value.subject.startsWith("Re: ")
@@ -621,8 +644,8 @@ const sendQuickReply = async () => {
 
 	try {
 		const replyPayload = {
-			to: replyTarget,
-			from: currentMailbox.value?.email || email.value.recipient,
+			to: cleanTo,
+			from: cleanFrom,
 			subject: replySubject,
 			text: textContent,
 			html: htmlContent,
@@ -632,6 +655,8 @@ const sendQuickReply = async () => {
 		await api.replyToEmail(mailboxId, email.value.id, replyPayload);
 		quickReplyText.value = "";
 		showSuccessToast("Reply sent successfully!");
+		await emailStore.fetchEmail(mailboxId, email.value.id);
+		folderStore.fetchFolders(mailboxId);
 	} catch (err: any) {
 		const msg = err.response?.data?.error || "Failed to send reply";
 		showErrorToast(msg);

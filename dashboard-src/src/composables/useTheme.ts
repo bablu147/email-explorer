@@ -6,7 +6,9 @@ const isDark = ref(false);
 
 function getInitialTheme(): boolean {
 	if (typeof window === "undefined") return false;
-	const savedTheme = localStorage.getItem("reflect_theme");
+	const cookieMatch = document.cookie.match(/reflect_theme=(dark|light)/);
+	const cookieTheme = cookieMatch ? cookieMatch[1] : null;
+	const savedTheme = localStorage.getItem("reflect_theme") || cookieTheme;
 	if (savedTheme === "dark") return true;
 	if (savedTheme === "light") return false;
 	return window.matchMedia("(prefers-color-scheme: dark)").matches;
