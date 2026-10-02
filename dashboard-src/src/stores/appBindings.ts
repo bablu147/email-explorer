@@ -23,6 +23,7 @@ export const useAppBindingsStore = defineStore("appBindings", {
 		isModalOpen: false,
 		modalEmail: "",
 		modalBinding: null as AppBinding | null,
+		lastLinkedEmail: "" as string,
 	}),
 
 	getters: {
@@ -105,6 +106,7 @@ export const useAppBindingsStore = defineStore("appBindings", {
 			if (this.modalEmail === savedEmail) {
 				this.modalBinding = saved;
 			}
+			this.lastLinkedEmail = savedEmail;
 
 			return saved;
 		},

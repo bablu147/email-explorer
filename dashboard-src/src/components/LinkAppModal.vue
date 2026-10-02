@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="isModalOpen"
-    class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
+    class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-70 p-4 animate-in fade-in duration-200"
     @click.self="closeModal"
     @keydown.esc="closeModal"
   >
@@ -35,8 +35,11 @@
                 Team Shared
               </span>
             </h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Bind <span class="font-semibold text-gray-700 dark:text-gray-300 font-mono">{{ modalEmail }}</span> to an App or Website identity
+            <p v-if="targetEmail" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Bind <span class="font-semibold text-gray-700 dark:text-gray-300 font-mono">{{ targetEmail }}</span> to an App or Website identity
+            </p>
+            <p v-else class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Link an App or Website to a recipient
             </p>
           </div>
         </div>
@@ -55,6 +58,20 @@
 
       <!-- Modal Body -->
       <div class="p-6 overflow-y-auto flex-grow space-y-5">
+        <!-- Target Email Input -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+            Target Contact Email Address
+          </label>
+          <input
+            v-model="targetEmail"
+            type="email"
+            placeholder="publisher@gamestudio.com"
+            class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-lg px-3.5 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+            required
+          />
+        </div>
+
         <!-- Search & Lookup Section -->
         <div class="space-y-3">
           <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
@@ -363,13 +380,14 @@ import { computed, h, nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import api from "@/services/api";
 import { useToast } from "@/composables/useToast";
-import { useAppBindingsStore } from "@/stores/appBindings";
+import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import type { AppBinding, AppPlatform } from "@/types";
 
 const appBindingsStore = useAppBindingsStore();
 const { isModalOpen, modalEmail, modalBinding } = storeToRefs(appBindingsStore);
 const { success, error: toastError } = useToast();
 
+const targetEmail = ref("");
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const searchQuery = ref("");
 const isSearching = ref(false);
@@ -418,10 +436,15 @@ const platformTabs = [
 	{ id: "website" as const, label: "Website", icon: WebIcon },
 ];
 
-const isEditing = computed(() => !!modalBinding.value);
+const isEditing = computed(() => {
+	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
+	return !!appBindingsStore.getBinding(clean) || !!modalBinding.value;
+});
 
 const canSave = computed(() => {
+	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
 	return (
+		!!clean &&
 		!!selectedItem.value &&
 		!!selectedItem.value.app_name?.trim() &&
 		!!selectedItem.value.app_icon_url?.trim() &&
@@ -434,23 +457,26 @@ watch(
 	() => isModalOpen.value,
 	(open) => {
 		if (open) {
+			targetEmail.value = modalEmail.value || "";
 			searchResults.value = [];
 			showAdvanced.value = false;
 			activePlatformTab.value = "all";
 
-			if (modalBinding.value) {
+			const existing = modalBinding.value || appBindingsStore.getBinding(targetEmail.value);
+			if (existing) {
 				selectedItem.value = {
-					app_name: modalBinding.value.app_name,
-					app_icon_url: modalBinding.value.app_icon_url,
-					app_url: modalBinding.value.app_url,
-					platform: modalBinding.value.platform,
-					developer_name: modalBinding.value.developer_name,
+					app_name: existing.app_name,
+					app_icon_url: existing.app_icon_url,
+					app_url: existing.app_url,
+					platform: existing.platform,
+					developer_name: existing.developer_name,
 				};
-				searchQuery.value = modalBinding.value.app_name;
+				searchQuery.value = existing.app_name;
 			} else {
 				selectedItem.value = null;
 				// Auto-populate search with domain or suggested name from email
-				const emailParts = modalEmail.value.split("@");
+				const clean = extractCleanEmail(targetEmail.value);
+				const emailParts = clean.split("@");
 				if (emailParts.length === 2) {
 					const domain = emailParts[1];
 					// Strip common mail providers
@@ -595,7 +621,12 @@ const closeModal = () => {
 };
 
 const handleSave = async () => {
-	if (!selectedItem.value || !modalEmail.value) return;
+	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
+	if (!clean) {
+		toastError("Please enter a valid target email address");
+		return;
+	}
+	if (!selectedItem.value) return;
 
 	let appUrl = selectedItem.value.app_url.trim();
 	if (!/^https?:\/\//i.test(appUrl)) {
@@ -610,7 +641,7 @@ const handleSave = async () => {
 	isSaving.value = true;
 	try {
 		await appBindingsStore.saveBinding({
-			email: modalEmail.value,
+			email: clean,
 			app_name: selectedItem.value.app_name.trim(),
 			app_icon_url: appIconUrl,
 			app_url: appUrl,
@@ -618,7 +649,7 @@ const handleSave = async () => {
 			developer_name: selectedItem.value.developer_name?.trim() || null,
 		});
 
-		success(`Bound ${modalEmail.value} to ${selectedItem.value.app_name}`);
+		success(`Bound ${clean} to ${selectedItem.value.app_name}`);
 		closeModal();
 	} catch (e: any) {
 		console.error("Failed to save app binding", e);
@@ -629,15 +660,16 @@ const handleSave = async () => {
 };
 
 const handleUnlink = async () => {
-	if (!modalEmail.value) return;
-	if (!confirm(`Are you sure you want to unlink the app from ${modalEmail.value}?`)) {
+	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
+	if (!clean) return;
+	if (!confirm(`Are you sure you want to unlink the app from ${clean}?`)) {
 		return;
 	}
 
 	isSaving.value = true;
 	try {
-		await appBindingsStore.deleteBinding(modalEmail.value);
-		success(`Unlinked app identity from ${modalEmail.value}`);
+		await appBindingsStore.deleteBinding(clean);
+		success(`Unlinked app identity from ${clean}`);
 		closeModal();
 	} catch (e: any) {
 		console.error("Failed to delete binding", e);

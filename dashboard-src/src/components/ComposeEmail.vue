@@ -41,16 +41,28 @@
           <span class="block sm:inline">{{ error }}</span>
         </div>
 
-        <!-- To field with Cc / Bcc expanders -->
+        <!-- To field with Cc / Bcc expanders & App Linking -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label for="to" class="block text-xs font-bold text-gray-700 dark:text-gray-300">To</label>
             <div class="flex items-center gap-2 text-xs font-semibold">
               <button
                 type="button"
+                @click="handleOpenLinkAppModal"
+                class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold flex items-center gap-1.5 transition-colors px-2 py-0.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 cursor-pointer"
+                :title="toAppBinding ? `Edit app binding (${toAppBinding.app_name})` : 'Link recipient to App Store, Play Store, or Website'"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span>{{ toAppBinding ? '📱 ' + toAppBinding.app_name : '📱 Link App' }}</span>
+              </button>
+              <span class="text-gray-300 dark:text-gray-600">·</span>
+              <button
+                type="button"
                 @click="showCc = !showCc"
                 :class="showCc ? 'text-emerald-500 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'"
-                class="transition-colors"
+                class="transition-colors cursor-pointer"
               >
                 Cc
               </button>
@@ -59,7 +71,7 @@
                 type="button"
                 @click="showBcc = !showBcc"
                 :class="showBcc ? 'text-emerald-500 font-bold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'"
-                class="transition-colors"
+                class="transition-colors cursor-pointer"
               >
                 Bcc
               </button>
@@ -73,6 +85,118 @@
             placeholder="recipient@example.com (comma separated for multiple)"
             required 
           />
+
+          <!-- Linked App Identity Card -->
+          <div
+            v-if="toAppBinding"
+            class="mt-2.5 p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-transparent border border-emerald-500/30 dark:border-emerald-500/30 rounded-xl flex items-center justify-between gap-3 text-xs animate-in fade-in duration-200 shadow-xs"
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <!-- App Icon -->
+              <a
+                :href="toAppBinding.app_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="relative w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/25 shadow-xs flex-shrink-0 bg-white hover:scale-105 transition-transform"
+                :title="`Open ${toAppBinding.app_name} in new tab`"
+              >
+                <img
+                  :src="toAppBinding.app_icon_url"
+                  :alt="toAppBinding.app_name"
+                  class="w-full h-full object-cover"
+                  @error="onBindingImgError"
+                />
+              </a>
+
+              <!-- App Details -->
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-gray-900 dark:text-white text-sm truncate">
+                    {{ toAppBinding.app_name }}
+                  </span>
+                  <!-- Platform pill -->
+                  <span
+                    class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border flex items-center gap-1"
+                    :class="toAppBinding.platform === 'playstore' 
+                      ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30'
+                      : toAppBinding.platform === 'appstore'
+                      ? 'bg-blue-500/15 text-blue-800 dark:text-blue-300 border-blue-500/30'
+                      : 'bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border-indigo-500/30'"
+                  >
+                    <component :is="getPlatformIcon(toAppBinding.platform)" class="w-3 h-3" />
+                    <span>{{ formatPlatform(toAppBinding.platform) }}</span>
+                  </span>
+                </div>
+                <p class="text-gray-500 dark:text-gray-400 text-xs truncate mt-0.5">
+                  <span v-if="toAppBinding.developer_name">by <span class="font-medium text-gray-700 dark:text-gray-300">{{ toAppBinding.developer_name }}</span> · </span>
+                  <span class="font-mono text-[11px] text-gray-600 dark:text-gray-400">{{ cleanToEmail }}</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <!-- Insert link button -->
+              <button
+                type="button"
+                @click="insertAppLink"
+                class="px-2.5 py-1.5 rounded-lg bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 font-semibold text-xs border border-emerald-500/25 transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Insert link to this app into email message"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span>Insert Link</span>
+              </button>
+
+              <!-- Visit Store Link -->
+              <a
+                :href="toAppBinding.app_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold text-xs transition-colors flex items-center gap-1.5"
+                title="Visit store or website"
+              >
+                <span>Visit Store</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+
+              <!-- Edit binding -->
+              <button
+                type="button"
+                @click="handleOpenLinkAppModal"
+                class="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                title="Edit or change app binding"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Prompt to Link App if unlinked -->
+          <div
+            v-else-if="cleanToEmail"
+            class="mt-2 px-3 py-2 bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-between text-xs text-gray-500 dark:text-gray-400"
+          >
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-400/80"></span>
+              <span>No app or website linked to <span class="font-mono font-medium text-gray-700 dark:text-gray-300">{{ cleanToEmail }}</span> yet</span>
+            </div>
+            <button
+              type="button"
+              @click="handleOpenLinkAppModal"
+              class="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 font-bold hover:underline cursor-pointer flex items-center gap-1.5"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Link App or Website</span>
+            </button>
+          </div>
         </div>
 
         <!-- Cc Field (Collapsible) -->
@@ -186,6 +310,18 @@
               title="Save to Drafts"
             >
               Save Draft
+            </button>
+
+            <button
+              type="button"
+              @click="handleOpenLinkAppModal"
+              class="px-3 py-2 bg-gray-100 dark:bg-gray-700/60 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+              :title="toAppBinding ? `Manage linked app (${toAppBinding.app_name})` : 'Link recipient to App Store, Play Store, or Website'"
+            >
+              <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span>{{ toAppBinding ? toAppBinding.app_name : 'Link App' }}</span>
             </button>
           </div>
 
@@ -305,14 +441,15 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, h, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
+import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
-import type { OutgoingAttachment } from "@/types";
+import type { AppPlatform, OutgoingAttachment } from "@/types";
 import RichTextEditor from "./RichTextEditor.vue";
 
 const uiStore = useUIStore();
@@ -322,6 +459,7 @@ const mailboxStore = useMailboxStore();
 const { currentMailbox } = storeToRefs(mailboxStore);
 const route = useRoute();
 const { success: showSuccessToast, error: showErrorToast } = useToast();
+const appBindingsStore = useAppBindingsStore();
 
 const to = ref("");
 const cc = ref("");
@@ -336,6 +474,93 @@ const isLoading = ref(false);
 const showPreviewModal = ref(false);
 const previewDevice = ref<"desktop" | "mobile">("desktop");
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// Platform tab & badge icons
+const PlayIcon = () =>
+	h("svg", { class: "w-3 h-3 text-emerald-500 flex-shrink-0", viewBox: "0 0 24 24", fill: "currentColor" }, [
+		h("path", { d: "M3.609 1.814L13.792 12 3.61 22.186a2.03 2.03 0 01-.61-1.467V3.28c0-.573.225-1.096.609-1.466zM15.206 13.414l2.457-2.457a1.99 1.99 0 000-2.814l-2.457-2.457-3.007 3.007 3.007 2.921zM4.75 23.327l9.043-9.043 2.127 2.127-9.704 5.539a1.97 1.97 0 01-1.466.377zM4.75.673a1.97 1.97 0 011.466.377l9.704 5.539-2.127 2.127L4.75.673z" }),
+	]);
+
+const AppleIcon = () =>
+	h("svg", { class: "w-3 h-3 text-blue-500 flex-shrink-0", viewBox: "0 0 24 24", fill: "currentColor" }, [
+		h("path", { d: "M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.79 1.06-1.88.94-2.97-.93.04-2.03.62-2.68 1.41-.57.66-.99 1.77-.85 2.84 1.03.08 2.05-.53 2.59-1.28z" }),
+	]);
+
+const WebIcon = () =>
+	h("svg", { class: "w-3 h-3 text-indigo-500 flex-shrink-0", fill: "none", stroke: "currentColor", viewBox: "0 0 24 24" }, [
+		h("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "2", d: "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" }),
+	]);
+
+const getPlatformIcon = (platform: AppPlatform) => {
+	switch (platform) {
+		case "playstore":
+			return PlayIcon;
+		case "appstore":
+			return AppleIcon;
+		case "website":
+			return WebIcon;
+	}
+};
+
+const formatPlatform = (platform: AppPlatform) => {
+	switch (platform) {
+		case "playstore":
+			return "Google Play";
+		case "appstore":
+			return "App Store";
+		case "website":
+			return "Website";
+	}
+};
+
+const cleanToEmail = computed(() => extractCleanEmail(to.value));
+
+const toAppBinding = computed(() => {
+	if (!cleanToEmail.value) return null;
+	return appBindingsStore.getBinding(cleanToEmail.value);
+});
+
+const onBindingImgError = (event: Event) => {
+	const img = event.target as HTMLImageElement;
+	if (img.dataset.hasError) return;
+	img.dataset.hasError = "true";
+	if (toAppBinding.value?.platform === "playstore") {
+		img.src = "https://www.google.com/s2/favicons?domain=play.google.com&sz=128";
+	} else if (toAppBinding.value?.platform === "appstore") {
+		img.src = "https://www.google.com/s2/favicons?domain=apple.com&sz=128";
+	} else {
+		try {
+			const u = new URL(toAppBinding.value?.app_url || "");
+			img.src = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=128`;
+		} catch {
+			img.src = "https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128";
+		}
+	}
+};
+
+const handleOpenLinkAppModal = () => {
+	const email = cleanToEmail.value || to.value.trim();
+	appBindingsStore.openLinkModal(email, toAppBinding.value);
+};
+
+const insertAppLink = () => {
+	if (!toAppBinding.value) return;
+	const linkHtml = `<p><strong>App:</strong> <a href="${toAppBinding.value.app_url}" target="_blank" rel="noopener noreferrer">${toAppBinding.value.app_name}</a></p>`;
+	body.value = (body.value || "") + linkHtml;
+	showSuccessToast(`Inserted link to ${toAppBinding.value.app_name}`);
+};
+
+// When an app binding is saved in the modal, if compose recipient was empty, auto-populate it
+watch(
+	() => appBindingsStore.lastLinkedEmail,
+	(linkedEmail) => {
+		if (isComposeModalOpen.value && linkedEmail) {
+			if (!to.value.trim()) {
+				to.value = linkedEmail;
+			}
+		}
+	},
+);
 
 const modalTitle = computed(() => {
 	switch (composeOptions.value.mode) {
@@ -426,6 +651,7 @@ const getSignatureBlock = (): string => {
 // Watch for compose modal opening and pre-populate fields
 watch(isComposeModalOpen, (isOpen) => {
 	if (isOpen) {
+		appBindingsStore.fetchBindings();
 		const options = composeOptions.value;
 		const original = options.originalEmail;
 		const sigBlock = getSignatureBlock();
