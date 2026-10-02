@@ -344,13 +344,39 @@ async function fetchAppleApps(
 			}
 		}
 
+		// If category filtering returned fewer than 50 items, supplement with iTunes search
+		if (ids.length < 60) {
+			try {
+				const searchTerm = catLower && catLower !== "all"
+					? `${category} mobile app`
+					: (chart === "newfree" ? "soft launch game" : "popular game");
+				const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=software&country=${c}&limit=50`;
+				const searchRes = await fetch(searchUrl, { signal: AbortSignal.timeout(6000) });
+				if (searchRes.ok) {
+					const searchData = (await searchRes.json()) as any;
+					if (searchData.results && Array.isArray(searchData.results)) {
+						for (const r of searchData.results) {
+							const tId = String(r.trackId || r.bundleId);
+							if (tId && !entryIdMap.has(tId)) {
+								ids.push(tId);
+								entryIdMap.set(tId, {});
+								if (ids.length >= 100) break;
+							}
+						}
+					}
+				}
+			} catch (e) {
+				console.error("Apple search supplement error", e);
+			}
+		}
+
 		if (ids.length === 0) {
 			const fallbackTerm = catLower && catLower !== "all" ? `${category} game` : "mobile game";
 			return await fetchAppleApps(country, chart, category, limit, fallbackTerm);
 		}
 
 		// Batch lookup in iTunes Lookup API (up to 100 items in single HTTP call)
-		const lookupUrl = `https://itunes.apple.com/lookup?id=${ids.slice(0, 80).join(",")}&country=${c}`;
+		const lookupUrl = `https://itunes.apple.com/lookup?id=${ids.slice(0, 100).join(",")}&country=${c}`;
 		const lookupRes = await fetch(lookupUrl, { signal: AbortSignal.timeout(6000) });
 		let lookupResults: any[] = [];
 		if (lookupRes.ok) {
@@ -1048,6 +1074,144 @@ const FALLBACK_SOFT_LAUNCH_APPS: Record<string, z.infer<typeof DiscoverAppSchema
 		is_saved: false,
 		opened_count: 0,
 	},
+	"com.zynga.starwars.hunters": {
+		id: "playstore_com.zynga.starwars.hunters",
+		bundle_id: "com.zynga.starwars.hunters",
+		platform: "playstore",
+		app_name: "Star Wars: Hunters (Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/9vWw2QJ0U5a6X4j1hG3vE9z8kL4tQ5sF7rB3nN2oD1yU8wA2bC4m6vO9pI=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.zynga.starwars.hunters",
+		developer_name: "Zynga",
+		developer_email: "support@zynga.com",
+		developer_website: "https://starwarshunters.com",
+		installs_bracket: "1M+",
+		rating: 4.5,
+		reviews_count: 48000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-05-01",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.blizzard.diablo.immortal": {
+		id: "playstore_com.blizzard.diablo.immortal",
+		bundle_id: "com.blizzard.diablo.immortal",
+		platform: "playstore",
+		app_name: "Diablo Immortal (Global Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/UrY7BAZ-XfXGpfkeWg0zCCeo-7blznDchjPrxdxdTxikiocDJxebnn7SlfZGF3YIOqX2=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.blizzard.diablo.immortal",
+		developer_name: "Blizzard Entertainment, Inc.",
+		developer_email: "support@blizzard.com",
+		developer_website: "https://diabloimmortal.blizzard.com",
+		installs_bracket: "10M+",
+		rating: 4.4,
+		reviews_count: 1100000,
+		category: "Role Playing",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-04-10",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.krafton.darkanddarkermobile": {
+		id: "playstore_com.krafton.darkanddarkermobile",
+		bundle_id: "com.krafton.darkanddarkermobile",
+		platform: "playstore",
+		app_name: "Dark and Darker Mobile (Beta Test)",
+		app_icon_url: "https://play-lh.googleusercontent.com/LByr2BIkVNx1AbEJ0-eOK9PIdLWFnuhyoRVQvNkigaqlIGFeGsN1WytUQgahUdSnNx8=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.krafton.darkanddarkermobile",
+		developer_name: "KRAFTON, Inc.",
+		developer_email: "dadm_support@krafton.com",
+		developer_website: "https://darkanddarkermobile.krafton.com",
+		installs_bracket: "100K+",
+		rating: 4.7,
+		reviews_count: 12500,
+		category: "Role Playing",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-08-20",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.kurogame.wutheringwaves.global": {
+		id: "playstore_com.kurogame.wutheringwaves.global",
+		bundle_id: "com.kurogame.wutheringwaves.global",
+		platform: "playstore",
+		app_name: "Wuthering Waves (Soft Launch)",
+		app_icon_url: "https://play-lh.googleusercontent.com/OBVqgRK7eerY0GPfK8AOzitu5oE9ecC6kG4kURTCb1K41gpqVsN0WjmJwJh-wX8vILzpcc1kYHt56aLN2g=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.kurogame.wutheringwaves.global",
+		developer_name: "KURO GAMES",
+		developer_email: "wutheringwaves_ensupport@kurogame.com",
+		developer_website: "https://wutheringwaves.kurogames.com",
+		installs_bracket: "5M+",
+		rating: 4.5,
+		reviews_count: 350000,
+		category: "Action",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-05-22",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.devsisters.crk": {
+		id: "playstore_com.devsisters.crk",
+		bundle_id: "com.devsisters.crk",
+		platform: "playstore",
+		app_name: "CookieRun: Kingdom",
+		app_icon_url: "https://play-lh.googleusercontent.com/i1b6u9g4h5t6y7u8i9o0p1a2s3d4f5g6h7j8k9l0z1x2c3v4b5n6m7=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.devsisters.crk",
+		developer_name: "Devsisters Corporation",
+		developer_email: "support@devsisters.zendesk.com",
+		developer_website: "https://cookierun-kingdom.com",
+		installs_bracket: "10M+",
+		rating: 4.6,
+		reviews_count: 980000,
+		category: "Role Playing",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: "2026-01-20",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.netease.frostpunk": {
+		id: "playstore_com.netease.frostpunk",
+		bundle_id: "com.netease.frostpunk",
+		platform: "playstore",
+		app_name: "Frostpunk: Beyond the Ice",
+		app_icon_url: "https://play-lh.googleusercontent.com/WNWZaxi-AfLtOmAcXA0AXPTtOhKHiST8lSeOtBpAioWAYr-3e5chhUR14Cr7cBlVmg=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.netease.frostpunk",
+		developer_name: "NetEase Games",
+		developer_email: "frostpunk@service.netease.com",
+		developer_website: "https://frostpunkmobile.com",
+		installs_bracket: "500K+",
+		rating: 4.4,
+		reviews_count: 32000,
+		category: "Strategy",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: "2026-06-15",
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
 };
 
 const FALLBACK_TOPFREE_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
@@ -1269,38 +1433,54 @@ async function fetchPlayStoreApps(
 					? `${category} early access soft launch`
 					: "early access game soft launch";
 				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
-				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("soft launch game")}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("soft launch mobile game")}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("early access game new")}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("pre register game new")}&c=apps&hl=en&gl=${c}`);
 			} else if (chart === "trending") {
 				const searchWord = catLower && catLower !== "all"
 					? `trending ${category} games`
 					: "trending games new";
 				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
-			} else if (playCat) {
-				targetUrls.push(`https://play.google.com/store/apps/category/${playCat}?hl=en&gl=${c}`);
-			} else if (catLower.includes("game")) {
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("popular mobile games 2026")}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("viral breakout games")}&c=apps&hl=en&gl=${c}`);
+			} else if (chart === "topfree") {
 				targetUrls.push(`https://play.google.com/store/games?hl=en&gl=${c}`);
+				const searchWord = catLower && catLower !== "all" ? `free ${category} games` : "top free games";
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("most downloaded free games")}&c=apps&hl=en&gl=${c}`);
+			} else {
+				targetUrls.push(`https://play.google.com/store/games?hl=en&gl=${c}`);
+				const searchWord = catLower && catLower !== "all" ? `top ${category} games` : "top grossing games";
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
+				targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent("best grossing mobile games")}&c=apps&hl=en&gl=${c}`);
+				if (playCat) {
+					targetUrls.push(`https://play.google.com/store/apps/category/${playCat}?hl=en&gl=${c}`);
+				}
 			}
 
-			// Add top grossing and free charts if not already added
-			if (chart !== "newfree" && chart !== "trending") {
-				targetUrls.push(`https://play.google.com/store/apps/top?hl=en&gl=${c}`);
-				targetUrls.push(`https://play.google.com/store/apps?hl=en&gl=${c}`);
-			}
-
+			const targetLimit = Math.min(Math.max(limit, 50), 80);
+			const seen = new Set<string>();
 			for (const targetUrl of targetUrls) {
-				const res = await fetch(targetUrl, {
-					headers: BROWSER_HEADERS,
-					signal: AbortSignal.timeout(6000),
-				});
-				if (res.ok) {
-					const html = await res.text();
-					const matches = [...html.matchAll(/\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g)];
-					const ids = Array.from(new Set(matches.map((m) => m[1])))
-						.filter((id) => !id.includes("search") && id.includes("."));
-					if (ids.length > 0) {
-						packageIds = ids.slice(0, Math.min(limit, 30));
-						break;
+				if (packageIds.length >= targetLimit) break;
+				try {
+					const res = await fetch(targetUrl, {
+						headers: BROWSER_HEADERS,
+						signal: AbortSignal.timeout(6000),
+					});
+					if (res.ok) {
+						const html = await res.text();
+						const matches = [...html.matchAll(/\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g)];
+						for (const m of matches) {
+							const pkg = m[1];
+							if (!pkg.includes("search") && pkg.includes(".") && !seen.has(pkg)) {
+								seen.add(pkg);
+								packageIds.push(pkg);
+								if (packageIds.length >= targetLimit) break;
+							}
+						}
 					}
+				} catch {
+					// Continue to next query URL
 				}
 			}
 		} catch (e) {
@@ -1485,7 +1665,7 @@ export class GetDiscoverApps extends OpenAPIRoute {
 		const { platform, country, chart, category, limit, page, query } = data.query;
 
 		const targetCountry = normalizeCountryCode(country);
-		const fetchCount = Math.min(Math.max(limit * page, 50), 100);
+		const fetchCount = Math.min(Math.max(limit * (page + 1), 80), 200);
 
 		let appStoreList: z.infer<typeof DiscoverAppSchema>[] = [];
 		let playStoreList: z.infer<typeof DiscoverAppSchema>[] = [];

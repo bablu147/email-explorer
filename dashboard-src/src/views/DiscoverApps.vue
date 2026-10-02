@@ -827,9 +827,26 @@
       </div>
 
       <!-- Responsive Pagination Controls -->
-      <div v-if="totalPages > 1" class="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xs">
-        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          Showing <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeStart }}</span> to <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeEnd }}</span> of <span class="font-bold text-gray-800 dark:text-gray-200">{{ totalCount }}</span> apps
+      <div v-if="totalPages > 1 || totalCount > 12" class="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xs">
+        <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 font-medium">
+          <div>
+            Showing <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeStart }}</span> to <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeEnd }}</span> of <span class="font-bold text-gray-800 dark:text-gray-200">{{ totalCount }}</span> apps
+          </div>
+
+          <!-- Page size picker -->
+          <div class="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-gray-200 dark:border-gray-700">
+            <span>Per page:</span>
+            <select
+              v-model="filters.limit"
+              @change="onLimitChange"
+              :disabled="loading"
+              class="px-2 py-0.5 text-xs font-bold rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+            >
+              <option :value="24">24</option>
+              <option :value="48">48</option>
+              <option :value="96">96</option>
+            </select>
+          </div>
         </div>
         <div class="inline-flex items-center gap-2">
           <button
@@ -944,6 +961,13 @@ const onFilterChange = () => {
 	}
 	filters.value.page = 1;
 	discoverStore.fetchApps();
+};
+
+const onLimitChange = () => {
+	filters.value.page = 1;
+	if (filters.value.activeTab === "discover") {
+		discoverStore.fetchApps();
+	}
 };
 
 const refreshData = () => {
