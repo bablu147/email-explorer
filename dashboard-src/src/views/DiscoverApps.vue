@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col min-h-0 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 overflow-y-auto">
+  <div ref="scrollContainer" @scroll="handleScroll" class="flex-1 flex flex-col min-h-0 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 overflow-y-auto">
     <!-- Top Hub Header & Lead Performance Metrics Strip -->
     <div class="px-4 sm:px-6 pt-5 pb-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs flex-shrink-0">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
@@ -826,63 +826,85 @@
         </div>
       </div>
 
-      <!-- Responsive Pagination Controls -->
-      <div v-if="totalPages > 1 || totalCount > 12" class="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xs">
-        <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 font-medium">
-          <div>
-            Showing <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeStart }}</span> to <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeEnd }}</span> of <span class="font-bold text-gray-800 dark:text-gray-200">{{ totalCount }}</span> apps
-          </div>
+      <!-- Infinite Scroll & Endless Discovery Controls -->
+      <div v-if="filters.activeTab === 'discover'" class="mt-8 mb-8 flex flex-col items-center justify-center gap-3">
+        <!-- Observer Sentinel -->
+        <div ref="infiniteScrollSentinel" class="h-4 w-full"></div>
 
-          <!-- Page size picker -->
-          <div class="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-gray-200 dark:border-gray-700">
-            <span>Per page:</span>
-            <select
-              v-model="filters.limit"
-              @change="onLimitChange"
-              :disabled="loading"
-              class="px-2 py-0.5 text-xs font-bold rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
-              <option :value="24">24</option>
-              <option :value="48">48</option>
-              <option :value="96">96</option>
-            </select>
-          </div>
+        <!-- Animated Loading Spinner when fetching next batch -->
+        <div
+          v-if="loadingMore"
+          class="py-3 px-6 rounded-2xl bg-white dark:bg-gray-800 border border-emerald-500/40 shadow-sm flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm animate-pulse"
+        >
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Discovering more mobile apps & developer emails... ({{ apps.length }} loaded)</span>
         </div>
-        <div class="inline-flex items-center gap-2">
+
+        <!-- Manual "Load More" Fallback Button -->
+        <div v-else-if="hasMore && !loading && apps.length > 0" class="flex flex-col items-center gap-1.5">
           <button
             type="button"
-            @click="prevPage"
-            :disabled="filters.page <= 1 || loading"
-            class="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
+            @click="discoverStore.loadMoreApps()"
+            class="px-5 py-2.5 rounded-xl bg-white dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-gray-750 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs hover:shadow transition-all font-bold text-xs flex items-center gap-2 cursor-pointer group"
           >
-            ← Previous
+            <svg class="w-4 h-4 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            <span>Load More Apps ({{ apps.length }} loaded so far)</span>
           </button>
-          <span class="px-2.5 py-1 text-xs font-bold text-gray-700 dark:text-gray-300">
-            Page {{ filters.page }} of {{ totalPages }}
-          </span>
-          <button
-            type="button"
-            @click="nextPage"
-            :disabled="filters.page >= totalPages || loading"
-            class="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
-          >
-            Next →
-          </button>
+          <span class="text-[11px] text-gray-400">Scroll down to stream more continuously</span>
+        </div>
+
+        <!-- End of Stream Indicator -->
+        <div
+          v-else-if="!hasMore && apps.length > 0"
+          class="py-3 px-5 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 text-xs font-semibold flex items-center gap-2 border border-gray-200/60 dark:border-gray-700/60"
+        >
+          <span>✨ You've explored all {{ apps.length }} apps for this filter. Switch country, platform, or category to uncover more targets!</span>
+        </div>
+      </div>
+
+      <!-- Saved Targets (Leads) Tab Summary -->
+      <div v-else-if="filters.activeTab === 'leads' && leads.length > 0" class="mt-6 mb-6 flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xs text-xs text-gray-500">
+        <div>
+          Total Saved Targets: <span class="font-bold text-gray-900 dark:text-white">{{ displayedApps.length }}</span>
+        </div>
+        <div class="text-[11px] text-gray-400">
+          Saved targets are stored and accessible anytime.
         </div>
       </div>
     </div>
+
+    <!-- Floating "Back to Top" Quick-Jump Button -->
+    <transition name="fade">
+      <button
+        v-if="showBackToTop"
+        type="button"
+        @click="scrollToTop"
+        class="fixed bottom-6 right-6 p-3 rounded-full bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-lg hover:shadow-xl transition-all cursor-pointer z-50 flex items-center gap-1.5 font-bold text-xs"
+        title="Back to Top"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+        </svg>
+        <span class="hidden sm:inline pr-1">Top</span>
+      </button>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useToast } from "@/composables/useToast";
 import { useDiscoverStore } from "@/stores/discover";
 import type { DiscoveredApp, DiscoverPlatform } from "@/types";
 
 const discoverStore = useDiscoverStore();
-const { apps, leads, stats, filters, loading, leadsLoading, savingLeadIds, error, displayedApps } =
+const { apps, leads, stats, filters, loading, leadsLoading, loadingMore, hasMore, savingLeadIds, error, displayedApps } =
 	storeToRefs(discoverStore);
 const { isSaved } = discoverStore;
 
@@ -891,34 +913,25 @@ const { success: showSuccessToast, error: showErrorToast } = useToast();
 const searchInput = ref(filters.value.query);
 const copiedEmail = ref<string | null>(null);
 
+const scrollContainer = ref<HTMLElement | null>(null);
+const infiniteScrollSentinel = ref<HTMLElement | null>(null);
+const showBackToTop = ref(false);
+let observer: IntersectionObserver | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const totalCount = computed(() => discoverStore.totalCount);
-const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / filters.value.limit)));
-
-const pageRangeStart = computed(() => {
-	if (totalCount.value === 0) return 0;
-	return (filters.value.page - 1) * filters.value.limit + 1;
-});
-
-const pageRangeEnd = computed(() => {
-	return Math.min(filters.value.page * filters.value.limit, totalCount.value);
-});
-
-const prevPage = () => {
-	if (filters.value.page > 1) {
-		filters.value.page--;
-		if (filters.value.activeTab === "discover") {
-			discoverStore.fetchApps();
-		}
-	}
+const scrollToTop = () => {
+	scrollContainer.value?.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-const nextPage = () => {
-	if (filters.value.page < totalPages.value) {
-		filters.value.page++;
-		if (filters.value.activeTab === "discover") {
-			discoverStore.fetchApps();
+const handleScroll = () => {
+	if (!scrollContainer.value) return;
+	const { scrollTop, scrollHeight, clientHeight } = scrollContainer.value;
+	showBackToTop.value = scrollTop > 350;
+
+	// Fallback infinite scroll trigger if scrolled near bottom
+	if (scrollHeight - scrollTop - clientHeight < 400) {
+		if (!loading.value && !loadingMore.value && hasMore.value && filters.value.activeTab === "discover") {
+			discoverStore.loadMoreApps();
 		}
 	}
 };
@@ -961,13 +974,6 @@ const onFilterChange = () => {
 	}
 	filters.value.page = 1;
 	discoverStore.fetchApps();
-};
-
-const onLimitChange = () => {
-	filters.value.page = 1;
-	if (filters.value.activeTab === "discover") {
-		discoverStore.fetchApps();
-	}
 };
 
 const refreshData = () => {
@@ -1039,6 +1045,41 @@ const onImgError = (event: Event, platform: string) => {
 onMounted(() => {
 	discoverStore.fetchLeads();
 	discoverStore.fetchApps();
+
+	// Attach IntersectionObserver for seamless infinite scrolling
+	if (typeof window !== "undefined" && "IntersectionObserver" in window) {
+		observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (entry && entry.isIntersecting) {
+					if (!loading.value && !loadingMore.value && hasMore.value && filters.value.activeTab === "discover") {
+						discoverStore.loadMoreApps();
+					}
+				}
+			},
+			{
+				root: null,
+				rootMargin: "350px 0px",
+				threshold: 0.01,
+			},
+		);
+
+		if (infiniteScrollSentinel.value) {
+			observer.observe(infiniteScrollSentinel.value);
+		}
+	}
+});
+
+watch(infiniteScrollSentinel, (newEl, oldEl) => {
+	if (oldEl && observer) observer.unobserve(oldEl);
+	if (newEl && observer) observer.observe(newEl);
+});
+
+onUnmounted(() => {
+	if (observer) {
+		observer.disconnect();
+		observer = null;
+	}
 });
 </script>
 

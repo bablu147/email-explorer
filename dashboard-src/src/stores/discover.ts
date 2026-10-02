@@ -17,6 +17,8 @@ export const useDiscoverStore = defineStore("discover", {
 		savedLeadIds: {} as Record<string, boolean>,
 		loading: false,
 		leadsLoading: false,
+		loadingMore: false,
+		hasMore: true,
 		savingLeadIds: {} as Record<string, boolean>,
 		error: null as string | null,
 		total: 0,
@@ -77,7 +79,7 @@ export const useDiscoverStore = defineStore("discover", {
 			if (state.filters.activeTab === "leads") {
 				return state.leads.length;
 			}
-			return state.total;
+			return state.apps.length;
 		},
 
 		hasVerifiedEmail: () => (app: DiscoveredApp): boolean => {
@@ -89,6 +91,8 @@ export const useDiscoverStore = defineStore("discover", {
 		async fetchApps() {
 			this.loading = true;
 			this.error = null;
+			this.filters.page = 1;
+			this.hasMore = true;
 			try {
 				const params: any = {
 					platform: this.filters.platform,
@@ -96,7 +100,7 @@ export const useDiscoverStore = defineStore("discover", {
 					chart: this.filters.chart,
 					category: this.filters.category,
 					limit: this.filters.limit,
-					page: this.filters.page,
+					page: 1,
 				};
 				if (this.filters.query.trim()) {
 					params.query = this.filters.query.trim();
@@ -107,15 +111,7 @@ export const useDiscoverStore = defineStore("discover", {
 
 				this.apps = data.apps || [];
 				this.total = data.total || this.apps.length;
-
-				if (data.stats) {
-					this.stats = {
-						total_discovered: data.stats.total_discovered || this.total,
-						verified_emails: data.stats.verified_emails || 0,
-						contacted: data.stats.contacted || 0,
-						saved_targets: this.leads.length || data.stats.saved_targets || 0,
-					};
-				}
+				this.hasMore = data.has_more !== false && this.apps.length >= Math.min(this.filters.limit, 10);
 
 				// Synchronize saved leads map with returned apps
 				for (const app of this.apps) {
@@ -124,11 +120,92 @@ export const useDiscoverStore = defineStore("discover", {
 						this.savedLeadIds[`${app.platform}_${app.bundle_id}`] = true;
 					}
 				}
+
+				const verifiedEmails = this.apps.filter((a) => a.developer_email && a.developer_email.includes("@")).length;
+				const contacted = this.apps.filter((a) => a.status === "contacted" || a.status === "opened" || a.status === "bound").length;
+
+				this.stats = {
+					total_discovered: this.apps.length,
+					verified_emails: verifiedEmails,
+					contacted,
+					saved_targets: this.leads.length || (data.stats ? data.stats.saved_targets : 0),
+				};
 			} catch (err: any) {
 				console.error("Failed to discover apps", err);
 				this.error = err.response?.data?.error || err.message || "Failed to fetch apps";
 			} finally {
 				this.loading = false;
+			}
+		},
+
+		async loadMoreApps() {
+			if (this.loading || this.loadingMore || !this.hasMore || this.filters.activeTab !== "discover") {
+				return;
+			}
+
+			this.loadingMore = true;
+			try {
+				const nextPage = this.filters.page + 1;
+				const params: any = {
+					platform: this.filters.platform,
+					country: this.filters.country,
+					chart: this.filters.chart,
+					category: this.filters.category,
+					limit: this.filters.limit,
+					page: nextPage,
+				};
+				if (this.filters.query.trim()) {
+					params.query = this.filters.query.trim();
+				}
+
+				const res = await api.discoverApps(params);
+				const data = res.data;
+				const newApps: DiscoveredApp[] = data.apps || [];
+
+				if (newApps.length === 0) {
+					this.hasMore = false;
+					return;
+				}
+
+				this.filters.page = nextPage;
+
+				// Deduplicate incoming apps against already collected apps
+				const existingIds = new Set(this.apps.map((a) => a.id));
+				const existingKeys = new Set(this.apps.map((a) => `${a.platform}_${a.bundle_id}`));
+
+				const filteredNew = newApps.filter((a) => {
+					const key = `${a.platform}_${a.bundle_id}`;
+					if (existingIds.has(a.id) || existingKeys.has(key)) {
+						return false;
+					}
+					existingIds.add(a.id);
+					existingKeys.add(key);
+					return true;
+				});
+
+				this.apps.push(...filteredNew);
+				this.hasMore = data.has_more !== false && newApps.length >= Math.min(this.filters.limit, 8);
+
+				// Synchronize saved leads map for new arrivals
+				for (const app of filteredNew) {
+					if (app.is_saved) {
+						this.savedLeadIds[app.id] = true;
+						this.savedLeadIds[`${app.platform}_${app.bundle_id}`] = true;
+					}
+				}
+
+				// Dynamically compute cumulative metric strip numbers
+				const verifiedEmails = this.apps.filter((a) => a.developer_email && a.developer_email.includes("@")).length;
+				const contacted = this.apps.filter((a) => a.status === "contacted" || a.status === "opened" || a.status === "bound").length;
+
+				this.stats.total_discovered = this.apps.length;
+				this.stats.verified_emails = verifiedEmails;
+				this.stats.contacted = contacted;
+				this.stats.saved_targets = this.leads.length;
+			} catch (err: any) {
+				console.error("Failed to load more apps", err);
+			} finally {
+				this.loadingMore = false;
 			}
 		},
 

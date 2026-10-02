@@ -51,6 +51,7 @@ export const DiscoverAppsResponseSchema = z.object({
 	total: z.number(),
 	page: z.number(),
 	limit: z.number(),
+	has_more: z.boolean().optional(),
 	stats: DiscoverStatsSchema,
 });
 
@@ -233,23 +234,56 @@ const APPLE_CATEGORY_GENRE_MAP: Record<string, string> = {
 	lifestyle: "6012",
 };
 
+const APPLE_PAGE_SEARCH_TERMS: Record<string, string[][]> = {
+	newfree: [
+		["soft launch mobile games", "early access games"],
+		["new release mobile games", "pre register games"],
+		["beta playtest games", "indie game early access"],
+		["upcoming mobile rpg", "new strategy game soft launch"],
+		["soft launch puzzle", "early access multiplayer game"],
+		["tactics soft launch", "action game pre order"],
+		["simulation mobile new", "casual game soft launch"],
+	],
+	topgrossing: [
+		["action rpg top games", "strategy battle games"],
+		["puzzle casual top games", "multiplayer royale games"],
+		["simulation tycoon games", "adventure rpg mobile"],
+		["sports racing top games", "fps shooter games"],
+		["anime rpg mobile games", "card battler top"],
+		["mmo fantasy games", "tower defense popular"],
+	],
+	topfree: [
+		["free games top popular", "casual free arcade"],
+		["trending free games viral", "hypercasual games"],
+		["runner games mobile", "puzzle games free"],
+		["multiplayer party games", "social free games"],
+	],
+	trending: [
+		["trending games 2026", "viral breakout games"],
+		["fastest rising games", "new trending apps"],
+		["trending mobile rpg", "breakout indie games"],
+	],
+};
+
 async function fetchAppleApps(
 	country: string,
 	chart: string,
 	category: string,
 	limit: number,
 	query?: string,
+	page = 1,
 ): Promise<z.infer<typeof DiscoverAppSchema>[]> {
 	const c = normalizeCountryCode(country);
 
 	// If explicit search query is provided, call iTunes Search API directly
 	if (query && query.trim()) {
 		try {
-			const cacheKey = `itunes_search_${c}_${encodeURIComponent(query.trim())}_${limit}`;
+			const cacheKey = `itunes_search_${c}_${encodeURIComponent(query.trim())}_${page}_${limit}`;
 			const cached = getCached<z.infer<typeof DiscoverAppSchema>[]>(cacheKey);
 			if (cached) return cached;
 
-			const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query.trim())}&entity=software&country=${c}&limit=${limit}`;
+			const offset = (page - 1) * limit;
+			const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query.trim())}&entity=software&country=${c}&limit=${limit}&offset=${offset}`;
 			const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
 			if (!res.ok) return [];
 			const data = (await res.json()) as any;
@@ -294,6 +328,89 @@ async function fetchAppleApps(
 			return apps;
 		} catch (e) {
 			console.error("Apple search error", e);
+			return [];
+		}
+	}
+
+	// For page > 1 without explicit query, execute targeted rotational searches for endless discovery
+	if (page > 1) {
+		try {
+			const catLower = category.toLowerCase().trim();
+			const termsMatrix = APPLE_PAGE_SEARCH_TERMS[chart] || APPLE_PAGE_SEARCH_TERMS.topgrossing;
+			const pageIndex = (page - 2) % termsMatrix.length;
+			const queryTerms = termsMatrix[pageIndex] || ["mobile games", "top apps"];
+			
+			const searchTerms = catLower && catLower !== "all"
+				? queryTerms.map((t) => `${category} ${t}`)
+				: queryTerms;
+
+			const cacheKey = `itunes_page_${c}_${chart}_${category}_${page}_${limit}`;
+			const cached = getCached<z.infer<typeof DiscoverAppSchema>[]>(cacheKey);
+			if (cached) return cached;
+
+			const allResults: any[] = [];
+			const seenBundle = new Set<string>();
+
+			for (const term of searchTerms) {
+				const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=software&country=${c}&limit=35`;
+				try {
+					const res = await fetch(searchUrl, { signal: AbortSignal.timeout(5000) });
+					if (res.ok) {
+						const data = (await res.json()) as any;
+						if (data.results && Array.isArray(data.results)) {
+							for (const item of data.results) {
+								const bId = item.bundleId || `id${item.trackId}`;
+								if (!seenBundle.has(bId)) {
+									seenBundle.add(bId);
+									allResults.push(item);
+									if (allResults.length >= limit) break;
+								}
+							}
+						}
+					}
+				} catch {}
+				if (allResults.length >= limit) break;
+			}
+
+			const apps: z.infer<typeof DiscoverAppSchema>[] = allResults.map((item: any) => {
+				const trackId = String(item.trackId || item.bundleId);
+				const bundleId = item.bundleId || `id${trackId}`;
+				let icon = item.artworkUrl512 || item.artworkUrl100 || item.artworkUrl60;
+				if (icon && icon.includes("100x100bb")) icon = icon.replace("100x100bb", "512x512bb");
+
+				const email = extractEmailFromString(item.description || "") ||
+					extractEmailFromString(item.sellerUrl || "") ||
+					deriveDomainEmail(item.sellerUrl);
+
+				return {
+					id: `appstore_${bundleId}`,
+					bundle_id: bundleId,
+					platform: "appstore",
+					app_name: decodeHtmlEntities(item.trackName || item.trackCensoredName || "App"),
+					app_icon_url: icon || "https://www.google.com/s2/favicons?domain=apple.com&sz=128",
+					app_url: item.trackViewUrl || `https://apps.apple.com/app/id${trackId}`,
+					developer_name: item.artistName || item.sellerName || null,
+					developer_email: email,
+					developer_website: item.sellerUrl || null,
+					installs_bracket: calculateInstallsFromReviews(item.userRatingCount),
+					rating: typeof item.averageUserRating === "number" ? Number(item.averageUserRating.toFixed(1)) : 4.6,
+					reviews_count: typeof item.userRatingCount === "number" ? item.userRatingCount : 25000,
+					category: item.primaryGenreName || item.genres?.[0] || "Apps",
+					country: country.toUpperCase(),
+					has_iap: true,
+					has_ads: false,
+					release_date: item.releaseDate ? item.releaseDate.split("T")[0] : null,
+					updated_date: item.currentVersionReleaseDate ? item.currentVersionReleaseDate.split("T")[0] : null,
+					status: "uncontacted",
+					is_saved: false,
+					opened_count: 0,
+				};
+			});
+
+			setCached(cacheKey, apps, 900);
+			return apps;
+		} catch (e) {
+			console.error("Apple page search error", e);
 			return [];
 		}
 	}
@@ -1381,15 +1498,48 @@ const FALLBACK_TRENDING_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> 
 	},
 };
 
+const PLAY_PAGE_SEARCH_TERMS: Record<string, string[][]> = {
+	newfree: [
+		["early access new release", "pre register game 2026"],
+		["beta test mobile game", "new indie game early access"],
+		["soft launch action game", "upcoming mobile rpg early access"],
+		["early access simulation game", "new strategy game soft launch"],
+		["pre register rpg", "soft launch multiplayer game"],
+		["new mobile puzzle soft launch", "tactics early access"],
+		["indie soft launch", "casual early access mobile game"],
+	],
+	topgrossing: [
+		["best action rpg games", "top strategy games"],
+		["top puzzle games", "casual games grossing"],
+		["multiplayer battle games", "card battler games"],
+		["simulation tycoon games", "adventure rpg mobile"],
+		["sports racing games mobile", "fps shooter games"],
+		["top anime rpg games", "mmo mobile games"],
+	],
+	topfree: [
+		["free action games", "casual free games"],
+		["trending free games", "top arcade games"],
+		["viral games mobile", "hypercasual games"],
+		["free puzzle games", "runner games mobile"],
+	],
+	trending: [
+		["trending games 2026", "viral breakout games"],
+		["fastest rising games", "new trending games"],
+		["trending action games", "trending mobile rpg"],
+		["popular breakout apps", "trending multiplayer"],
+	],
+};
+
 async function fetchPlayStoreApps(
 	country: string,
 	chart: string,
 	category: string,
 	limit: number,
 	query?: string,
+	page = 1,
 ): Promise<z.infer<typeof DiscoverAppSchema>[]> {
 	const c = normalizeCountryCode(country).toUpperCase();
-	const cacheKey = `play_list_${c}_${chart}_${category}_${query || ""}_${limit}`;
+	const cacheKey = `play_list_${c}_${chart}_${category}_${query || ""}_${page}_${limit}`;
 	const cached = getCached<z.infer<typeof DiscoverAppSchema>[]>(cacheKey);
 	if (cached) return cached;
 
@@ -1427,7 +1577,15 @@ async function fetchPlayStoreApps(
 			const playCat = PLAY_CATEGORY_MAP[catLower];
 			const targetUrls: string[] = [];
 
-			if (chart === "newfree") {
+			if (page > 1) {
+				const termsMatrix = PLAY_PAGE_SEARCH_TERMS[chart] || PLAY_PAGE_SEARCH_TERMS.topgrossing;
+				const pageIndex = (page - 2) % termsMatrix.length;
+				const queryTerms = termsMatrix[pageIndex] || ["mobile games new", "top games"];
+				for (const term of queryTerms) {
+					const searchWord = catLower && catLower !== "all" ? `${category} ${term}` : term;
+					targetUrls.push(`https://play.google.com/store/search?q=${encodeURIComponent(searchWord)}&c=apps&hl=en&gl=${c}`);
+				}
+			} else if (chart === "newfree") {
 				// Prioritize real soft launch & early access searches on Google Play
 				const searchWord = catLower && catLower !== "all"
 					? `${category} early access soft launch`
@@ -1458,7 +1616,7 @@ async function fetchPlayStoreApps(
 				}
 			}
 
-			const targetLimit = Math.min(Math.max(limit, 50), 80);
+			const targetLimit = Math.min(Math.max(limit, 30), 60);
 			const seen = new Set<string>();
 			for (const targetUrl of targetUrls) {
 				if (packageIds.length >= targetLimit) break;
@@ -1491,7 +1649,11 @@ async function fetchPlayStoreApps(
 	// Fallback packages matching the requested chart type
 	if (packageIds.length === 0) {
 		const fallbacks = Object.keys(fallbackMap);
-		packageIds = fallbacks.slice(0, limit);
+		const startOffset = ((page - 1) * limit) % fallbacks.length;
+		packageIds = fallbacks.slice(startOffset, startOffset + limit);
+		if (packageIds.length < limit) {
+			packageIds.push(...fallbacks.slice(0, limit - packageIds.length));
+		}
 	}
 
 	// Fetch details concurrently
@@ -1665,17 +1827,16 @@ export class GetDiscoverApps extends OpenAPIRoute {
 		const { platform, country, chart, category, limit, page, query } = data.query;
 
 		const targetCountry = normalizeCountryCode(country);
-		const fetchCount = Math.min(Math.max(limit * (page + 1), 80), 200);
 
 		let appStoreList: z.infer<typeof DiscoverAppSchema>[] = [];
 		let playStoreList: z.infer<typeof DiscoverAppSchema>[] = [];
 
 		if (platform === "appstore" || platform === "all") {
-			appStoreList = await fetchAppleApps(targetCountry, chart, category, fetchCount, query);
+			appStoreList = await fetchAppleApps(targetCountry, chart, category, limit, query, page);
 		}
 
 		if (platform === "playstore" || platform === "all") {
-			playStoreList = await fetchPlayStoreApps(targetCountry, chart, category, fetchCount, query);
+			playStoreList = await fetchPlayStoreApps(targetCountry, chart, category, limit, query, page);
 		}
 
 		// Combine & interleave for balanced cross-platform view
@@ -1705,26 +1866,21 @@ export class GetDiscoverApps extends OpenAPIRoute {
 
 		// Enrich with real-time outreach status & team saved state
 		const enriched = await enrichAppsWithOutreachStatus(deduped, c.env);
-
-		// Paginate safely
-		const startIndex = (page - 1) * limit;
-		let paginated = enriched.slice(startIndex, startIndex + limit);
-		if (paginated.length === 0 && enriched.length > 0) {
-			paginated = enriched.slice(0, limit);
-		}
+		const paginated = enriched.slice(0, limit);
 
 		// Compute metrics strip stats
-		const verifiedEmails = enriched.filter((a) => a.developer_email && a.developer_email.includes("@")).length;
-		const contacted = enriched.filter((a) => a.status === "contacted" || a.status === "opened" || a.status === "bound").length;
-		const savedTargets = enriched.filter((a) => a.is_saved).length;
+		const verifiedEmails = paginated.filter((a) => a.developer_email && a.developer_email.includes("@")).length;
+		const contacted = paginated.filter((a) => a.status === "contacted" || a.status === "opened" || a.status === "bound").length;
+		const savedTargets = paginated.filter((a) => a.is_saved).length;
 
 		return c.json({
 			apps: paginated,
-			total: enriched.length,
+			total: 500, // Endless discover catalog
 			page,
 			limit,
+			has_more: paginated.length > 0,
 			stats: {
-				total_discovered: enriched.length,
+				total_discovered: paginated.length,
 				verified_emails: verifiedEmails,
 				contacted,
 				saved_targets: savedTargets,
