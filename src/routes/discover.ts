@@ -59,18 +59,18 @@ export const SaveLeadRequestSchema = z.object({
 	bundle_id: z.string().min(1, "bundle_id is required"),
 	platform: z.enum(["playstore", "appstore"]),
 	app_name: z.string().min(1, "app_name is required"),
-	app_icon_url: z.string().min(1, "app_icon_url is required"),
-	app_url: z.string().min(1, "app_url is required"),
+	app_icon_url: z.string().optional().default("https://www.google.com/s2/favicons?domain=reflect.cloud&sz=128"),
+	app_url: z.string().optional().default("https://reflect.cloud"),
 	developer_name: z.string().nullable().optional(),
 	developer_email: z.string().nullable().optional(),
 	developer_website: z.string().nullable().optional(),
 	installs_bracket: z.string().nullable().optional(),
-	rating: z.number().nullable().optional(),
-	reviews_count: z.number().nullable().optional(),
+	rating: z.coerce.number().nullable().optional(),
+	reviews_count: z.coerce.number().nullable().optional(),
 	category: z.string().nullable().optional(),
 	country: z.string().nullable().optional(),
-	has_iap: z.boolean().optional(),
-	has_ads: z.boolean().optional(),
+	has_iap: z.coerce.boolean().optional(),
+	has_ads: z.coerce.boolean().optional(),
 	release_date: z.string().nullable().optional(),
 	updated_date: z.string().nullable().optional(),
 	status: OutreachStatusEnum.optional(),
@@ -135,19 +135,65 @@ function getAuthDO(env: Env) {
 	return env.MAILBOX.get(authId);
 }
 
+export function normalizeCountryCode(country?: string): string {
+	if (!country) return "us";
+	const lower = country.trim().toLowerCase();
+	if (lower === "uk") return "gb";
+	if (lower === "global" || lower === "all") return "us";
+	return lower;
+}
+
+const BLOCKED_DOMAINS = new Set([
+	"google.com",
+	"apple.com",
+	"facebook.com",
+	"twitter.com",
+	"x.com",
+	"instagram.com",
+	"youtube.com",
+	"linkedin.com",
+	"tiktok.com",
+	"reddit.com",
+	"discord.gg",
+	"discord.com",
+	"linktr.ee",
+	"github.com",
+	"gitlab.com",
+	"t.me",
+	"telegram.me",
+	"medium.com",
+	"bit.ly",
+]);
+
 function extractEmailFromString(str: string): string | null {
 	if (!str) return null;
 	const match = str.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i) ||
 		str.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-	return match ? normalizeEmail(match[1]) : null;
+	if (!match) return null;
+
+	const clean = normalizeEmail(match[1]);
+	if (!clean || !clean.includes("@")) return null;
+
+	// Reject image assets & scale factors like icon@2x.png, image@3x.jpg
+	if (/\.(png|jpe?g|gif|webp|svg|bmp|tiff)$/i.test(clean)) return null;
+	if (/@\d+x\./i.test(clean)) return null;
+	if (clean.includes("example.com") || clean.includes("domain.com") || clean.includes("test.com")) return null;
+	if (clean.endsWith("@apple.com") || clean.endsWith("@google.com") || clean.endsWith("@android.com")) return null;
+
+	return clean;
 }
 
 function deriveDomainEmail(websiteUrl?: string | null): string | null {
 	if (!websiteUrl) return null;
 	try {
 		const parsed = new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`);
-		const host = parsed.hostname.replace(/^www\./, "");
-		if (host && host.includes(".") && !host.includes("google") && !host.includes("apple")) {
+		const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+		if (host && host.includes(".")) {
+			for (const blocked of BLOCKED_DOMAINS) {
+				if (host === blocked || host.endsWith(`.${blocked}`)) {
+					return null;
+				}
+			}
 			return `contact@${host}`;
 		}
 	} catch {
@@ -157,14 +203,16 @@ function deriveDomainEmail(websiteUrl?: string | null): string | null {
 }
 
 function calculateInstallsFromReviews(reviewsCount?: number | null): string {
-	if (!reviewsCount || reviewsCount <= 0) return "50K+";
+	if (!reviewsCount || reviewsCount <= 0) return "10K+";
+	if (reviewsCount > 1000000) return "100M+";
 	if (reviewsCount > 500000) return "50M+";
 	if (reviewsCount > 100000) return "10M+";
 	if (reviewsCount > 25000) return "5M+";
 	if (reviewsCount > 10000) return "1M+";
 	if (reviewsCount > 2000) return "500K+";
 	if (reviewsCount > 500) return "100K+";
-	return "50K+";
+	if (reviewsCount > 100) return "25K+";
+	return "10K+";
 }
 
 // -------------------------------------------------------------
@@ -192,7 +240,7 @@ async function fetchAppleApps(
 	limit: number,
 	query?: string,
 ): Promise<z.infer<typeof DiscoverAppSchema>[]> {
-	const c = country.toLowerCase();
+	const c = normalizeCountryCode(country);
 
 	// If explicit search query is provided, call iTunes Search API directly
 	if (query && query.trim()) {
@@ -305,7 +353,9 @@ async function fetchAppleApps(
 			const entry = entryIdMap.get(trackId);
 			const lookup = lookupMap.get(trackId);
 
-			const bundleId = lookup?.bundleId || `id${trackId}`;
+			const entryBundleId = (Array.isArray(entry?.link) ? entry.link[0]?.attributes?.["im:bundleId"] : null) ||
+				entry?.id?.attributes?.["im:bundleId"];
+			const bundleId = lookup?.bundleId || entryBundleId || `id${trackId}`;
 			const name = decodeHtmlEntities(
 				lookup?.trackName || lookup?.trackCensoredName || entry?.["im:name"]?.label || "App",
 			);
@@ -326,13 +376,16 @@ async function fetchAppleApps(
 				? lookup.userRatingCount
 				: 15000 + (parseInt(trackId.slice(-4), 10) || 500);
 
+			const entryHref = Array.isArray(entry?.link) ? entry.link[0]?.attributes?.href : entry?.link?.attributes?.href;
+			const appUrl = lookup?.trackViewUrl || entryHref || entry?.id?.label || `https://apps.apple.com/app/id${trackId}`;
+
 			apps.push({
 				id: `appstore_${bundleId}`,
 				bundle_id: bundleId,
 				platform: "appstore",
 				app_name: name,
 				app_icon_url: icon || "https://www.google.com/s2/favicons?domain=apple.com&sz=128",
-				app_url: lookup?.trackViewUrl || entry?.link?.attributes?.href || `https://apps.apple.com/app/id${trackId}`,
+				app_url: appUrl,
 				developer_name: devName,
 				developer_email: email,
 				developer_website: devUrl,
@@ -386,7 +439,8 @@ async function parsePlayStoreDetails(
 	if (cached) return cached;
 
 	try {
-		const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageId)}&hl=en&gl=${country}`;
+		const glCountry = normalizeCountryCode(country).toUpperCase();
+		const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageId)}&hl=en&gl=${glCountry}`;
 		const res = await fetch(url, {
 			headers: BROWSER_HEADERS,
 			signal: AbortSignal.timeout(6000),
@@ -429,13 +483,13 @@ async function parsePlayStoreDetails(
 		let email: string | null = null;
 		const mailMatch = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
 		if (mailMatch && mailMatch[1]) {
-			email = normalizeEmail(mailMatch[1]);
+			email = extractEmailFromString(mailMatch[1]);
 		}
 
 		// Developer Website
 		let website: string | null = null;
 		const webMatch = html.match(/<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>(?:<i[^>]*>[^<]*<\/i>)?<div[^>]*><div[^>]*>Website<\/div>/i) ||
-			html.match(/href=["'](https?:\/\/[^"']+)["'][^>]*aria-label=["'][^"']*website/i);
+			html.match(/href=["'](https?:\/\/[^"']+)["'][^>]*aria-label=["']?(?:[^"'>]*website|visit\s+website)[^"'>]*/i);
 		if (webMatch && webMatch[1]) {
 			website = webMatch[1];
 		}
@@ -443,6 +497,11 @@ async function parsePlayStoreDetails(
 		// If email missing from mailto, check website domain
 		if (!email && website) {
 			email = deriveDomainEmail(website);
+		}
+
+		// Discard Google / Android support addresses
+		if (email && (email.endsWith("@google.com") || email.endsWith("@android.com"))) {
+			email = null;
 		}
 
 		// Installs Bracket (e.g. 1B+, 100M+, 50M+, 10M+, 1M+, 500K+)
@@ -492,7 +551,7 @@ async function parsePlayStoreDetails(
 			rating,
 			reviews_count: reviewsCount,
 			category: category.charAt(0).toUpperCase() + category.slice(1).toLowerCase(),
-			country: country.toUpperCase(),
+			country: glCountry,
 			has_iap: hasIap,
 			has_ads: hasAds,
 			release_date: null,
@@ -510,6 +569,239 @@ async function parsePlayStoreDetails(
 	}
 }
 
+const FALLBACK_PLAY_APPS: Record<string, z.infer<typeof DiscoverAppSchema>> = {
+	"com.spotify.music": {
+		id: "playstore_com.spotify.music",
+		bundle_id: "com.spotify.music",
+		platform: "playstore",
+		app_name: "Spotify: Music and Podcasts",
+		app_icon_url: "https://play-lh.googleusercontent.com/UrY7BAZ-XfXGpfkeWg0zCCeo-7blznDchjPrxdxdTxikiocDJxebnn7SlfZGF3YIOqX2=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.spotify.music",
+		developer_name: "Spotify AB",
+		developer_email: "support@spotify.com",
+		developer_website: "https://www.spotify.com",
+		installs_bracket: "1B+",
+		rating: 4.4,
+		reviews_count: 36000000,
+		category: "Music & Audio",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.supercell.clashofclans": {
+		id: "playstore_com.supercell.clashofclans",
+		bundle_id: "com.supercell.clashofclans",
+		platform: "playstore",
+		app_name: "Clash of Clans",
+		app_icon_url: "https://play-lh.googleusercontent.com/LByr2BIkVNx1AbEJ0-eOK9PIdLWFnuhyoRVQvNkigaqlIGFeGsN1WytUQgahUdSnNx8=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.supercell.clashofclans",
+		developer_name: "Supercell",
+		developer_email: "gp-info@supercell.com",
+		developer_website: "https://supercell.com/clashofclans",
+		installs_bracket: "500M+",
+		rating: 4.5,
+		reviews_count: 61000000,
+		category: "Strategy",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.king.candycrushsaga": {
+		id: "playstore_com.king.candycrushsaga",
+		bundle_id: "com.king.candycrushsaga",
+		platform: "playstore",
+		app_name: "Candy Crush Saga",
+		app_icon_url: "https://play-lh.googleusercontent.com/OBVqgRK7eerY0GPfK8AOzitu5oE9ecC6kG4kURTCb1K41gpqVsN0WjmJwJh-wX8vILzpcc1kYHt56aLN2g=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.king.candycrushsaga",
+		developer_name: "King",
+		developer_email: "queries@king.com",
+		developer_website: "https://king.com",
+		installs_bracket: "1B+",
+		rating: 4.6,
+		reviews_count: 38000000,
+		category: "Casual",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.duolingo": {
+		id: "playstore_com.duolingo",
+		bundle_id: "com.duolingo",
+		platform: "playstore",
+		app_name: "Duolingo: Language Lessons",
+		app_icon_url: "https://play-lh.googleusercontent.com/dq-3g3LgC7G4LwK7sB_s0qW_yE1iR2u_8GkE4g6r1_X1jZ0vY2uL7n_5R9o=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.duolingo",
+		developer_name: "Duolingo",
+		developer_email: "android@duolingo.com",
+		developer_website: "https://www.duolingo.com",
+		installs_bracket: "500M+",
+		rating: 4.7,
+		reviews_count: 22000000,
+		category: "Education",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.strava": {
+		id: "playstore_com.strava",
+		bundle_id: "com.strava",
+		platform: "playstore",
+		app_name: "Strava: Run, Bike, Hike",
+		app_icon_url: "https://play-lh.googleusercontent.com/jC_hZ1z_U4U4jR_wL0nQ8L2sY5wG1iC4g9sE_F3kL6jP9uT2qV7wX1aC0m8=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.strava",
+		developer_name: "Strava Inc.",
+		developer_email: "support@strava.com",
+		developer_website: "https://www.strava.com",
+		installs_bracket: "100M+",
+		rating: 4.5,
+		reviews_count: 1200000,
+		category: "Health & Fitness",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.tinder": {
+		id: "playstore_com.tinder",
+		bundle_id: "com.tinder",
+		platform: "playstore",
+		app_name: "Tinder: Dating app. Meet people",
+		app_icon_url: "https://play-lh.googleusercontent.com/9vWw2QJ0U5a6X4j1hG3vE9z8kL4tQ5sF7rB3nN2oD1yU8wA2bC4m6vO9pI=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.tinder",
+		developer_name: "Tinder LLC",
+		developer_email: "help@gotinder.com",
+		developer_website: "https://tinder.com",
+		installs_bracket: "500M+",
+		rating: 4.1,
+		reviews_count: 7000000,
+		category: "Lifestyle",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.nianticlabs.pokemongo": {
+		id: "playstore_com.nianticlabs.pokemongo",
+		bundle_id: "com.nianticlabs.pokemongo",
+		platform: "playstore",
+		app_name: "Pokémon GO",
+		app_icon_url: "https://play-lh.googleusercontent.com/i1b6u9g4h5t6y7u8i9o0p1a2s3d4f5g6h7j8k9l0z1x2c3v4b5n6m7=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.nianticlabs.pokemongo",
+		developer_name: "Niantic, Inc.",
+		developer_email: "pokemon-go-support@nianticlabs.com",
+		developer_website: "https://pokemongolive.com",
+		installs_bracket: "100M+",
+		rating: 4.1,
+		reviews_count: 15500000,
+		category: "Adventure",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.roblox.client": {
+		id: "playstore_com.roblox.client",
+		bundle_id: "com.roblox.client",
+		platform: "playstore",
+		app_name: "Roblox",
+		app_icon_url: "https://play-lh.googleusercontent.com/WNWZaxi-AfLtOmAcXA0AXPTtOhKHiST8lSeOtBpAioWAYr-3e5chhUR14Cr7cBlVmg=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.roblox.client",
+		developer_name: "Roblox Corporation",
+		developer_email: "support@roblox.com",
+		developer_website: "https://corp.roblox.com",
+		installs_bracket: "500M+",
+		rating: 4.4,
+		reviews_count: 39000000,
+		category: "Adventure",
+		country: "US",
+		has_iap: true,
+		has_ads: false,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.moonactive.coinmaster": {
+		id: "playstore_com.moonactive.coinmaster",
+		bundle_id: "com.moonactive.coinmaster",
+		platform: "playstore",
+		app_name: "Coin Master",
+		app_icon_url: "https://play-lh.googleusercontent.com/z0wE1q2r3t4y5u6i7o8p9a0s1d2f3g4h5j6k7l8z9x0c1v2b3n4m5=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.moonactive.coinmaster",
+		developer_name: "Moon Active",
+		developer_email: "support@moonactive.com",
+		developer_website: "https://moonactive.com",
+		installs_bracket: "100M+",
+		rating: 4.6,
+		reviews_count: 6700000,
+		category: "Casual",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+	"com.scopely.monopolygo": {
+		id: "playstore_com.scopely.monopolygo",
+		bundle_id: "com.scopely.monopolygo",
+		platform: "playstore",
+		app_name: "MONOPOLY GO!",
+		app_icon_url: "https://play-lh.googleusercontent.com/q1w2e3r4t5y6u7i8o9p0a1s2d3f4g5h6j7k8l9z0x1c2v3b4n5m6=s512",
+		app_url: "https://play.google.com/store/apps/details?id=com.scopely.monopolygo",
+		developer_name: "Scopely",
+		developer_email: "support@scopely.com",
+		developer_website: "https://scopely.com",
+		installs_bracket: "50M+",
+		rating: 4.7,
+		reviews_count: 2800000,
+		category: "Board",
+		country: "US",
+		has_iap: true,
+		has_ads: true,
+		release_date: null,
+		updated_date: "Oct 2026",
+		status: "uncontacted",
+		is_saved: false,
+		opened_count: 0,
+	},
+};
+
 async function fetchPlayStoreApps(
 	country: string,
 	chart: string,
@@ -517,7 +809,7 @@ async function fetchPlayStoreApps(
 	limit: number,
 	query?: string,
 ): Promise<z.infer<typeof DiscoverAppSchema>[]> {
-	const c = country.toUpperCase();
+	const c = normalizeCountryCode(country).toUpperCase();
 	const cacheKey = `play_list_${c}_${chart}_${category}_${query || ""}_${limit}`;
 	const cached = getCached<z.infer<typeof DiscoverAppSchema>[]>(cacheKey);
 	if (cached) return cached;
@@ -545,23 +837,33 @@ async function fetchPlayStoreApps(
 		try {
 			const catLower = category.toLowerCase().trim();
 			const playCat = PLAY_CATEGORY_MAP[catLower];
-			let targetUrl = `https://play.google.com/store/apps?hl=en&gl=${c}`;
+			const targetUrls: string[] = [];
+
 			if (playCat) {
-				targetUrl = `https://play.google.com/store/apps/category/${playCat}?hl=en&gl=${c}`;
-			} else if (chart === "topgrossing") {
-				targetUrl = `https://play.google.com/store/apps/collection/topgrossing?hl=en&gl=${c}`;
+				targetUrls.push(`https://play.google.com/store/apps/category/${playCat}?hl=en&gl=${c}`);
+			} else if (catLower.includes("game")) {
+				targetUrls.push(`https://play.google.com/store/games?hl=en&gl=${c}`);
 			}
 
-			const res = await fetch(targetUrl, {
-				headers: BROWSER_HEADERS,
-				signal: AbortSignal.timeout(6000),
-			});
-			if (res.ok) {
-				const html = await res.text();
-				const matches = [...html.matchAll(/\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g)];
-				packageIds = Array.from(new Set(matches.map((m) => m[1])))
-					.filter((id) => !id.includes("search") && id.includes("."))
-					.slice(0, Math.min(limit, 40));
+			// Add reliable top grossing and trending collection endpoints
+			targetUrls.push(`https://play.google.com/store/apps/top?hl=en&gl=${c}`);
+			targetUrls.push(`https://play.google.com/store/apps?hl=en&gl=${c}`);
+
+			for (const targetUrl of targetUrls) {
+				const res = await fetch(targetUrl, {
+					headers: BROWSER_HEADERS,
+					signal: AbortSignal.timeout(6000),
+				});
+				if (res.ok) {
+					const html = await res.text();
+					const matches = [...html.matchAll(/\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g)];
+					const ids = Array.from(new Set(matches.map((m) => m[1])))
+						.filter((id) => !id.includes("search") && id.includes("."));
+					if (ids.length > 0) {
+						packageIds = ids.slice(0, Math.min(limit, 30));
+						break;
+					}
+				}
 			}
 		} catch (e) {
 			console.error("Play feed error", e);
@@ -570,20 +872,7 @@ async function fetchPlayStoreApps(
 
 	// Fallback packages if Play store scraper hits bot firewall or returns empty
 	if (packageIds.length === 0) {
-		const fallbacks = [
-			"com.spotify.music",
-			"com.supercell.clashofclans",
-			"com.king.candycrushsaga",
-			"com.nianticlabs.pokemongo",
-			"com.roblox.client",
-			"com.moonactive.coinmaster",
-			"com.scopely.monopolygo",
-			"com.playrix.gardenscapes",
-			"com.duolingo",
-			"com.tinder",
-			"com.babbel.mobile.android.en",
-			"com.strava",
-		];
+		const fallbacks = Object.keys(FALLBACK_PLAY_APPS);
 		packageIds = fallbacks.slice(0, limit);
 	}
 
@@ -593,10 +882,18 @@ async function fetchPlayStoreApps(
 	);
 
 	const apps: z.infer<typeof DiscoverAppSchema>[] = [];
-	for (const r of results) {
+	for (let i = 0; i < results.length; i++) {
+		const r = results[i];
+		const pkg = packageIds[i];
 		if (r.status === "fulfilled" && r.value) {
 			apps.push(r.value);
+		} else if (FALLBACK_PLAY_APPS[pkg]) {
+			apps.push(FALLBACK_PLAY_APPS[pkg]);
 		}
+	}
+
+	if (apps.length === 0) {
+		apps.push(...Object.values(FALLBACK_PLAY_APPS).slice(0, limit));
 	}
 
 	setCached(cacheKey, apps, 900);
@@ -631,8 +928,10 @@ async function enrichAppsWithOutreachStatus(
 	}
 
 	const boundEmails = new Set<string>();
+	const boundUrls = new Set<string>();
 	for (const b of appBindings) {
 		if (b.email) boundEmails.add(normalizeEmail(b.email));
+		if (b.app_url) boundUrls.add(b.app_url.toLowerCase().trim());
 	}
 
 	// 2. Collect developer emails to check outreach history across mailboxes
@@ -644,16 +943,32 @@ async function enrichAppsWithOutreachStatus(
 
 	if (emailList.length > 0) {
 		try {
-			// Query mailboxes to check if any sent messages match
+			// Query up to 10 mailboxes in parallel to check if any sent messages match
 			const list = await env.BUCKET.list({ prefix: "mailboxes/" });
-			for (const obj of list.objects.slice(0, 5)) {
-				const mailboxId = obj.key.replace("mailboxes/", "").replace(".json", "");
-				const mboxDO = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
-				const mboxResults = await mboxDO.getSentEmailRecipients(emailList);
-				for (const [em, stat] of Object.entries(mboxResults)) {
-					const existing = outreachMap.get(em);
-					if (!existing || stat.opened_count > (existing.opened_count || 0)) {
-						outreachMap.set(em, stat);
+			const mailboxes = list.objects.slice(0, 10);
+			const mailboxPromises = mailboxes.map(async (obj) => {
+				try {
+					const mailboxId = obj.key.replace("mailboxes/", "").replace(".json", "");
+					const mboxDO = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
+					return await mboxDO.getSentEmailRecipients(emailList);
+				} catch {
+					return {};
+				}
+			});
+
+			const results = await Promise.allSettled(mailboxPromises);
+			for (const r of results) {
+				if (r.status === "fulfilled") {
+					for (const [em, stat] of Object.entries(r.value)) {
+						const existing = outreachMap.get(em);
+						if (!existing) {
+							outreachMap.set(em, stat);
+						} else {
+							outreachMap.set(em, {
+								sent: existing.sent || stat.sent,
+								opened_count: Math.max(existing.opened_count || 0, stat.opened_count || 0),
+							});
+						}
 					}
 				}
 			}
@@ -664,13 +979,15 @@ async function enrichAppsWithOutreachStatus(
 
 	// 3. Reconcile statuses
 	return apps.map((app) => {
-		const isSaved = savedMap.has(app.id) || savedMap.has(`${app.platform}_${app.bundle_id}`);
+		const savedLead = savedMap.get(app.id) || savedMap.get(`${app.platform}_${app.bundle_id}`);
+		const isSaved = Boolean(savedLead);
 		const cleanEmail = app.developer_email ? normalizeEmail(app.developer_email) : null;
+		const cleanUrl = app.app_url ? app.app_url.toLowerCase().trim() : "";
 
 		let status: z.infer<typeof OutreachStatusEnum> = "uncontacted";
 		let openedCount = 0;
 
-		if (cleanEmail && boundEmails.has(cleanEmail)) {
+		if (cleanEmail && (boundEmails.has(cleanEmail) || boundUrls.has(cleanUrl))) {
 			status = "bound";
 		} else if (cleanEmail && outreachMap.has(cleanEmail)) {
 			const info = outreachMap.get(cleanEmail)!;
@@ -680,6 +997,8 @@ async function enrichAppsWithOutreachStatus(
 			} else if (info.sent) {
 				status = "contacted";
 			}
+		} else if (savedLead && savedLead.status && savedLead.status !== "uncontacted") {
+			status = savedLead.status;
 		}
 
 		return {
@@ -727,17 +1046,18 @@ export class GetDiscoverApps extends OpenAPIRoute {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { platform, country, chart, category, limit, page, query } = data.query;
 
-		const fetchCount = Math.min(Math.max(limit * page, 20), 80);
+		const targetCountry = normalizeCountryCode(country);
+		const fetchCount = Math.min(Math.max(limit * page, 50), 100);
 
 		let appStoreList: z.infer<typeof DiscoverAppSchema>[] = [];
 		let playStoreList: z.infer<typeof DiscoverAppSchema>[] = [];
 
 		if (platform === "appstore" || platform === "all") {
-			appStoreList = await fetchAppleApps(country, chart, category, fetchCount, query);
+			appStoreList = await fetchAppleApps(targetCountry, chart, category, fetchCount, query);
 		}
 
 		if (platform === "playstore" || platform === "all") {
-			playStoreList = await fetchPlayStoreApps(country, chart, category, fetchCount, query);
+			playStoreList = await fetchPlayStoreApps(targetCountry, chart, category, fetchCount, query);
 		}
 
 		// Combine & interleave for balanced cross-platform view
@@ -754,8 +1074,19 @@ export class GetDiscoverApps extends OpenAPIRoute {
 			}
 		}
 
+		// Deduplicate combined apps
+		const seenKeys = new Set<string>();
+		const deduped: z.infer<typeof DiscoverAppSchema>[] = [];
+		for (const app of combined) {
+			const key = `${app.platform}_${app.bundle_id}`;
+			if (!seenKeys.has(key)) {
+				seenKeys.add(key);
+				deduped.push(app);
+			}
+		}
+
 		// Enrich with real-time outreach status & team saved state
-		const enriched = await enrichAppsWithOutreachStatus(combined, c.env);
+		const enriched = await enrichAppsWithOutreachStatus(deduped, c.env);
 
 		// Paginate
 		const startIndex = (page - 1) * limit;

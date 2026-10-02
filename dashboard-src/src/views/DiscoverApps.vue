@@ -258,6 +258,7 @@
             <option value="CA">🇨🇦 Canada</option>
             <option value="FR">🇫🇷 France</option>
             <option value="AU">🇦🇺 Australia</option>
+            <option value="GLOBAL">🌐 Global (Worldwide)</option>
           </select>
 
           <!-- Category / Genre Dropdown -->
@@ -719,6 +720,33 @@
                 <!-- Actions -->
                 <td class="py-3 px-4 text-right whitespace-nowrap">
                   <div class="inline-flex items-center gap-1.5">
+                    <!-- Store Page Link -->
+                    <a
+                      :href="app.app_url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                      title="View on store"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+
+                    <!-- Dev Website Link -->
+                    <a
+                      v-if="app.developer_website"
+                      :href="app.developer_website"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                      title="Visit developer website"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                      </svg>
+                    </a>
+
                     <!-- Save Toggle -->
                     <button
                       type="button"
@@ -751,21 +779,49 @@
           </table>
         </div>
       </div>
+
+      <!-- Responsive Pagination Controls -->
+      <div v-if="totalPages > 1" class="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xs">
+        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium">
+          Showing <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeStart }}</span> to <span class="font-bold text-gray-800 dark:text-gray-200">{{ pageRangeEnd }}</span> of <span class="font-bold text-gray-800 dark:text-gray-200">{{ totalCount }}</span> apps
+        </div>
+        <div class="inline-flex items-center gap-2">
+          <button
+            type="button"
+            @click="prevPage"
+            :disabled="filters.page <= 1 || loading"
+            class="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
+          >
+            ← Previous
+          </button>
+          <span class="px-2.5 py-1 text-xs font-bold text-gray-700 dark:text-gray-300">
+            Page {{ filters.page }} of {{ totalPages }}
+          </span>
+          <button
+            type="button"
+            @click="nextPage"
+            :disabled="filters.page >= totalPages || loading"
+            class="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/60 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useToast } from "@/composables/useToast";
 import { useDiscoverStore } from "@/stores/discover";
 import type { DiscoveredApp, DiscoverPlatform } from "@/types";
 
 const discoverStore = useDiscoverStore();
-const { apps, leads, stats, filters, loading, leadsLoading, savingLeadIds, error } =
+const { apps, leads, stats, filters, loading, leadsLoading, savingLeadIds, error, displayedApps } =
 	storeToRefs(discoverStore);
-const { displayedApps, isSaved } = discoverStore;
+const { isSaved } = discoverStore;
 
 const { success: showSuccessToast, error: showErrorToast } = useToast();
 
@@ -774,10 +830,41 @@ const copiedEmail = ref<string | null>(null);
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+const totalCount = computed(() => discoverStore.totalCount);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / filters.value.limit)));
+
+const pageRangeStart = computed(() => {
+	if (totalCount.value === 0) return 0;
+	return (filters.value.page - 1) * filters.value.limit + 1;
+});
+
+const pageRangeEnd = computed(() => {
+	return Math.min(filters.value.page * filters.value.limit, totalCount.value);
+});
+
+const prevPage = () => {
+	if (filters.value.page > 1) {
+		filters.value.page--;
+		if (filters.value.activeTab === "discover") {
+			discoverStore.fetchApps();
+		}
+	}
+};
+
+const nextPage = () => {
+	if (filters.value.page < totalPages.value) {
+		filters.value.page++;
+		if (filters.value.activeTab === "discover") {
+			discoverStore.fetchApps();
+		}
+	}
+};
+
 const onSearchInput = () => {
 	if (debounceTimer) clearTimeout(debounceTimer);
 	debounceTimer = setTimeout(() => {
 		filters.value.query = searchInput.value;
+		filters.value.page = 1;
 		discoverStore.fetchApps();
 	}, 400);
 };
@@ -785,16 +872,19 @@ const onSearchInput = () => {
 const clearSearch = () => {
 	searchInput.value = "";
 	filters.value.query = "";
+	filters.value.page = 1;
 	discoverStore.fetchApps();
 };
 
 const setPlatform = (p: DiscoverPlatform) => {
 	filters.value.platform = p;
+	filters.value.page = 1;
 	discoverStore.fetchApps();
 };
 
 const setTab = (tab: "discover" | "leads") => {
 	filters.value.activeTab = tab;
+	filters.value.page = 1;
 	if (tab === "leads") {
 		discoverStore.fetchLeads();
 	} else {
@@ -803,6 +893,7 @@ const setTab = (tab: "discover" | "leads") => {
 };
 
 const onFilterChange = () => {
+	filters.value.page = 1;
 	discoverStore.fetchApps();
 };
 

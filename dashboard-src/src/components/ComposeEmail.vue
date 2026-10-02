@@ -648,91 +648,94 @@ const getSignatureBlock = (): string => {
 	return "";
 };
 
-// Watch for compose modal opening and pre-populate fields
-watch(isComposeModalOpen, (isOpen) => {
-	if (isOpen) {
-		appBindingsStore.fetchBindings();
-		const options = composeOptions.value;
-		const original = options.originalEmail;
-		const sigBlock = getSignatureBlock();
+// Watch for compose modal opening and options updating to pre-populate fields
+watch(
+	[isComposeModalOpen, composeOptions],
+	([isOpen, options]) => {
+		if (isOpen && options) {
+			appBindingsStore.fetchBindings();
+			const original = options.originalEmail;
+			const sigBlock = getSignatureBlock();
 
-		if (options.mode === "reply" && original) {
-			const isSent =
-				Boolean(currentMailbox.value?.email &&
-					original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
-				(original.delivery_status !== undefined && original.delivery_status !== null) ||
-				(original.opened_count !== undefined && original.opened_count !== null);
-			to.value = isSent ? original.recipient : original.sender;
-			cc.value = "";
-			bcc.value = "";
-			subject.value = original.subject.startsWith("Re: ")
-				? original.subject
-				: `Re: ${original.subject}`;
-			const initialText = options.initialBody ? `<p>${options.initialBody.replace(/\n/g, "<br>")}</p><br>` : "";
-			body.value = `${initialText}${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
-		} else if (options.mode === "reply-all" && original) {
-			const isSent =
-				Boolean(currentMailbox.value?.email &&
-					original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
-				(original.delivery_status !== undefined && original.delivery_status !== null) ||
-				(original.opened_count !== undefined && original.opened_count !== null);
-			to.value = isSent ? original.recipient : original.sender;
-
-			const ccRecipients = new Set<string>();
-			if (
-				original.recipient &&
-				original.recipient !== currentMailbox.value?.email &&
-				original.recipient !== original.sender
-			) {
-				ccRecipients.add(original.recipient);
-			}
-			if (original.cc) {
-				original.cc.split(/[,;\s]+/).forEach((addr: string) => {
-					if (addr && addr !== currentMailbox.value?.email) {
-						ccRecipients.add(addr);
-					}
-				});
-			}
-
-			if (ccRecipients.size > 0) {
-				cc.value = Array.from(ccRecipients).join(", ");
-				showCc.value = true;
-			} else {
+			if (options.mode === "reply" && original) {
+				const isSent =
+					Boolean(currentMailbox.value?.email &&
+						original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
+					(original.delivery_status !== undefined && original.delivery_status !== null) ||
+					(original.opened_count !== undefined && original.opened_count !== null);
+				to.value = isSent ? original.recipient : original.sender;
 				cc.value = "";
-			}
+				bcc.value = "";
+				subject.value = original.subject.startsWith("Re: ")
+					? original.subject
+					: `Re: ${original.subject}`;
+				const initialText = options.initialBody ? `<p>${options.initialBody.replace(/\n/g, "<br>")}</p><br>` : "";
+				body.value = `${initialText}${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
+			} else if (options.mode === "reply-all" && original) {
+				const isSent =
+					Boolean(currentMailbox.value?.email &&
+						original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
+					(original.delivery_status !== undefined && original.delivery_status !== null) ||
+					(original.opened_count !== undefined && original.opened_count !== null);
+				to.value = isSent ? original.recipient : original.sender;
 
-			subject.value = original.subject.startsWith("Re: ")
-				? original.subject
-				: `Re: ${original.subject}`;
-			body.value = `<br>${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
-		} else if (options.mode === "forward" && original) {
-			to.value = "";
-			cc.value = "";
-			bcc.value = "";
-			subject.value = original.subject.startsWith("Fwd: ")
-				? original.subject
-				: `Fwd: ${original.subject}`;
-			body.value = `<br>${sigBlock}<br><div style="border: 1px solid #ddd; padding: 1em; background-color: #f9f9f9; margin: 1em 0;">
+				const ccRecipients = new Set<string>();
+				if (
+					original.recipient &&
+					original.recipient !== currentMailbox.value?.email &&
+					original.recipient !== original.sender
+				) {
+					ccRecipients.add(original.recipient);
+				}
+				if (original.cc) {
+					original.cc.split(/[,;\s]+/).forEach((addr: string) => {
+						if (addr && addr !== currentMailbox.value?.email) {
+							ccRecipients.add(addr);
+						}
+					});
+				}
+
+				if (ccRecipients.size > 0) {
+					cc.value = Array.from(ccRecipients).join(", ");
+					showCc.value = true;
+				} else {
+					cc.value = "";
+				}
+
+				subject.value = original.subject.startsWith("Re: ")
+					? original.subject
+					: `Re: ${original.subject}`;
+				body.value = `<br>${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
+			} else if (options.mode === "forward" && original) {
+				to.value = "";
+				cc.value = "";
+				bcc.value = "";
+				subject.value = original.subject.startsWith("Fwd: ")
+					? original.subject
+					: `Fwd: ${original.subject}`;
+				body.value = `<br>${sigBlock}<br><div style="border: 1px solid #ddd; padding: 1em; background-color: #f9f9f9; margin: 1em 0;">
 <strong>Forwarded message:</strong><br>
 <strong>From:</strong> ${original.sender}<br>
 <strong>Date:</strong> ${original.date}<br>
 <strong>Subject:</strong> ${original.subject}<br><br>
 ${original.body || ""}
 </div>`;
-		} else {
-			to.value = options.initialTo || "";
-			cc.value = "";
-			bcc.value = "";
-			subject.value = options.initialSubject || "";
-			const initialText = options.initialBody || "";
-			body.value = initialText
-				? `${initialText}${sigBlock ? `<br><br>${sigBlock}` : ""}`
-				: sigBlock
-					? `<br><br>${sigBlock}`
-					: "";
+			} else {
+				to.value = options.initialTo || "";
+				cc.value = "";
+				bcc.value = "";
+				subject.value = options.initialSubject || "";
+				const initialText = options.initialBody || "";
+				body.value = initialText
+					? `${initialText}${sigBlock ? `<br><br>${sigBlock}` : ""}`
+					: sigBlock
+						? `<br><br>${sigBlock}`
+						: "";
+			}
 		}
-	}
-});
+	},
+	{ deep: true },
+);
 
 const htmlToPlainText = (html: string): string => {
 	const div = document.createElement("div");

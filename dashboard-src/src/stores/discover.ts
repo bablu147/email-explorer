@@ -54,6 +54,10 @@ export const useDiscoverStore = defineStore("discover", {
 				if (state.filters.platform !== "all") {
 					list = list.filter((a) => a.platform === state.filters.platform);
 				}
+				if (state.filters.category !== "all") {
+					const cat = state.filters.category.toLowerCase().trim();
+					list = list.filter((a) => a.category && a.category.toLowerCase().includes(cat));
+				}
 				if (state.filters.query.trim()) {
 					const q = state.filters.query.toLowerCase().trim();
 					list = list.filter(
@@ -293,6 +297,8 @@ export const useDiscoverStore = defineStore("discover", {
 				"Reviews Count",
 				"In-App Purchases",
 				"Contains Ads",
+				"Release Date",
+				"Updated Date",
 				"Outreach Status",
 				"Store URL",
 			];
@@ -316,6 +322,8 @@ export const useDiscoverStore = defineStore("discover", {
 				escapeCell(a.reviews_count || ""),
 				escapeCell(a.has_iap ? "Yes" : "No"),
 				escapeCell(a.has_ads ? "Yes" : "No"),
+				escapeCell(a.release_date || ""),
+				escapeCell(a.updated_date || ""),
 				escapeCell(a.status || "uncontacted"),
 				escapeCell(a.app_url),
 			]);

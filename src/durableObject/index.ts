@@ -1170,7 +1170,13 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async deleteDiscoverLead(id: string): Promise<boolean> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
-		this.ctx.storage.sql.exec("DELETE FROM discover_leads WHERE id = ?", id);
+		this.ctx.storage.sql.exec(
+			"DELETE FROM discover_leads WHERE id = ? OR bundle_id = ? OR id = ? OR id = ?",
+			id,
+			id,
+			`playstore_${id}`,
+			`appstore_${id}`,
+		);
 		return true;
 	}
 
@@ -1191,7 +1197,7 @@ export class MailboxDO extends DurableObject<Env> {
 					.toArray();
 				if (rows.length > 0) {
 					const r: any = rows[0];
-					const opened = Number(r.opened_count || 0) + (r.opened_at ? 1 : 0);
+					const opened = Number(r.opened_count || 0) > 0 ? Number(r.opened_count) : (r.opened_at ? 1 : 0);
 					result[clean] = {
 						sent: true,
 						opened_count: opened,
