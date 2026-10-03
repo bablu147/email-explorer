@@ -288,6 +288,18 @@
       &larr; Back to List
     </button>
   </div>
+
+  <!-- Custom Delete Confirmation Modal (Eliminating native confirm) -->
+  <ConfirmModal
+    :is-open="isDeleteConfirmOpen"
+    title="Delete Email"
+    message="Are you sure you want to delete this email? This will move it to Trash."
+    confirm-text="Delete"
+    :danger="true"
+    :loading="isDeleting"
+    @close="isDeleteConfirmOpen = false"
+    @confirm="executeDelete"
+  />
 </template>
 
 <script setup lang="ts">
@@ -297,6 +309,7 @@ import { useRoute, useRouter } from "vue-router";
 import ThreadView from "@/components/ThreadView.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
+import ConfirmModal from "@/components/ConfirmModal.vue";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
@@ -315,6 +328,9 @@ const uiStore = useUIStore();
 const route = useRoute();
 const router = useRouter();
 const { success: showSuccessToast, error: showErrorToast } = useToast();
+
+const isDeleteConfirmOpen = ref(false);
+const isDeleting = ref(false);
 
 const mailboxId = computed(() => (route.params.mailboxId as string) || mailboxStore.currentMailbox?.id || "");
 
@@ -565,14 +581,26 @@ const handleMove = (targetFolderId: string) => {
 };
 
 const handleDelete = () => {
-	if (email.value && confirm("Are you sure you want to delete this email?")) {
-		const mailboxId = route.params.mailboxId as string;
-		emailStore.deleteEmail(mailboxId, email.value.id);
+	isDeleteConfirmOpen.value = true;
+};
+
+const executeDelete = async () => {
+	if (!email.value) return;
+	isDeleting.value = true;
+	const mailboxId = route.params.mailboxId as string;
+	try {
+		await emailStore.deleteEmail(mailboxId, email.value.id);
 		folderStore.fetchFolders(mailboxId);
+		showSuccessToast("Email deleted");
+		isDeleteConfirmOpen.value = false;
 		router.push({
 			name: "EmailList",
 			params: { mailboxId, folder: "inbox" },
 		});
+	} catch (err: any) {
+		showErrorToast("Failed to delete email");
+	} finally {
+		isDeleting.value = false;
 	}
 };
 

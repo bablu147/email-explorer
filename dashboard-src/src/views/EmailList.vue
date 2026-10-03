@@ -699,6 +699,18 @@
       </button>
     </div>
 
+    <!-- Custom Delete Confirmation Modal (Eliminating native confirm) -->
+    <ConfirmModal
+      :is-open="isDeleteConfirmOpen"
+      :title="deleteConfirmTitle"
+      :message="deleteConfirmMessage"
+      confirm-text="Delete"
+      :danger="true"
+      :loading="isExecutingDelete"
+      @close="isDeleteConfirmOpen = false"
+      @confirm="executePendingDelete"
+    />
+
     <!-- ⌨️ Keyboard Shortcuts Help Modal -->
     <div 
       v-if="showShortcutsModal" 
@@ -789,6 +801,7 @@ import { useUIStore } from "@/stores/ui";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import ReadingPane from "@/components/ReadingPane.vue";
+import ConfirmModal from "@/components/ConfirmModal.vue";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import type { Email } from "@/types";
 
@@ -809,6 +822,13 @@ const activeRowIndex = ref<number>(-1);
 const activeEmailId = ref<string | null>(null);
 const showShortcutsModal = ref(false);
 const rowElements = ref<(HTMLElement | null)[]>([]);
+
+// Custom Confirm Modal State
+const isDeleteConfirmOpen = ref(false);
+const deleteConfirmTitle = ref("");
+const deleteConfirmMessage = ref("");
+const isExecutingDelete = ref(false);
+const pendingDeleteCallback = ref<(() => Promise<void>) | null>(null);
 
 const handleRowClick = (email: Email, idx: number) => {
 	activeRowIndex.value = idx;
@@ -1120,11 +1140,11 @@ const toggleSelectEmail = (emailId: string) => {
 	}
 };
 
-const deleteSelected = async () => {
-	if (
-		selectedEmailIds.value.length > 0 &&
-		confirm(`Are you sure you want to delete ${selectedEmailIds.value.length} selected email(s)?`)
-	) {
+const deleteSelected = () => {
+	if (selectedEmailIds.value.length === 0) return;
+	deleteConfirmTitle.value = `Delete ${selectedEmailIds.value.length} Emails`;
+	deleteConfirmMessage.value = `Are you sure you want to delete ${selectedEmailIds.value.length} selected email(s)? This will move them to Trash.`;
+	pendingDeleteCallback.value = async () => {
 		const mailboxId = route.params.mailboxId as string;
 		for (const id of selectedEmailIds.value) {
 			await emailStore.deleteEmail(mailboxId, id);
@@ -1132,7 +1152,8 @@ const deleteSelected = async () => {
 		selectedEmailIds.value = [];
 		showSuccessToast("Selected email(s) deleted");
 		folderStore.fetchFolders(mailboxId);
-	}
+	};
+	isDeleteConfirmOpen.value = true;
 };
 
 const archiveSelected = async () => {
@@ -1159,8 +1180,10 @@ const handleArchive = async (email: Email) => {
 	}
 };
 
-const handleDelete = async (emailId: string) => {
-	if (confirm("Are you sure you want to delete this email?")) {
+const handleDelete = (emailId: string) => {
+	deleteConfirmTitle.value = "Delete Email";
+	deleteConfirmMessage.value = "Are you sure you want to delete this email? This will move it to Trash.";
+	pendingDeleteCallback.value = async () => {
 		const mailboxId = route.params.mailboxId as string;
 		try {
 			await emailStore.deleteEmail(mailboxId, emailId);
@@ -1169,6 +1192,19 @@ const handleDelete = async (emailId: string) => {
 		} catch (err: any) {
 			showErrorToast("Failed to delete email");
 		}
+	};
+	isDeleteConfirmOpen.value = true;
+};
+
+const executePendingDelete = async () => {
+	if (!pendingDeleteCallback.value) return;
+	isExecutingDelete.value = true;
+	try {
+		await pendingDeleteCallback.value();
+		isDeleteConfirmOpen.value = false;
+		pendingDeleteCallback.value = null;
+	} finally {
+		isExecutingDelete.value = false;
 	}
 };
 

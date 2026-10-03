@@ -605,6 +605,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Unlink Confirmation Modal (Eliminating native confirm) -->
+    <ConfirmModal
+      :is-open="isUnlinkConfirmOpen"
+      title="Unlink App Identity"
+      :message="`Are you sure you want to unlink the app identity from ${extractCleanEmail(targetEmail || modalEmail)}?`"
+      confirm-text="Unlink App"
+      :danger="true"
+      :loading="isSaving"
+      @close="isUnlinkConfirmOpen = false"
+      @confirm="executeUnlink"
+    />
   </div>
 </template>
 
@@ -612,6 +624,7 @@
 import { computed, h, nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import api from "@/services/api";
+import ConfirmModal from "@/components/ConfirmModal.vue";
 import { useToast } from "@/composables/useToast";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
@@ -624,6 +637,7 @@ const mailboxStore = useMailboxStore();
 const { isModalOpen, modalEmail, modalBinding, bindings } = storeToRefs(appBindingsStore);
 const { success, error: toastError } = useToast();
 
+const isUnlinkConfirmOpen = ref(false);
 const targetEmail = ref("");
 const searchInputRef = ref<HTMLInputElement | null>(null);
 const searchQuery = ref("");
@@ -1093,17 +1107,21 @@ const handleSave = async () => {
 	}
 };
 
-const handleUnlink = async () => {
+const handleUnlink = () => {
 	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
 	if (!clean) return;
-	if (!confirm(`Are you sure you want to unlink the app from ${clean}?`)) {
-		return;
-	}
+	isUnlinkConfirmOpen.value = true;
+};
+
+const executeUnlink = async () => {
+	const clean = extractCleanEmail(targetEmail.value || modalEmail.value);
+	if (!clean) return;
 
 	isSaving.value = true;
 	try {
 		await appBindingsStore.deleteBinding(clean);
 		success(`Unlinked app identity from ${clean}`);
+		isUnlinkConfirmOpen.value = false;
 		closeModal();
 	} catch (e: any) {
 		console.error("Failed to delete binding", e);

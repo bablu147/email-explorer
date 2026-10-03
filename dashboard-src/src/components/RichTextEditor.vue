@@ -433,6 +433,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Custom URL Input Modal (Eliminating window.prompt) -->
+    <Teleport to="body">
+      <div 
+        v-if="isUrlModalOpen" 
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+        @click.self="isUrlModalOpen = false"
+        @keydown.esc="isUrlModalOpen = false"
+      >
+        <div class="w-full max-w-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white">
+              {{ urlModalType === 'image' ? 'Insert Image URL' : 'Insert Link' }}
+            </h3>
+            <button 
+              type="button" 
+              @click="isUrlModalOpen = false"
+              class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1 rounded-lg"
+            >✕</button>
+          </div>
+          <form @submit.prevent="confirmUrlModal">
+            <div class="mb-4">
+              <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                {{ urlModalType === 'image' ? 'Direct Image URL (.png, .jpg, .svg)' : 'Web URL' }}
+              </label>
+              <input
+                ref="urlModalInputRef"
+                v-model="urlModalInput"
+                type="url"
+                required
+                :placeholder="urlModalType === 'image' ? 'https://example.com/logo.png' : 'https://example.com'"
+                class="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div class="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                @click="isUrlModalOpen = false"
+                class="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
+              >Cancel</button>
+              <button
+                v-if="urlModalType === 'link' && currentEditingLinkUrl"
+                type="button"
+                @click="removeLink"
+                class="px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer mr-auto"
+              >Unlink</button>
+              <button
+                type="submit"
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm cursor-pointer"
+              >
+                {{ urlModalType === 'image' ? 'Insert Image' : 'Save Link' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -446,7 +503,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 const props = defineProps<{
 	modelValue: string;
@@ -463,6 +520,13 @@ const sourceCode = ref(props.modelValue || "");
 const showImageMenu = ref(false);
 const isDragging = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+
+// Modal state for links and image URLs
+const isUrlModalOpen = ref(false);
+const urlModalType = ref<"link" | "image">("link");
+const urlModalInput = ref("");
+const urlModalInputRef = ref<HTMLInputElement | null>(null);
+const currentEditingLinkUrl = ref("");
 const selectedImgElement = ref<HTMLImageElement | null>(null);
 
 const resizeSelectedImage = (width: string) => {
@@ -644,10 +708,12 @@ const handleFileUpload = (e: Event) => {
 
 const promptImageUrl = () => {
 	showImageMenu.value = false;
-	const url = window.prompt("Enter image URL:");
-	if (url && editor.value) {
-		editor.value.chain().focus().setImage({ src: url }).run();
-	}
+	urlModalType.value = "image";
+	urlModalInput.value = "";
+	isUrlModalOpen.value = true;
+	nextTick(() => {
+		urlModalInputRef.value?.focus();
+	});
 };
 
 // Clipboard Paste (Auto-upload screenshots as inline CID attachments)
@@ -679,16 +745,30 @@ const handleDrop = (e: DragEvent) => {
 
 // Link insertion
 const setLink = () => {
-	const previousUrl = editor.value?.getAttributes("link").href;
-	const url = window.prompt("URL", previousUrl);
+	urlModalType.value = "link";
+	const previousUrl = editor.value?.getAttributes("link").href || "";
+	currentEditingLinkUrl.value = previousUrl;
+	urlModalInput.value = previousUrl;
+	isUrlModalOpen.value = true;
+	nextTick(() => {
+		urlModalInputRef.value?.focus();
+	});
+};
 
-	if (url === null) return;
-	if (url === "") {
-		editor.value?.chain().focus().extendMarkRange("link").unsetLink().run();
-		return;
+const confirmUrlModal = () => {
+	const val = urlModalInput.value.trim();
+	if (!val) return;
+	if (urlModalType.value === "image") {
+		editor.value?.chain().focus().setImage({ src: val }).run();
+	} else {
+		editor.value?.chain().focus().extendMarkRange("link").setLink({ href: val }).run();
 	}
+	isUrlModalOpen.value = false;
+};
 
-	editor.value?.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+const removeLink = () => {
+	editor.value?.chain().focus().extendMarkRange("link").unsetLink().run();
+	isUrlModalOpen.value = false;
 };
 
 const handleClickOutside = (event: MouseEvent) => {

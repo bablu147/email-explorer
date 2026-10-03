@@ -110,6 +110,26 @@
             </router-link>
           </li>
 
+          <!-- Starred -->
+          <li>
+            <router-link 
+              :to="{ name: 'EmailList', params: { mailboxId: route.params.mailboxId, folder: 'starred' } }" 
+              class="flex items-center justify-between rounded-xl text-gray-700 dark:text-gray-300 hover:bg-amber-50/70 dark:hover:bg-amber-950/20 transition-all text-xs sm:text-sm font-medium group"
+              :class="[
+                uiStore.sidebarCollapsed ? 'p-2.5 justify-center' : 'py-2 px-3',
+                isFolderActive('starred') ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-semibold border-r-2 border-amber-500' : ''
+              ]"
+              :title="uiStore.sidebarCollapsed ? 'Starred' : ''"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <svg class="w-4 h-4 text-amber-400 group-hover:text-amber-500 transition-colors flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span v-if="!uiStore.sidebarCollapsed" class="truncate">Starred</span>
+              </div>
+            </router-link>
+          </li>
+
           <!-- Sent -->
           <li>
             <router-link 
@@ -395,7 +415,7 @@ const uiStore = useUIStore();
 const route = useRoute();
 const router = useRouter();
 
-const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft", "drafts"];
+const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft", "drafts", "starred"];
 
 // Folder Modal state
 const isFolderModalOpen = ref(false);

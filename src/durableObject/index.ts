@@ -484,12 +484,16 @@ export class MailboxDO extends DurableObject<Env> {
 			]);
 
 		if (folder) {
-			const folderIdSubquery = this.#qb
-				.select("folders")
-				.fields(["id"])
-				.where("name = ? OR id = ?", [folder, folder])
-				.limit(1);
-			query = query.where("folder_id = ?", folderIdSubquery as any);
+			if (folder.toLowerCase() === "starred") {
+				query = query.where("starred = 1");
+			} else {
+				const folderIdSubquery = this.#qb
+					.select("folders")
+					.fields(["id"])
+					.where("name = ? OR id = ?", [folder, folder])
+					.limit(1);
+				query = query.where("folder_id = ?", folderIdSubquery as any);
+			}
 		}
 
 		const offset = (page - 1) * limit;

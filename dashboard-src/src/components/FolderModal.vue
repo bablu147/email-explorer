@@ -117,7 +117,7 @@ const inputRef = ref<HTMLInputElement | null>(null);
 const nameInput = ref("");
 const validationError = ref("");
 
-const reservedNames = ["inbox", "sent", "trash", "archive", "spam", "draft", "drafts"];
+const reservedNames = ["inbox", "sent", "trash", "archive", "spam", "draft", "drafts", "starred"];
 
 const title = computed(() => {
 	if (props.mode === "create") return "Create New Folder";
