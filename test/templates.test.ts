@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_TEMPLATES, PITCH_TEMPLATE_ID, validateTemplateInput } from "../src/templates.ts";
+import {
+	DEFAULT_FOLLOWUP_TEMPLATE,
+	DEFAULT_TEMPLATES,
+	PITCH_TEMPLATE_ID,
+	renderTemplate,
+	textToHtml,
+	validateTemplateInput,
+} from "../src/templates.ts";
 
 test("exactly one default pitch, with a subject", () => {
 	const pitches = DEFAULT_TEMPLATES.filter((t) => t.kind === "pitch");
@@ -10,8 +17,8 @@ test("exactly one default pitch, with a subject", () => {
 });
 
 test("defaults only use known merge fields", () => {
-	const known = new Set(["app_name", "developer_name", "platform", "category", "installs", "traction", "first_name"]);
-	for (const t of DEFAULT_TEMPLATES) {
+	const known = new Set(["app_name", "developer_name", "platform", "category", "installs", "traction", "first_name", "original_subject"]);
+	for (const t of [...DEFAULT_TEMPLATES, DEFAULT_FOLLOWUP_TEMPLATE]) {
 		for (const m of `${t.subject ?? ""} ${t.body}`.matchAll(/\{\{(\w+)\}\}/g)) {
 			assert.ok(known.has(m[1]), `${t.id} uses unknown field ${m[1]}`);
 		}
@@ -36,4 +43,12 @@ test("pitch needs a subject; replies ignore one", () => {
 	assert.ok(pitch.ok && pitch.subject === "S");
 	const reply = validateTemplateInput({ name: "n", body: "b", subject: "ignored" }, "reply");
 	assert.ok(reply.ok && reply.subject === null);
+});
+
+test("renderTemplate fills known fields and leaves typos visible", () => {
+	assert.equal(renderTemplate("Hi {{first_name}} / {{ app_name }} / {{nope}}", { first_name: "Jo", app_name: "X" }), "Hi Jo / X / {{nope}}");
+});
+
+test("textToHtml escapes and keeps paragraph structure", () => {
+	assert.equal(textToHtml("a <b>\nline2\n\nsecond"), "<p>a &#60;b&#62;<br>line2</p>\n<p>second</p>");
 });

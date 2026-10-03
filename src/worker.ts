@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
 import { buildMimeMessage } from "./mime-builder";
+import { registerFollowUpRoutes, runFollowUps } from "./routes/followups";
 import { registerSuppressionRoutes } from "./routes/suppression";
 import { registerTemplateRoutes } from "./routes/templates";
 import {
@@ -1883,6 +1884,7 @@ app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
 
 registerSuppressionRoutes(app);
 registerTemplateRoutes(app);
+registerFollowUpRoutes(app);
 
 const openapi = fromHono(app);
 
@@ -2142,6 +2144,12 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 			context: ExecutionContext,
 		) {
 			await receiveEmail(event, env, context);
+		},
+		/** Cron: prepares follow-up drafts (never sends). */
+		async scheduled(_event: unknown, env: Env, context: ExecutionContext) {
+			context.waitUntil(
+				runFollowUps(env).catch((err) => console.error("Scheduled follow-ups failed:", err)),
+			);
 		},
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
 			// Make options available to routes via env

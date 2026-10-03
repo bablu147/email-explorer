@@ -107,6 +107,19 @@ export const mailboxMigrations: Migration[] = [
             DROP TABLE IF EXISTS push_subscriptions;
         `,
 	},
+	{
+		// Follow-up drafts created automatically; used to tell which are still unsent.
+		name: "10_followups",
+		sql: `
+            CREATE TABLE IF NOT EXISTS followups (
+                draft_id TEXT PRIMARY KEY,
+                recipient TEXT NOT NULL,
+                original_email_id TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_followups_recipient ON followups(recipient);
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [

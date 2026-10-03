@@ -57,6 +57,7 @@ Disallow: /
 
 export default {
 	email: baseHandler.email,
+	scheduled: baseHandler.scheduled,
 	async fetch(request: Request, env: any, context: any) {
 		const url = new URL(request.url);
 

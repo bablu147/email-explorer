@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import { buildChains, type Chain } from "../outreach";
 import {
+	DEFAULT_FOLLOWUP_TEMPLATE,
 	DEFAULT_TEMPLATES,
 	PITCH_TEMPLATE_ID,
 	TEMPLATE_LIMITS,
@@ -70,6 +72,27 @@ interface AttachmentData {
 	content_id?: string | null;
 	disposition?: string | null;
 }
+
+export interface FollowUpConfig {
+	enabled: boolean;
+	/** Days of silence before a follow-up draft is prepared. */
+	delay_days: number;
+	/** Most follow-ups per recipient (not counting the first message). */
+	max_followups: number;
+	template_id: string;
+	/** Only outreach sent after this moment is ever followed up. */
+	enabled_at: string | null;
+	last_run: { at: string; drafts: number } | null;
+}
+
+export const DEFAULT_FOLLOWUP_CONFIG: FollowUpConfig = {
+	enabled: false,
+	delay_days: 3,
+	max_followups: 2,
+	template_id: DEFAULT_FOLLOWUP_TEMPLATE.id,
+	enabled_at: null,
+	last_run: null,
+};
 
 export interface StoredTemplate {
 	id: string;
@@ -1869,6 +1892,18 @@ export class MailboxDO extends DurableObject<Env> {
 			}
 			await this.ctx.storage.put("templates_seeded", true);
 		}
+		if (!(await this.ctx.storage.get("followup_template_seeded"))) {
+			sql.exec(
+				`INSERT OR IGNORE INTO templates (id, kind, name, subject, body, updated_by, created_at, updated_at)
+				 VALUES (?, 'reply', ?, NULL, ?, NULL, ?, ?)`,
+				DEFAULT_FOLLOWUP_TEMPLATE.id,
+				DEFAULT_FOLLOWUP_TEMPLATE.name,
+				DEFAULT_FOLLOWUP_TEMPLATE.body,
+				now,
+				now,
+			);
+			await this.ctx.storage.put("followup_template_seeded", true);
+		}
 		const rows = sql
 			.exec(
 				"SELECT id, kind, name, subject, body, updated_by, updated_at FROM templates ORDER BY kind DESC, name COLLATE NOCASE",
@@ -1958,5 +1993,159 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.#mapTemplate(
 			this.ctx.storage.sql.exec("SELECT * FROM templates WHERE id = ?", seed.id).toArray()[0],
 		);
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// Follow-ups and the outreach pipeline
+	// ---------------------------------------------------------------------------------------
+
+	/** AUTH DO: the org-wide follow-up settings (off until an admin turns them on). */
+	async getFollowUpConfig(): Promise<FollowUpConfig> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const stored = (await this.ctx.storage.get("followup_config")) as Partial<FollowUpConfig> | undefined;
+		return { ...DEFAULT_FOLLOWUP_CONFIG, ...(stored || {}) };
+	}
+
+	async setFollowUpConfig(
+		patch: Partial<Pick<FollowUpConfig, "enabled" | "delay_days" | "max_followups" | "template_id">> & {
+			/** When switching on: also follow up outreach sent in the last N days (0 to 30). */
+			catch_up_days?: number;
+		},
+	): Promise<FollowUpConfig> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const current = await this.getFollowUpConfig();
+		const next: FollowUpConfig = { ...current };
+		if (typeof patch.delay_days === "number") {
+			next.delay_days = Math.max(1, Math.min(30, Math.round(patch.delay_days)));
+		}
+		if (typeof patch.max_followups === "number") {
+			next.max_followups = Math.max(1, Math.min(3, Math.round(patch.max_followups)));
+		}
+		if (typeof patch.template_id === "string" && patch.template_id) {
+			next.template_id = patch.template_id;
+		}
+		if (typeof patch.enabled === "boolean") {
+			// Turning it on starts a fresh window: only outreach from then on (or the chosen catch-up) is chased.
+			if (patch.enabled && !current.enabled) {
+				const catchUp = Math.max(0, Math.min(30, Math.round(patch.catch_up_days || 0)));
+				next.enabled_at = new Date(Date.now() - catchUp * 86_400_000).toISOString();
+			}
+			next.enabled = patch.enabled;
+		}
+		await this.ctx.storage.put("followup_config", next);
+		return next;
+	}
+
+	async recordFollowUpRun(drafts: number): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const current = await this.getFollowUpConfig();
+		await this.ctx.storage.put("followup_config", {
+			...current,
+			last_run: { at: new Date().toISOString(), drafts },
+		});
+	}
+
+	/** Mailbox DO: one-to-one outreach since `sinceIso`, with engagement and reply status. */
+	async getOutreachChains(sinceIso: string): Promise<Chain[]> {
+		const sql = this.ctx.storage.sql;
+		const sent = sql
+			.exec(
+				`SELECT id, recipient, subject, date, in_reply_to, opened_count, clicked_count, delivery_status, thread_id
+				 FROM emails WHERE folder_id = 'sent' AND date >= ? ORDER BY date ASC LIMIT 3000`,
+				sinceIso,
+			)
+			.toArray() as any[];
+		// Anything we received counts as an answer wherever it ended up (archived, trashed, spam...).
+		const inbound = sql
+			.exec(
+				`SELECT sender, date FROM emails WHERE folder_id NOT IN ('sent', 'drafts') AND date >= ? LIMIT 8000`,
+				sinceIso,
+			)
+			.toArray() as any[];
+		const pending = new Map<string, string>();
+		const drafts = sql
+			.exec(
+				`SELECT f.draft_id AS draft_id, f.recipient AS recipient FROM followups f
+				 JOIN emails e ON e.id = f.draft_id AND e.folder_id = 'drafts'`,
+			)
+			.toArray() as any[];
+		for (const d of drafts) pending.set(String(d.recipient), String(d.draft_id));
+		return buildChains(sent, inbound, pending);
+	}
+
+	/** Saves an automatic follow-up as a normal draft and remembers it so it isn't repeated. */
+	async createFollowUpDraft(draft: {
+		id: string;
+		mailboxId: string;
+		recipient: string;
+		subject: string;
+		html: string;
+		threadId: string | null;
+		originalEmailId: string;
+	}): Promise<void> {
+		await this.upsertDraft(
+			draft.id,
+			{
+				id: draft.id,
+				subject: draft.subject,
+				sender: draft.mailboxId,
+				recipient: draft.recipient,
+				cc: null,
+				bcc: null,
+				date: new Date().toISOString(),
+				body: draft.html,
+				in_reply_to: null,
+				email_references: null,
+				thread_id: draft.threadId || draft.originalEmailId,
+				delivery_status: "draft",
+				spam_score: 0.0,
+			},
+			[],
+		);
+		this.ctx.storage.sql.exec(
+			"INSERT OR REPLACE INTO followups (draft_id, recipient, original_email_id, created_at) VALUES (?, ?, ?, ?)",
+			draft.id,
+			draft.recipient,
+			draft.originalEmailId,
+			new Date().toISOString(),
+		);
+	}
+
+	/** Tells members of `mailboxId` that follow-up drafts are waiting for review. */
+	async notifyFollowUps(mailboxId: string, count: number, firstRecipient: string): Promise<void> {
+		try {
+			const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+			const targets = await authDO.getPushTargetsForMailbox(mailboxId);
+			if (targets.length === 0) return;
+			const vapidKeys = await this.getVapidKeys();
+			const subjectContact = this.env.VAPID_SUBJECT || "support@reflect.cloud";
+			const payload = {
+				title: count === 1 ? "Follow-up ready to review" : `${count} follow-ups ready to review`,
+				body:
+					count === 1
+						? `No reply yet from ${firstRecipient}. A draft is waiting in Drafts.`
+						: `No reply yet from ${firstRecipient} and ${count - 1} more. Drafts are waiting.`,
+				icon: "/icons/icon-192.png",
+				badge: "/icons/badge-72.png",
+				tag: `followups-${mailboxId}`,
+				data: { mailboxId, url: `/mailbox/${encodeURIComponent(mailboxId)}/emails/drafts` },
+				actions: [{ action: "open", title: "Review" }],
+			};
+			await Promise.allSettled(
+				targets.map(async (sub) => {
+					const result = await sendWebPush(
+						{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+						payload,
+						vapidKeys,
+						subjectContact,
+					);
+					if (!result.success && (result.statusCode === 404 || result.statusCode === 410)) {
+						await authDO.purgePushEndpoint(sub.endpoint).catch(() => {});
+					}
+				}),
+			);
+		} catch (err) {
+			console.error("Follow-up notification failed:", err);
+		}
 	}
 }

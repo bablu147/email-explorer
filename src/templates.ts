@@ -3,6 +3,7 @@
 // Merge fields are written {{field}}. They are filled in by the dashboard when a template is used:
 //   pitch (Discover):  app_name, developer_name, platform, category, installs, traction
 //   replies (threads): first_name
+//   follow-ups (automatic): first_name, app_name, original_subject
 
 export type TemplateKind = "reply" | "pitch";
 
@@ -15,6 +16,17 @@ export interface TemplateSeed {
 	subject: string | null;
 	body: string;
 }
+
+export const FOLLOWUP_TEMPLATE_ID = "followup_nudge";
+
+/** Seeded separately from the rest so installs that already seeded the others still get it. */
+export const DEFAULT_FOLLOWUP_TEMPLATE: TemplateSeed = {
+	id: FOLLOWUP_TEMPLATE_ID,
+	kind: "reply",
+	name: "Follow-up nudge",
+	subject: null,
+	body: "Hi {{first_name}},\n\nJust following up on my earlier note about {{app_name}}. Reflect offers transparent, flat-priced attribution with no per-MAU fees, and I'd be glad to set up a sandbox so you can compare it with your current stack.\n\nWould a quick 10-minute walkthrough work this week?\n\nBest,\nThe Reflect Partnerships Team",
+};
 
 export const DEFAULT_TEMPLATES: TemplateSeed[] = [
 	{
@@ -85,4 +97,22 @@ export function validateTemplateInput(
 	if (kind === "pitch" && !subject) return { ok: false, error: "The pitch needs a subject line" };
 	if (subject.length > TEMPLATE_LIMITS.subject) return { ok: false, error: "Subject is too long" };
 	return { ok: true, name, subject: kind === "pitch" ? subject : null, body };
+}
+
+/** Fills `{{field}}` placeholders; unknown fields are left as written. */
+export function renderTemplate(template: string, vars: Record<string, string>): string {
+	return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) =>
+		key in vars ? vars[key] : match,
+	);
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Plain text to simple HTML: blank lines become paragraphs, single newlines become <br>. */
+export function textToHtml(text: string): string {
+	return text
+		.replace(/\r\n/g, "\n")
+		.split(/\n{2,}/)
+		.map((para) => `<p>${escapeHtml(para.trim()).replace(/\n/g, "<br>")}</p>`)
+		.join("\n");
 }

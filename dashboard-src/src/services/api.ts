@@ -190,6 +190,17 @@ export default {
 		apiClient.delete(`/api/v1/templates/${encodeURIComponent(id)}`),
 	resetPitchTemplate: () => apiClient.post("/api/v1/templates/pitch/reset"),
 
+	// Follow-ups and the outreach pipeline
+	getFollowUpConfig: () => apiClient.get("/api/v1/followups/config"),
+	setFollowUpConfig: (patch: Record<string, unknown>) =>
+		apiClient.put("/api/v1/followups/config", patch),
+	runFollowUps: (dryRun: boolean) =>
+		apiClient.post("/api/v1/followups/run", { dry_run: dryRun }),
+	getPipeline: (mailboxId: string, days = 90) =>
+		apiClient.get(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/pipeline`, {
+			params: { days },
+		}),
+
 	// Suppression list (bounces, unsubscribes, manual entries)
 	listSuppressions: () => apiClient.get("/api/v1/suppressions"),
 	addSuppression: (email: string, detail?: string) =>

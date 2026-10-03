@@ -78,6 +78,22 @@
             MMP
           </span>
         </router-link>
+        <router-link
+          :to="{ name: 'Pipeline', params: { mailboxId: route.params.mailboxId } }"
+          class="mt-1 flex items-center rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/70 transition-all text-xs sm:text-sm font-medium group"
+          :class="[
+            uiStore.sidebarCollapsed ? 'p-2.5 justify-center' : 'py-2 px-3',
+            route.name === 'Pipeline' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 font-semibold border-r-2 border-emerald-500' : ''
+          ]"
+          :title="uiStore.sidebarCollapsed ? 'Outreach Pipeline' : ''"
+        >
+          <div class="flex items-center gap-2.5 min-w-0">
+            <svg class="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span v-if="!uiStore.sidebarCollapsed" class="truncate">Pipeline</span>
+          </div>
+        </router-link>
       </div>
 
       <!-- Navigation Menu -->

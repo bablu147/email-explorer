@@ -30,6 +30,9 @@
 			"name": "SEND_EMAIL"
 		}
 	],
+	"triggers": {
+		"crons": ["15 */3 * * *"]
+	},
 	"durable_objects": {
 		"bindings": [
 			{
