@@ -877,6 +877,7 @@ export class MailboxDO extends DurableObject<Env> {
 		folder: string,
 		email: EmailData,
 		attachments: AttachmentData[],
+		mailboxId?: string,
 	) {
 		this.#qb
 			.insert({
@@ -895,7 +896,7 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 
 		if (folder === "inbox") {
-			this.ctx.waitUntil(this.#dispatchPushNotifications(email));
+			this.ctx.waitUntil(this.#dispatchPushNotifications(email, mailboxId));
 		}
 	}
 
@@ -1357,10 +1358,37 @@ export class MailboxDO extends DurableObject<Env> {
 	// Web Push Engine & Subscriptions Registry (RFC 8291 / 8292)
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	async #dispatchPushNotifications(email: EmailData): Promise<void> {
+	async #dispatchPushNotifications(
+		email: EmailData,
+		explicitMailboxId?: string,
+	): Promise<void> {
 		try {
-			const subscriptions = await this.getPushSubscriptions();
-			if (!subscriptions || subscriptions.length === 0) return;
+			// Collect subscriptions from both this mailbox DO and the central AUTH DO
+			const localSubs = await this.getPushSubscriptions();
+			const seenEndpoints = new Set<string>();
+			const allSubs: PushSubscriptionRecord[] = [];
+
+			for (const s of localSubs) {
+				if (!seenEndpoints.has(s.endpoint)) {
+					seenEndpoints.add(s.endpoint);
+					allSubs.push(s);
+				}
+			}
+
+			try {
+				const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+				const authSubs = await authDO.getPushSubscriptions();
+				for (const s of authSubs) {
+					if (!seenEndpoints.has(s.endpoint)) {
+						seenEndpoints.add(s.endpoint);
+						allSubs.push(s);
+					}
+				}
+			} catch (authErr) {
+				console.warn("Could not query AUTH DO subscriptions:", authErr);
+			}
+
+			if (allSubs.length === 0) return;
 
 			const vapidKeys = await this.getVapidKeys();
 			const subjectContact = this.env.VAPID_SUBJECT || "support@reflect.cloud";
@@ -1378,6 +1406,20 @@ export class MailboxDO extends DurableObject<Env> {
 				preview = preview.slice(0, 117) + "...";
 			}
 
+			// Determine clean mailboxId for client routing & mark_read action
+			let resolvedMailboxId = explicitMailboxId || "";
+			if (!resolvedMailboxId && email.recipient) {
+				const match = email.recipient.match(/<([^>]+)>/);
+				if (match) {
+					resolvedMailboxId = match[1].trim().toLowerCase();
+				} else {
+					resolvedMailboxId = email.recipient.split(",")[0].trim().replace(/^["']|["']$/g, "").toLowerCase();
+				}
+			}
+			if (!resolvedMailboxId || resolvedMailboxId === "default") {
+				resolvedMailboxId = "default";
+			}
+
 			const payload = {
 				title: `New Email: ${senderDisplay}`,
 				body: `${cleanSubject}\n${preview}`,
@@ -1386,8 +1428,8 @@ export class MailboxDO extends DurableObject<Env> {
 				tag: `email-${email.id}`,
 				data: {
 					emailId: email.id,
-					mailboxId: email.recipient || "default",
-					url: `/mailbox/${encodeURIComponent(email.recipient || "default")}/email/${email.id}`,
+					mailboxId: resolvedMailboxId,
+					url: `/mailbox/${encodeURIComponent(resolvedMailboxId)}/email/${email.id}`,
 				},
 				actions: [
 					{ action: "open", title: "Open" },
@@ -1395,7 +1437,7 @@ export class MailboxDO extends DurableObject<Env> {
 				],
 			};
 
-			const sendPromises = subscriptions.map(async (sub) => {
+			const sendPromises = allSubs.map(async (sub) => {
 				const result = await sendWebPush(
 					{
 						endpoint: sub.endpoint,
@@ -1411,6 +1453,10 @@ export class MailboxDO extends DurableObject<Env> {
 
 				if (!result.success && (result.statusCode === 404 || result.statusCode === 410)) {
 					await this.deletePushSubscription(sub.endpoint);
+					try {
+						const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+						await authDO.deletePushSubscription(sub.endpoint);
+					} catch {}
 				}
 			});
 
@@ -1516,7 +1562,28 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async sendTestNotification(endpoint?: string): Promise<{ success: boolean; sentCount: number; error?: string }> {
 		try {
-			const all = await this.getPushSubscriptions();
+			const localSubs = await this.getPushSubscriptions();
+			const seenEndpoints = new Set<string>();
+			const all: PushSubscriptionRecord[] = [];
+
+			for (const s of localSubs) {
+				if (!seenEndpoints.has(s.endpoint)) {
+					seenEndpoints.add(s.endpoint);
+					all.push(s);
+				}
+			}
+
+			try {
+				const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+				const authSubs = await authDO.getPushSubscriptions();
+				for (const s of authSubs) {
+					if (!seenEndpoints.has(s.endpoint)) {
+						seenEndpoints.add(s.endpoint);
+						all.push(s);
+					}
+				}
+			} catch {}
+
 			const targets = endpoint ? all.filter((s) => s.endpoint === endpoint) : all;
 
 			if (targets.length === 0) {
@@ -1558,6 +1625,10 @@ export class MailboxDO extends DurableObject<Env> {
 					sentCount++;
 				} else if (result.statusCode === 404 || result.statusCode === 410) {
 					await this.deletePushSubscription(sub.endpoint);
+					try {
+						const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+						await authDO.deletePushSubscription(sub.endpoint);
+					} catch {}
 				}
 			}
 

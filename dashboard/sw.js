@@ -16,12 +16,20 @@ const PRECACHE_ASSETS = [
 	"/icons/badge-72.png",
 ];
 
-// Installation: Precache core app shell
+// Installation: Precache core app shell with resilient error handling
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches
 			.open(CACHE_NAME)
-			.then((cache) => cache.addAll(PRECACHE_ASSETS))
+			.then(async (cache) => {
+				for (const asset of PRECACHE_ASSETS) {
+					try {
+						await cache.add(asset);
+					} catch (err) {
+						console.warn("Failed to precache asset:", asset, err);
+					}
+				}
+			})
 			.then(() => self.skipWaiting()),
 	);
 });
@@ -62,9 +70,12 @@ self.addEventListener("fetch", (event) => {
 	// 2. Navigation requests: Network-first, fallback to cached index.html
 	if (request.mode === "navigate") {
 		event.respondWith(
-			fetch(request).catch(() => {
-				return caches.match("/index.html").then((cached) => {
-					return cached || caches.match("/");
+			fetch(request).catch(async () => {
+				const cached = (await caches.match("/index.html")) || (await caches.match("/"));
+				if (cached) return cached;
+				return new Response("Offline - Reflect Mail", {
+					status: 503,
+					headers: { "Content-Type": "text/html" },
 				});
 			}),
 		);
@@ -84,7 +95,10 @@ self.addEventListener("fetch", (event) => {
 					}
 					return networkResponse;
 				})
-				.catch(() => cachedResponse);
+				.catch((err) => {
+					if (cachedResponse) return cachedResponse;
+					throw err;
+				});
 
 			return cachedResponse || fetchPromise;
 		}),

@@ -2020,6 +2020,7 @@ async function receiveEmail(
 			spam_score: isSpam ? 5.0 : 0.0,
 		},
 		attachmentData,
+		mailboxId,
 	);
 }
 

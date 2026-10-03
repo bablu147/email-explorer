@@ -87,11 +87,26 @@ export async function subscribeToPush(mailboxId?: string): Promise<boolean> {
 
 		const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
-		// 4. Subscribe via PushManager
-		const sub = await swRegistration.pushManager.subscribe({
-			userVisibleOnly: true,
-			applicationServerKey: applicationServerKey as any,
-		});
+		// 4. Subscribe via PushManager (with automatic key-rotation recovery)
+		let sub: PushSubscription;
+		try {
+			sub = await swRegistration.pushManager.subscribe({
+				userVisibleOnly: true,
+				applicationServerKey: applicationServerKey as any,
+			});
+		} catch (subErr) {
+			// If subscription failed (e.g. existing subscription with rotated VAPID key), clean up and retry
+			const existing = await swRegistration.pushManager.getSubscription();
+			if (existing) {
+				await existing.unsubscribe();
+				sub = await swRegistration.pushManager.subscribe({
+					userVisibleOnly: true,
+					applicationServerKey: applicationServerKey as any,
+				});
+			} else {
+				throw subErr;
+			}
+		}
 
 		const subJson = sub.toJSON();
 

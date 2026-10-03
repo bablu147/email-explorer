@@ -539,13 +539,14 @@ onMounted(async () => {
 });
 
 const handleBack = () => {
-	if (window.history.length > 1) {
+	// If user navigated within the app, use router.back(); otherwise (e.g. direct push notification entry) go to Inbox
+	if (window.history.state?.back) {
 		router.back();
 	} else {
 		router.push({
 			name: "EmailList",
 			params: {
-				mailboxId: route.params.mailboxId,
+				mailboxId: (route.params.mailboxId as string) || "default",
 				folder: fromFolder.value || "inbox",
 			},
 		});

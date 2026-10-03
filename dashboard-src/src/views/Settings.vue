@@ -145,6 +145,7 @@ const {
 	permission: pushPermission,
 	isSubscribed: pushSubscribed,
 	loading: pushLoading,
+	init: initPush,
 	subscribe: subscribePush,
 	unsubscribe: unsubscribePush,
 	sendTestNotification: sendTestPush,
@@ -152,18 +153,28 @@ const {
 
 const testPushLoading = ref(false);
 
+const getActiveMailboxId = () => {
+	return (
+		(route.params.mailboxId as string) ||
+		mailbox.value?.id ||
+		mailboxStore.currentMailbox?.id ||
+		undefined
+	);
+};
+
 const togglePush = async (e: Event) => {
 	const checked = (e.target as HTMLInputElement).checked;
 	try {
+		const targetId = getActiveMailboxId();
 		if (checked) {
-			const success = await subscribePush(route.params.mailboxId as string);
+			const success = await subscribePush(targetId);
 			if (success) {
 				showSuccessToast("Push notifications enabled!");
 			} else {
 				showErrorToast("Notification permission was not granted.");
 			}
 		} else {
-			await unsubscribePush(route.params.mailboxId as string);
+			await unsubscribePush(targetId);
 			showSuccessToast("Push notifications disabled.");
 		}
 	} catch (err: any) {
@@ -174,7 +185,8 @@ const togglePush = async (e: Event) => {
 const handleSendTestPush = async () => {
 	testPushLoading.value = true;
 	try {
-		const res = await sendTestPush(route.params.mailboxId as string);
+		const targetId = getActiveMailboxId();
+		const res = await sendTestPush(targetId);
 		if (res.success) {
 			showSuccessToast(res.message || "Test notification dispatched!");
 		} else {
@@ -204,7 +216,11 @@ watch(
 );
 
 onMounted(() => {
-	mailboxStore.fetchMailbox(route.params.mailboxId as string);
+	initPush();
+	const mbId = route.params.mailboxId as string;
+	if (mbId) {
+		mailboxStore.fetchMailbox(mbId);
+	}
 });
 
 const stripHtml = (html: string): string => {

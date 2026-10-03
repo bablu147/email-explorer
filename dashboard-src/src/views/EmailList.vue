@@ -890,10 +890,10 @@ const startX = ref(0);
 const startWidth = ref(0);
 const windowWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
 
-const isDesktop = computed(() => windowWidth.value >= 1024);
+const isTabletOrDesktop = computed(() => windowWidth.value >= 768);
 
 const leftPaneStyle = computed(() => {
-	if (uiStore.splitViewMode !== "split" || !isDesktop.value) {
+	if (uiStore.splitViewMode !== "split" || !isTabletOrDesktop.value) {
 		return {};
 	}
 	return {
@@ -983,7 +983,10 @@ const handleRowClick = (email: Email, idx: number) => {
 	if (isMobile || uiStore.splitViewMode === "full") {
 		router.push({
 			name: "EmailDetail",
-			params: { id: email.id },
+			params: {
+				mailboxId: (route.params.mailboxId as string) || "default",
+				id: email.id,
+			},
 			query: { fromFolder: folderId.value },
 		});
 		return;
@@ -1439,7 +1442,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		} else if (activeRowIndex.value === -1) {
 			activeRowIndex.value = 0;
 		}
-		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 768) {
 			const email = list[activeRowIndex.value];
 			if (email) activeEmailId.value = email.id;
 		}
@@ -1455,7 +1458,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		} else if (activeRowIndex.value === -1) {
 			activeRowIndex.value = 0;
 		}
-		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 768) {
 			const email = list[activeRowIndex.value];
 			if (email) activeEmailId.value = email.id;
 		}
@@ -1477,12 +1480,15 @@ const handleKeyDown = (e: KeyboardEvent) => {
 			openDraftInComposer(activeEmail);
 			return;
 		}
-		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 768) {
 			activeEmailId.value = activeEmail.id;
 		} else {
 			router.push({
 				name: "EmailDetail",
-				params: { id: activeEmail.id },
+				params: {
+					mailboxId: (route.params.mailboxId as string) || "default",
+					id: activeEmail.id,
+				},
 				query: { fromFolder: folderId.value },
 			});
 		}

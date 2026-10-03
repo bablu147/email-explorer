@@ -39,11 +39,13 @@ export function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
  * Base64url decode a string into a Uint8Array
  */
 export function base64UrlDecode(str: string): Uint8Array {
-	let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-	while (base64.length % 4 !== 0) {
-		base64 += "=";
-	}
-	const binary = atob(base64);
+	let clean = str.trim().replace(/-/g, "+").replace(/_/g, "/");
+	const pad = clean.length % 4;
+	if (pad === 2) clean += "==";
+	else if (pad === 3) clean += "=";
+	else if (pad === 1) clean += "===";
+
+	const binary = atob(clean);
 	const bytes = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i++) {
 		bytes[i] = binary.charCodeAt(i);
@@ -71,13 +73,30 @@ export async function generateVapidKeys(): Promise<VapidKeys> {
 }
 
 /**
- * Import a VAPID private key from base64url components
+ * Import a VAPID private key from base64url components or PKCS#8
  */
 export async function importVapidPrivateKey(
 	publicKey: string,
 	privateKeyD: string,
 ): Promise<CryptoKey> {
-	const rawPublic = base64UrlDecode(publicKey);
+	const cleanKey = privateKeyD.trim();
+	// Check if key is PKCS#8 DER (standard from web-push or openssl)
+	if (cleanKey.length > 60 || cleanKey.startsWith("MIGH")) {
+		try {
+			const pkcs8Bytes = base64UrlDecode(cleanKey);
+			return await crypto.subtle.importKey(
+				"pkcs8",
+				pkcs8Bytes as unknown as BufferSource,
+				{ name: "ECDSA", namedCurve: "P-256" },
+				false,
+				["sign"],
+			);
+		} catch {
+			// Fall through to JWK format
+		}
+	}
+
+	const rawPublic = base64UrlDecode(publicKey.trim());
 	const x = base64UrlEncode(rawPublic.slice(1, 33));
 	const y = base64UrlEncode(rawPublic.slice(33, 65));
 
@@ -86,7 +105,7 @@ export async function importVapidPrivateKey(
 		crv: "P-256",
 		x,
 		y,
-		d: privateKeyD,
+		d: cleanKey,
 		ext: false,
 	};
 
@@ -116,10 +135,16 @@ export async function createVapidAuthHeader(
 		alg: "ES256",
 	};
 
+	const cleanSub = (subject || "").trim();
+	const formattedSubject =
+		cleanSub.startsWith("mailto:") || cleanSub.startsWith("https://") || cleanSub.startsWith("http://")
+			? cleanSub
+			: `mailto:${cleanSub || "support@reflect.cloud"}`;
+
 	const claims = {
 		aud: audience,
 		exp: expiry,
-		sub: subject.startsWith("mailto:") ? subject : `mailto:${subject}`,
+		sub: formattedSubject,
 	};
 
 	const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
@@ -136,7 +161,7 @@ export async function createVapidAuthHeader(
 	const signatureB64 = base64UrlEncode(signatureBuffer);
 	const jwt = `${unsignedToken}.${signatureB64}`;
 
-	return `vapid t=${jwt}, k=${vapidKeys.publicKey}`;
+	return `vapid t=${jwt}, k=${vapidKeys.publicKey.trim()}`;
 }
 
 /**

@@ -81,6 +81,7 @@ const mailboxId = computed(() => {
 	return (
 		(route.params.mailboxId as string) ||
 		mailboxStore.currentMailbox?.id ||
+		mailboxStore.mailboxes[0]?.id ||
 		authStore.session?.email ||
 		"default"
 	);

@@ -1,5 +1,8 @@
 <template>
-  <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+  <div
+    class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl sm:!pb-8"
+    :style="{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }"
+  >
     <div class="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h1 class="text-3xl sm:text-4xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent mb-1.5 tracking-tight">Mailboxes</h1>
