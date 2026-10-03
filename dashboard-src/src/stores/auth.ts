@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import api from "@/services/api";
+import { unsubscribeFromPush } from "@/services/pushNotification";
 
 export interface User {
 	id: string;
@@ -82,6 +83,12 @@ export const useAuthStore = defineStore("auth", () => {
 		loading.value = true;
 		try {
 			if (session.value) {
+				// Stop this device receiving the account's mail previews once signed out (shared devices).
+				// Best-effort and time-boxed: it must never block signing out.
+				await Promise.race([
+					unsubscribeFromPush().catch(() => false),
+					new Promise((resolve) => setTimeout(resolve, 2500)),
+				]);
 				await api.logout();
 			}
 		} catch (err) {

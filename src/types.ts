@@ -68,6 +68,8 @@ export interface PushSubscriptionRecord {
 	p256dh: string;
 	auth: string;
 	user_agent?: string | null;
+	/** Owner. Only the AUTH registry stores this; pushes go only to owners with access to the mailbox. */
+	user_id?: string | null;
 	created_at: string;
 }
 

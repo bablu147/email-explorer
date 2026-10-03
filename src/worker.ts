@@ -1776,8 +1776,6 @@ function isPublicRoute(pathname: string): boolean {
 		"/api/docs",
 		"/api/openapi.json",
 		"/api/v1/track/",
-		"/api/push/",
-		"/api/v1/push/",
 	];
 	return publicRoutes.some((route) => pathname.startsWith(route));
 }

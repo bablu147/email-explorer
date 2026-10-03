@@ -1,6 +1,17 @@
 import axios from "axios";
 import { ref } from "vue";
 
+/** Push endpoints require a signed-in user; send the same session token the rest of the app uses. */
+function authConfig() {
+	try {
+		const stored = JSON.parse(localStorage.getItem("session") || "null");
+		if (stored?.id) return { headers: { Authorization: `Bearer ${stored.id}` } };
+	} catch {
+		/* fall back to the session cookie */
+	}
+	return {};
+}
+
 export interface PushStatus {
 	isSupported: boolean;
 	permission: NotificationPermission;
@@ -79,7 +90,7 @@ export async function subscribeToPush(mailboxId?: string): Promise<boolean> {
 		}
 
 		// 3. Fetch VAPID public key from backend
-		const keyRes = await axios.get<{ publicKey: string }>("/api/v1/push/vapid-public-key");
+		const keyRes = await axios.get<{ publicKey: string }>("/api/v1/push/vapid-public-key", authConfig());
 		const publicKey = keyRes.data.publicKey;
 		if (!publicKey) {
 			throw new Error("Unable to retrieve VAPID public key from server.");
@@ -119,7 +130,7 @@ export async function subscribeToPush(mailboxId?: string): Promise<boolean> {
 			},
 			mailboxId: mailboxId || undefined,
 			userAgent: navigator.userAgent,
-		});
+		}, authConfig());
 
 		isSubscribed.value = true;
 		return true;
@@ -152,7 +163,7 @@ export async function unsubscribeFromPush(mailboxId?: string): Promise<boolean> 
 			await axios.post("/api/v1/push/unsubscribe", {
 				endpoint,
 				mailboxId: mailboxId || undefined,
-			});
+			}, authConfig());
 		}
 
 		isSubscribed.value = false;
@@ -186,6 +197,7 @@ export async function sendTestPush(mailboxId?: string): Promise<{ success: boole
 				endpoint: sub?.endpoint || undefined,
 				mailboxId: mailboxId || undefined,
 			},
+			authConfig(),
 		);
 
 		return res.data;

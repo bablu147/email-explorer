@@ -1404,29 +1404,29 @@ export class MailboxDO extends DurableObject<Env> {
 		explicitMailboxId?: string,
 	): Promise<void> {
 		try {
-			// Collect subscriptions from both this mailbox DO and the central AUTH DO
-			const localSubs = await this.getPushSubscriptions();
-			const seenEndpoints = new Set<string>();
-			const allSubs: PushSubscriptionRecord[] = [];
-
-			for (const s of localSubs) {
-				if (!seenEndpoints.has(s.endpoint)) {
-					seenEndpoints.add(s.endpoint);
-					allSubs.push(s);
+			// Determine clean mailboxId for access checks, client routing & the mark_read action
+			let resolvedMailboxId = explicitMailboxId || "";
+			if (!resolvedMailboxId && email.recipient) {
+				const match = email.recipient.match(/<([^>]+)>/);
+				if (match) {
+					resolvedMailboxId = match[1].trim().toLowerCase();
+				} else {
+					resolvedMailboxId = email.recipient.split(",")[0].trim().replace(/^["']|["']$/g, "").toLowerCase();
 				}
 			}
+			if (!resolvedMailboxId || resolvedMailboxId === "default") {
+				// Without a known mailbox we can't tell who may see this message, so tell nobody.
+				return;
+			}
 
+			// Only devices owned by a user who can access this mailbox (members and admins) are notified.
+			const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+			let allSubs: PushSubscriptionRecord[] = [];
 			try {
-				const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
-				const authSubs = await authDO.getPushSubscriptions();
-				for (const s of authSubs) {
-					if (!seenEndpoints.has(s.endpoint)) {
-						seenEndpoints.add(s.endpoint);
-						allSubs.push(s);
-					}
-				}
+				allSubs = await authDO.getPushTargetsForMailbox(resolvedMailboxId);
 			} catch (authErr) {
 				console.warn("Could not query AUTH DO subscriptions:", authErr);
+				return;
 			}
 
 			if (allSubs.length === 0) return;
@@ -1445,20 +1445,6 @@ export class MailboxDO extends DurableObject<Env> {
 			}
 			if (preview.length > 120) {
 				preview = preview.slice(0, 117) + "...";
-			}
-
-			// Determine clean mailboxId for client routing & mark_read action
-			let resolvedMailboxId = explicitMailboxId || "";
-			if (!resolvedMailboxId && email.recipient) {
-				const match = email.recipient.match(/<([^>]+)>/);
-				if (match) {
-					resolvedMailboxId = match[1].trim().toLowerCase();
-				} else {
-					resolvedMailboxId = email.recipient.split(",")[0].trim().replace(/^["']|["']$/g, "").toLowerCase();
-				}
-			}
-			if (!resolvedMailboxId || resolvedMailboxId === "default") {
-				resolvedMailboxId = "default";
 			}
 
 			const payload = {
@@ -1493,10 +1479,8 @@ export class MailboxDO extends DurableObject<Env> {
 				);
 
 				if (!result.success && (result.statusCode === 404 || result.statusCode === 410)) {
-					await this.deletePushSubscription(sub.endpoint);
 					try {
-						const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
-						await authDO.deletePushSubscription(sub.endpoint);
+						await authDO.purgePushEndpoint(sub.endpoint);
 					} catch {}
 				}
 			});
@@ -1529,40 +1513,67 @@ export class MailboxDO extends DurableObject<Env> {
 		return await authDO.getVapidKeys();
 	}
 
-	async savePushSubscription(sub: {
-		endpoint: string;
-		p256dh: string;
-		auth: string;
-		userAgent?: string | null;
-	}): Promise<PushSubscriptionRecord> {
-		this.ctx.storage.sql.exec(`
-			CREATE TABLE IF NOT EXISTS push_subscriptions (
-				id TEXT PRIMARY KEY,
-				endpoint TEXT NOT NULL UNIQUE,
-				p256dh TEXT NOT NULL,
-				auth TEXT NOT NULL,
-				user_agent TEXT,
-				created_at TEXT NOT NULL
-			);
-			CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
-		`);
+	/** Max devices a single user can have registered; the oldest are dropped beyond this. */
+	static readonly MAX_PUSH_SUBSCRIPTIONS_PER_USER = 20;
+
+	#mapPushRow(r: any): PushSubscriptionRecord {
+		return {
+			id: String(r.id),
+			endpoint: String(r.endpoint),
+			p256dh: String(r.p256dh),
+			auth: String(r.auth),
+			user_agent: r.user_agent ? String(r.user_agent) : null,
+			user_id: r.user_id ? String(r.user_id) : null,
+			created_at: String(r.created_at),
+		};
+	}
+
+	/**
+	 * Registers (or re-owns) a device for `userId`. AUTH DO only. If the same browser is used by another
+	 * account later, the endpoint moves to that account.
+	 */
+	async savePushSubscription(
+		sub: {
+			endpoint: string;
+			p256dh: string;
+			auth: string;
+			userAgent?: string | null;
+		},
+		userId: string,
+	): Promise<PushSubscriptionRecord> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		if (!userId) throw new Error("A user is required to register push notifications");
 
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
 		this.ctx.storage.sql.exec(
-			`INSERT INTO push_subscriptions (id, endpoint, p256dh, auth, user_agent, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?)
+			`INSERT INTO push_subscriptions (id, endpoint, p256dh, auth, user_agent, user_id, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(endpoint) DO UPDATE SET
 			   p256dh = excluded.p256dh,
 			   auth = excluded.auth,
-			   user_agent = excluded.user_agent`,
+			   user_agent = excluded.user_agent,
+			   user_id = excluded.user_id,
+			   created_at = excluded.created_at`,
 			id,
 			sub.endpoint,
 			sub.p256dh,
 			sub.auth,
 			sub.userAgent || null,
+			userId,
 			now,
+		);
+
+		this.ctx.storage.sql.exec(
+			`DELETE FROM push_subscriptions
+			 WHERE user_id = ?
+			   AND id NOT IN (
+			     SELECT id FROM push_subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?
+			   )`,
+			userId,
+			userId,
+			MailboxDO.MAX_PUSH_SUBSCRIPTIONS_PER_USER,
 		);
 
 		return {
@@ -1571,61 +1582,68 @@ export class MailboxDO extends DurableObject<Env> {
 			p256dh: sub.p256dh,
 			auth: sub.auth,
 			user_agent: sub.userAgent || null,
+			user_id: userId,
 			created_at: now,
 		};
 	}
 
-	async deletePushSubscription(endpoint: string): Promise<boolean> {
-		this.ctx.storage.sql.exec(
-			"DELETE FROM push_subscriptions WHERE endpoint = ?",
+	/** A user removing one of their own devices. Returns false if it isn't theirs / doesn't exist. */
+	async deletePushSubscription(endpoint: string, userId: string): Promise<boolean> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const cursor = this.ctx.storage.sql.exec(
+			"DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?",
 			endpoint,
+			userId,
 		);
-		return true;
+		return cursor.rowsWritten > 0;
 	}
 
-	async getPushSubscriptions(): Promise<PushSubscriptionRecord[]> {
-		try {
-			const rows = this.ctx.storage.sql
-				.exec("SELECT id, endpoint, p256dh, auth, user_agent, created_at FROM push_subscriptions")
-				.toArray();
-			return rows.map((r: any) => ({
-				id: String(r.id),
-				endpoint: String(r.endpoint),
-				p256dh: String(r.p256dh),
-				auth: String(r.auth),
-				user_agent: r.user_agent ? String(r.user_agent) : null,
-				created_at: String(r.created_at),
-			}));
-		} catch {
-			return [];
-		}
+	/** Server-side cleanup of an endpoint the push service reported as gone (404 / 410). */
+	async purgePushEndpoint(endpoint: string): Promise<void> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		this.ctx.storage.sql.exec("DELETE FROM push_subscriptions WHERE endpoint = ?", endpoint);
 	}
 
-	async sendTestNotification(endpoint?: string): Promise<{ success: boolean; sentCount: number; error?: string }> {
+	/** Devices belonging to admins and to users who are members of `mailboxId`. */
+	async getPushTargetsForMailbox(mailboxId: string): Promise<PushSubscriptionRecord[]> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const rows = this.ctx.storage.sql
+			.exec(
+				`SELECT id, endpoint, p256dh, auth, user_agent, user_id, created_at
+				 FROM push_subscriptions
+				 WHERE user_id IS NOT NULL
+				   AND (
+				     user_id IN (SELECT id FROM users WHERE is_admin = 1)
+				     OR user_id IN (SELECT user_id FROM user_mailboxes WHERE LOWER(mailbox_id) = LOWER(?))
+				   )`,
+				mailboxId,
+			)
+			.toArray();
+		return rows.map((r) => this.#mapPushRow(r));
+	}
+
+	/** Sends a test notification to the calling user's own devices (optionally just one endpoint). */
+	async sendTestNotification(
+		userId: string,
+		endpoint?: string,
+	): Promise<{ success: boolean; sentCount: number; error?: string }> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
 		try {
-			const localSubs = await this.getPushSubscriptions();
-			const seenEndpoints = new Set<string>();
-			const all: PushSubscriptionRecord[] = [];
-
-			for (const s of localSubs) {
-				if (!seenEndpoints.has(s.endpoint)) {
-					seenEndpoints.add(s.endpoint);
-					all.push(s);
-				}
-			}
-
-			try {
-				const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
-				const authSubs = await authDO.getPushSubscriptions();
-				for (const s of authSubs) {
-					if (!seenEndpoints.has(s.endpoint)) {
-						seenEndpoints.add(s.endpoint);
-						all.push(s);
-					}
-				}
-			} catch {}
-
-			const targets = endpoint ? all.filter((s) => s.endpoint === endpoint) : all;
+			const rows = endpoint
+				? this.ctx.storage.sql
+						.exec(
+							"SELECT id, endpoint, p256dh, auth, user_agent, user_id, created_at FROM push_subscriptions WHERE user_id = ? AND endpoint = ?",
+							userId,
+							endpoint,
+						)
+						.toArray()
+				: this.ctx.storage.sql
+						.exec(
+							"SELECT id, endpoint, p256dh, auth, user_agent, user_id, created_at FROM push_subscriptions WHERE user_id = ?",
+							userId,
+						)
+						.toArray();
+			const targets = rows.map((r) => this.#mapPushRow(r));
 
 			if (targets.length === 0) {
 				return { success: false, sentCount: 0, error: "No matching push subscription found" };
@@ -1665,11 +1683,7 @@ export class MailboxDO extends DurableObject<Env> {
 				if (result.success) {
 					sentCount++;
 				} else if (result.statusCode === 404 || result.statusCode === 410) {
-					await this.deletePushSubscription(sub.endpoint);
-					try {
-						const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
-						await authDO.deletePushSubscription(sub.endpoint);
-					} catch {}
+					await this.purgePushEndpoint(sub.endpoint);
 				}
 			}
 
@@ -1679,4 +1693,3 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 	}
 }
-

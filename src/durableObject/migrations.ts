@@ -99,6 +99,14 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
         `,
 	},
+	{
+		// Push subscriptions now live only in the AUTH registry, tied to a user. Rows in mailbox DOs were
+		// written by unauthenticated callers and are never read any more.
+		name: "9_drop_push_subscriptions",
+		sql: `
+            DROP TABLE IF EXISTS push_subscriptions;
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [
@@ -197,5 +205,14 @@ export const authMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
         `,
 	},
+	{
+		// Subscriptions used to be accepted from anyone and shared across all mailboxes. Unowned rows
+		// can't be trusted, so they are dropped (a device just re-enables notifications once).
+		name: "5_push_subscriptions_owner",
+		sql: `
+            DELETE FROM push_subscriptions;
+            ALTER TABLE push_subscriptions ADD COLUMN user_id TEXT;
+            CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id);
+        `,
+	},
 ];
-
