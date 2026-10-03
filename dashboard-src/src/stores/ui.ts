@@ -23,6 +23,10 @@ export const useUIStore = defineStore("ui", {
 		isCommandPaletteOpen: false,
 		splitViewMode: ((typeof localStorage !== "undefined" &&
 			localStorage.getItem("reflect_split_view")) as SplitViewMode) || "split",
+		splitPaneWidth:
+			(typeof localStorage !== "undefined" &&
+				parseInt(localStorage.getItem("reflect_split_pane_width") || "480", 10)) ||
+			480,
 		sidebarCollapsed: typeof localStorage !== "undefined" &&
 			localStorage.getItem("reflect_sidebar_collapsed") === "true",
 	}),
@@ -57,6 +61,13 @@ export const useUIStore = defineStore("ui", {
 			this.splitViewMode = mode;
 			if (typeof localStorage !== "undefined") {
 				localStorage.setItem("reflect_split_view", mode);
+			}
+		},
+		setSplitPaneWidth(width: number) {
+			const clamped = Math.max(320, Math.min(width, 900));
+			this.splitPaneWidth = clamped;
+			if (typeof localStorage !== "undefined") {
+				localStorage.setItem("reflect_split_pane_width", String(clamped));
 			}
 		},
 		toggleSplitViewMode() {

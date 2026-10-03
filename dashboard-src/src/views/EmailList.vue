@@ -2,12 +2,14 @@
   <div class="flex-1 flex min-h-0 h-full overflow-hidden bg-white dark:bg-gray-900 relative">
     <!-- Left Pane: Email Stream List -->
     <div 
-      class="flex flex-col min-h-0 h-full overflow-y-auto transition-all duration-200"
+      class="flex flex-col min-h-0 h-full overflow-y-auto"
       :class="[
         uiStore.splitViewMode === 'split' 
-          ? 'w-full lg:w-[420px] xl:w-[480px] 2xl:w-[540px] shrink-0 border-r border-gray-200 dark:border-gray-800' 
-          : 'w-full flex-1'
+          ? 'w-full lg:w-auto shrink-0' 
+          : 'w-full flex-1',
+        isResizing ? 'transition-none select-none' : 'transition-[width] duration-150'
       ]"
+      :style="leftPaneStyle"
     >
       <!-- Header with Folder Name, Live Search, Filter Pills, and Refresh -->
       <div class="px-4 sm:px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10">
@@ -653,6 +655,29 @@
     </div>
   </div>
 
+  <!-- ↔ Draggable Split Divider Line (Desktop only when split mode is active) -->
+  <div
+    v-if="uiStore.splitViewMode === 'split'"
+    @mousedown.prevent="startResizing"
+    @touchstart="startTouchResizing"
+    @dblclick="resetSplitWidth"
+    class="hidden lg:flex items-center justify-center w-2 -mx-1 hover:w-2 hover:bg-emerald-500/20 active:bg-emerald-500/40 cursor-col-resize z-20 group relative transition-colors select-none shrink-0"
+    :class="{ '!bg-emerald-500/30': isResizing }"
+    title="Drag to resize panels (Double-click to reset to 480px)"
+  >
+    <!-- Center 1px visible line -->
+    <div 
+      class="w-px h-full bg-gray-200 dark:bg-gray-800 group-hover:bg-emerald-500 transition-colors"
+      :class="{ '!bg-emerald-500': isResizing }"
+    ></div>
+
+    <!-- Handle grab pill on hover or drag -->
+    <div 
+      class="absolute w-1.5 h-8 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-emerald-500 group-hover:scale-110 transition-all opacity-0 group-hover:opacity-100 shadow-xs pointer-events-none"
+      :class="{ '!opacity-100 !bg-emerald-500 !scale-110': isResizing }"
+    ></div>
+  </div>
+
   <!-- Right Pane: Docked Reading Pane (Desktop only when split mode is active) -->
   <div 
     v-if="uiStore.splitViewMode === 'split'" 
@@ -806,6 +831,12 @@
         </div>
       </div>
     </div>
+
+    <!-- Fullscreen drag overlay to prevent iframe / text-selection interference during resize -->
+    <div 
+      v-if="isResizing" 
+      class="fixed inset-0 z-50 cursor-col-resize select-none bg-transparent"
+    ></div>
   </div>
 </template>
 
@@ -841,6 +872,85 @@ const activeRowIndex = ref<number>(-1);
 const activeEmailId = ref<string | null>(null);
 const showShortcutsModal = ref(false);
 const rowElements = ref<(HTMLElement | null)[]>([]);
+
+// ↔ Draggable Split View Resize State & Handlers
+const isResizing = ref(false);
+const startX = ref(0);
+const startWidth = ref(0);
+const windowWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
+
+const isDesktop = computed(() => windowWidth.value >= 1024);
+
+const leftPaneStyle = computed(() => {
+	if (uiStore.splitViewMode !== "split" || !isDesktop.value) {
+		return {};
+	}
+	return {
+		width: `${uiStore.splitPaneWidth}px`,
+	};
+});
+
+const startResizing = (e: MouseEvent) => {
+	isResizing.value = true;
+	startX.value = e.clientX;
+	startWidth.value = uiStore.splitPaneWidth;
+
+	window.addEventListener("mousemove", onMouseMove);
+	window.addEventListener("mouseup", onMouseUp);
+	document.body.style.cursor = "col-resize";
+	document.body.style.userSelect = "none";
+};
+
+const onMouseMove = (e: MouseEvent) => {
+	if (!isResizing.value) return;
+	const delta = e.clientX - startX.value;
+	const newWidth = startWidth.value + delta;
+	const maxAllowed = Math.max(380, windowWidth.value - 420);
+	const clamped = Math.max(320, Math.min(newWidth, Math.min(850, maxAllowed)));
+	uiStore.setSplitPaneWidth(clamped);
+};
+
+const onMouseUp = () => {
+	isResizing.value = false;
+	window.removeEventListener("mousemove", onMouseMove);
+	window.removeEventListener("mouseup", onMouseUp);
+	document.body.style.cursor = "";
+	document.body.style.userSelect = "";
+};
+
+const startTouchResizing = (e: TouchEvent) => {
+	if (e.touches.length !== 1) return;
+	isResizing.value = true;
+	startX.value = e.touches[0].clientX;
+	startWidth.value = uiStore.splitPaneWidth;
+
+	window.addEventListener("touchmove", onTouchMove, { passive: false });
+	window.addEventListener("touchend", onTouchEnd);
+};
+
+const onTouchMove = (e: TouchEvent) => {
+	if (!isResizing.value || e.touches.length !== 1) return;
+	e.preventDefault();
+	const delta = e.touches[0].clientX - startX.value;
+	const newWidth = startWidth.value + delta;
+	const maxAllowed = Math.max(380, windowWidth.value - 420);
+	const clamped = Math.max(320, Math.min(newWidth, Math.min(850, maxAllowed)));
+	uiStore.setSplitPaneWidth(clamped);
+};
+
+const onTouchEnd = () => {
+	isResizing.value = false;
+	window.removeEventListener("touchmove", onTouchMove);
+	window.removeEventListener("touchend", onTouchEnd);
+};
+
+const resetSplitWidth = () => {
+	uiStore.setSplitPaneWidth(480);
+};
+
+const handleWindowResize = () => {
+	windowWidth.value = window.innerWidth;
+};
 
 // Custom Confirm Modal State
 const isDeleteConfirmOpen = ref(false);
@@ -1468,11 +1578,19 @@ onMounted(() => {
 	loadEmails();
 	startAutoRefresh();
 	window.addEventListener("keydown", handleKeyDown);
+	window.addEventListener("resize", handleWindowResize);
 });
 
 onUnmounted(() => {
 	stopAutoRefresh();
 	window.removeEventListener("keydown", handleKeyDown);
+	window.removeEventListener("resize", handleWindowResize);
+	window.removeEventListener("mousemove", onMouseMove);
+	window.removeEventListener("mouseup", onMouseUp);
+	window.removeEventListener("touchmove", onTouchMove);
+	window.removeEventListener("touchend", onTouchEnd);
+	document.body.style.cursor = "";
+	document.body.style.userSelect = "";
 });
 
 watch(
