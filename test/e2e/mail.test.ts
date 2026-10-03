@@ -396,6 +396,29 @@ describe("pagination and search", () => {
 		const none = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("zzz-no-match-zzz")}`, admin);
 		assert.equal((none.body as unknown[]).length, 0);
 	});
+
+	test("search filters by tokens (from:, to:, is:unread, has:attachment, folder:)", async () => {
+		const fromRes = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("from:bulk@dev.io")}`, admin);
+		assert.equal(fromRes.status, 200);
+		assert.ok(subjectsOf(fromRes.body).includes("Bulk 02"));
+
+		const folderRes = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("folder:inbox Bulk 02")}`, admin);
+		assert.equal(folderRes.status, 200);
+		assert.ok(subjectsOf(folderRes.body).includes("Bulk 02"));
+
+		const unreadRes = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("is:unread")}`, admin);
+		assert.equal(unreadRes.status, 200);
+		for (const m of unreadRes.body as any[]) {
+			assert.equal(m.read, false);
+		}
+
+		const attRes = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("has:attachment")}`, admin);
+		assert.equal(attRes.status, 200);
+
+		const comboRes = await api.get(`/api/v1/mailboxes/${enc(BOX)}/search?query=${enc("folder:inbox is:unread Bulk")}`, admin);
+		assert.equal(comboRes.status, 200);
+		assert.ok(subjectsOf(comboRes.body).includes("Bulk 02"));
+	});
 });
 
 describe("tracking", () => {

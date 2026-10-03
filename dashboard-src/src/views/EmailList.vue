@@ -772,6 +772,7 @@ import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
+import { filterEmailsByQuery } from "@/utils/searchParser";
 
 type FilterMode = "all" | "unread" | "starred" | "viewed" | "unopened" | "clicked" | "delivered";
 
@@ -916,16 +917,8 @@ const filteredEmails = computed<Email[]>(() => {
 			break;
 	}
 
-	const q = searchQuery.value.toLowerCase().trim();
-	if (q) {
-		list = list.filter(
-			(e) =>
-				e.subject?.toLowerCase().includes(q) ||
-				e.recipient?.toLowerCase().includes(q) ||
-				e.sender?.toLowerCase().includes(q) ||
-				e.cc?.toLowerCase().includes(q) ||
-				e.body?.toLowerCase().includes(q),
-		);
+	if (searchQuery.value.trim()) {
+		list = filterEmailsByQuery(list, searchQuery.value);
 	}
 	return list;
 });

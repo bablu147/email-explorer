@@ -1,20 +1,20 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import Admin from "@/views/Admin.vue";
-import Contacts from "@/views/Contacts.vue";
-import DiscoverApps from "@/views/DiscoverApps.vue";
-import Pipeline from "@/views/Pipeline.vue";
-import EmailDetail from "@/views/EmailDetail.vue";
-import EmailList from "@/views/EmailList.vue";
-import ForgotPassword from "@/views/ForgotPassword.vue";
-import Home from "@/views/Home.vue";
-import Login from "@/views/Login.vue";
-import Mailbox from "@/views/Mailbox.vue";
-import NotFound from "@/views/NotFound.vue";
-import Register from "@/views/Register.vue";
-import ResetPassword from "@/views/ResetPassword.vue";
-import SearchResults from "@/views/SearchResults.vue";
-import Settings from "@/views/Settings.vue";
+const Admin = () => import("@/views/Admin.vue");
+const Contacts = () => import("@/views/Contacts.vue");
+const DiscoverApps = () => import("@/views/DiscoverApps.vue");
+const Pipeline = () => import("@/views/Pipeline.vue");
+const EmailDetail = () => import("@/views/EmailDetail.vue");
+const EmailList = () => import("@/views/EmailList.vue");
+const ForgotPassword = () => import("@/views/ForgotPassword.vue");
+const Home = () => import("@/views/Home.vue");
+const Login = () => import("@/views/Login.vue");
+const Mailbox = () => import("@/views/Mailbox.vue");
+const NotFound = () => import("@/views/NotFound.vue");
+const Register = () => import("@/views/Register.vue");
+const ResetPassword = () => import("@/views/ResetPassword.vue");
+const SearchResults = () => import("@/views/SearchResults.vue");
+const Settings = () => import("@/views/Settings.vue");
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),

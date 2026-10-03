@@ -62,6 +62,32 @@ export interface DiscoverLead {
 	updated_at: number;
 }
 
+export interface EmailData {
+	id: string;
+	folder_id?: string | null;
+	subject: string;
+	sender: string;
+	recipient: string;
+	date: string;
+	body: string;
+	read?: boolean;
+	starred?: boolean;
+	in_reply_to?: string | null;
+	email_references?: string | null;
+	thread_id?: string | null;
+	cc?: string | null;
+	bcc?: string | null;
+	opened_at?: string | null;
+	opened_count?: number;
+	clicked_at?: string | null;
+	clicked_count?: number;
+	delivery_status?: string | null;
+	spam_score?: number | null;
+	snoozed_until?: string | null;
+	scheduled_at?: string | null;
+	send_error?: string | null;
+}
+
 export interface PushSubscriptionRecord {
 	id: string;
 	endpoint: string;

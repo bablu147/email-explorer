@@ -11,6 +11,23 @@ export default defineConfig({
 	build: {
 		outDir: "../dashboard",
 		emptyOutDir: true,
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					tiptap: [
+						"@tiptap/vue-3",
+						"@tiptap/starter-kit",
+						"@tiptap/extension-link",
+						"@tiptap/extension-image",
+						"@tiptap/extension-color",
+						"@tiptap/extension-highlight",
+						"@tiptap/extension-text-align",
+						"@tiptap/extension-text-style",
+						"@tiptap/extension-underline",
+					],
+				},
+			},
+		},
 	},
 	resolve: {
 		alias: {
