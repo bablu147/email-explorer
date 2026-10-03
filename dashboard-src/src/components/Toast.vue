@@ -1,31 +1,56 @@
 <template>
-  <div class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none">
-    <transition-group name="toast" tag="div">
+  <div
+    class="toast-region fixed z-[70] flex flex-col gap-2 pointer-events-none left-3 right-3 sm:left-6 sm:right-auto sm:w-[380px]"
+    aria-live="polite"
+    aria-atomic="false"
+  >
+    <transition-group name="toast">
       <div
         v-for="toast in toasts"
         :key="toast.id"
-        class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-right-4 duration-200"
-        :class="getToastClasses(toast.type)"
+        class="pointer-events-auto flex items-center gap-3 pl-3.5 pr-2 py-2.5 rounded-xl shadow-2xl border bg-gray-900 text-white border-gray-800 dark:bg-gray-800 dark:border-gray-700"
+        :role="toast.type === 'error' ? 'alert' : 'status'"
       >
-        <svg v-if="toast.type === 'success'" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-        </svg>
-        <svg v-else-if="toast.type === 'error'" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-        </svg>
-        <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-        </svg>
-        <svg v-else class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0zm3 0a1 1 0 11-2 0 1 1 0 012 0zm3 0a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
-        </svg>
-        <span class="text-sm font-medium">{{ toast.message }}</span>
+        <!-- Type icon -->
+        <span class="flex-shrink-0" :class="iconColor(toast.type)">
+          <svg v-if="toast.type === 'success'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+          </svg>
+          <svg v-else-if="toast.type === 'error'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <svg v-else-if="toast.type === 'warning'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </span>
+
+        <span class="flex-1 min-w-0 text-[13px] font-medium leading-snug break-words">{{ toast.message }}</span>
+
+        <!-- Optional action (e.g. Undo) -->
         <button
-          @click="removeToast(toast.id)"
-          class="ml-2 text-current opacity-70 hover:opacity-100 transition-opacity"
+          v-if="toast.action"
+          type="button"
+          @click="toast.action.handler()"
+          class="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-semibold text-emerald-300 hover:text-emerald-200 hover:bg-white/10 transition-colors cursor-pointer"
         >
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+          {{ toast.action.label }}
+          <kbd
+            v-if="toast.action.label === 'Undo'"
+            class="hidden sm:inline px-1 py-px rounded border border-white/20 text-[10px] font-mono text-gray-300"
+          >Z</kbd>
+        </button>
+
+        <button
+          type="button"
+          @click="removeToast(toast.id)"
+          class="flex-shrink-0 p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Dismiss notification"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
@@ -34,38 +59,62 @@
 </template>
 
 <script setup lang="ts">
-import { useToast } from "@/composables/useToast";
+import { onMounted, onUnmounted } from "vue";
+import { useToast, type ToastType } from "@/composables/useToast";
 
-const { toasts, removeToast } = useToast();
+const { toasts, removeToast, triggerLatestAction } = useToast();
 
-const getToastClasses = (type: string) => {
-	const baseClasses = "text-white";
+const iconColor = (type: ToastType) => {
 	switch (type) {
 		case "success":
-			return `${baseClasses} bg-green-500`;
+			return "text-emerald-400";
 		case "error":
-			return `${baseClasses} bg-red-500`;
+			return "text-red-400";
 		case "warning":
-			return `${baseClasses} bg-yellow-500`;
+			return "text-amber-400";
 		default:
-			return `${baseClasses} bg-blue-500`;
+			return "text-sky-400";
 	}
 };
+
+// Global `z` = undo the most recent undoable action (Superhuman / Gmail convention).
+const onKeyDown = (e: KeyboardEvent) => {
+	if (e.key !== "z" && e.key !== "Z") return;
+	if (e.metaKey || e.ctrlKey || e.altKey) return;
+	const el = document.activeElement as HTMLElement | null;
+	const tag = el?.tagName?.toLowerCase();
+	if (tag === "input" || tag === "textarea" || tag === "select" || el?.isContentEditable) return;
+	if (triggerLatestAction()) {
+		e.preventDefault();
+		e.stopImmediatePropagation();
+	}
+};
+
+onMounted(() => window.addEventListener("keydown", onKeyDown, true));
+onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 </script>
 
 <style scoped>
+/* Sit above the mobile bottom nav (+ safe area); plain bottom inset on larger screens. */
+.toast-region {
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 640px) {
+  .toast-region {
+    bottom: 1.5rem;
+  }
+}
+
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
-
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
+.toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateY(8px) scale(0.98);
+}
+.toast-move {
+  transition: transform 0.18s ease;
 }
 </style>

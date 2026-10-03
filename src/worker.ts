@@ -455,7 +455,8 @@ class GetEmails extends OpenAPIRoute {
 			query: z.object({
 				folder: z.string().optional(),
 				page: z.number().int().optional(),
-				limit: z.number().int().optional(),
+				limit: z.number().int().min(1).max(200).optional(),
+				offset: z.number().int().min(0).optional(),
 				sortColumn: z
 					.enum([
 						"id",
@@ -482,7 +483,7 @@ class GetEmails extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId } = data.params;
-		const { folder, page, limit, sortColumn, sortDirection } = data.query;
+		const { folder, page, limit, offset, sortColumn, sortDirection } = data.query;
 
 		const key = `mailboxes/${mailboxId}.json`;
 		const obj = await c.env.BUCKET.head(key);
@@ -498,6 +499,7 @@ class GetEmails extends OpenAPIRoute {
 			folder,
 			page,
 			limit,
+			offset,
 			sortColumn,
 			sortDirection,
 		});

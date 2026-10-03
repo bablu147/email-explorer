@@ -40,8 +40,12 @@
             <kbd class="px-1.5 py-0.5 font-mono text-[11px] rounded bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200">s</kbd>
           </div>
           <div class="flex items-center justify-between">
-            <span>Delete</span>
+            <span>Trash</span>
             <kbd class="px-1.5 py-0.5 font-mono text-[11px] rounded bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200">#</kbd>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Undo</span>
+            <kbd class="px-1.5 py-0.5 font-mono text-[11px] rounded bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200">z</kbd>
           </div>
           <div class="flex items-center justify-between">
             <span>Reply</span>
@@ -94,7 +98,7 @@
             </svg>
           </button>
 
-          <div class="h-4 w-px bg-gray-200 dark:border-gray-700 mx-1"></div>
+          <div class="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
           <!-- Previous Email -->
           <button 
@@ -153,31 +157,49 @@
             </svg>
           </button>
 
-          <!-- Archive -->
+          <!-- Mark unread -->
           <button 
             type="button"
-            @click="handleArchive"
-            class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-colors cursor-pointer"
-            title="Archive (e)"
+            @click="handleMarkUnread"
+            class="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            title="Mark unread (u)"
+            aria-label="Mark unread"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </button>
+
+          <!-- Archive (or Move to Inbox from Archive / Trash / Spam) -->
+          <button 
+            type="button"
+            @click="email && emit('archive', email)"
+            class="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            :title="isRestoreFolder ? 'Move to Inbox (e)' : 'Archive (e)'"
+            :aria-label="isRestoreFolder ? 'Move to Inbox' : 'Archive'"
+          >
+            <svg v-if="isRestoreFolder" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
             </svg>
           </button>
 
-          <!-- Delete -->
+          <!-- Trash (or Delete forever from Trash) -->
           <button 
             type="button"
-            @click="handleDelete"
+            @click="email && emit('trash', email)"
             class="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
-            title="Delete (# or d)"
+            :title="fromFolder === 'trash' ? 'Delete forever (#)' : 'Move to Trash (#)'"
+            :aria-label="fromFolder === 'trash' ? 'Delete forever' : 'Move to Trash'"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
 
-          <div class="h-4 w-px bg-gray-200 dark:border-gray-700 mx-1"></div>
+          <div class="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
           <!-- Expand to Full View -->
           <button 
@@ -217,8 +239,6 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import AppAvatar from "@/components/AppAvatar.vue";
-import AppBadge from "@/components/AppBadge.vue";
 import ThreadView from "@/components/ThreadView.vue";
 import { useToast } from "@/composables/useToast";
 import { useEmailStore } from "@/stores/emails";
@@ -239,10 +259,9 @@ const emit = defineEmits<{
 	(e: "expand"): void;
 	(e: "prev"): void;
 	(e: "next"): void;
-	(e: "archived", email: Email): void;
-	(e: "deleted", emailId: string): void;
-	(e: "starred-changed", starred: boolean): void;
-	(e: "read-changed", read: boolean): void;
+	/** Parent performs the move (optimistic + Undo) and advances to the next message. */
+	(e: "archive", email: Email): void;
+	(e: "trash", email: Email): void;
 }>();
 
 const emailStore = useEmailStore();
@@ -253,12 +272,14 @@ const toast = useToast();
 const email = ref<Email | null>(null);
 const loading = ref(false);
 
+const isRestoreFolder = computed(() => ["archive", "trash", "spam"].includes(props.fromFolder || ""));
+
+// Inbound rows also carry opened_count = 0, so only the folder (or sender == this mailbox) marks a message as outgoing.
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	return (
-		props.fromFolder === "sent" ||
-		(email.value.opened_count !== undefined && email.value.opened_count !== null)
-	);
+	if (props.fromFolder) return props.fromFolder === "sent";
+	const sender = (email.value.sender || "").toLowerCase();
+	return !!props.mailboxId && sender.includes(props.mailboxId.toLowerCase());
 });
 
 const loadEmail = async (id: string) => {
@@ -270,18 +291,23 @@ const loadEmail = async (id: string) => {
 	loading.value = true;
 	try {
 		await emailStore.fetchEmail(props.mailboxId, id);
+		// Rapid j/k: ignore responses for a message the user has already moved past.
+		if (props.emailId !== id) return;
 		email.value = emailStore.currentEmail;
 
-		// If unread, mark read in background
+		// If unread, mark read in background (optimistic: list row updates instantly)
 		if (email.value && !email.value.read) {
-			await emailStore.updateEmail(props.mailboxId, id, { read: true });
-			emit("read-changed", true);
-			folderStore.fetchFolders(props.mailboxId);
+			email.value = { ...email.value, read: true };
+			emailStore
+				.patchFlags(props.mailboxId, id, { read: true })
+				.then(() => folderStore.fetchFolders(props.mailboxId))
+				.catch(() => {});
 		}
 	} catch (err) {
 		console.error("Failed to load email in reading pane", err);
+		if (props.emailId === id) email.value = null;
 	} finally {
-		loading.value = false;
+		if (props.emailId === id) loading.value = false;
 	}
 };
 
@@ -292,6 +318,7 @@ watch(
 			loadEmail(newId);
 		} else {
 			email.value = null;
+			loading.value = false;
 		}
 	},
 	{ immediate: true },
@@ -300,7 +327,6 @@ watch(
 const handleThreadStar = (msgId: string, starred: boolean) => {
 	if (email.value && email.value.id === msgId) {
 		email.value.starred = starred;
-		emit("starred-changed", starred);
 	}
 };
 
@@ -310,31 +336,27 @@ const handleThreadUpdated = () => {
 
 const handleToggleStar = async () => {
 	if (!email.value) return;
+	const id = email.value.id;
 	const nextStar = !email.value.starred;
-	await emailStore.updateEmail(props.mailboxId, email.value.id, { starred: nextStar });
 	email.value.starred = nextStar;
-	emit("starred-changed", nextStar);
-};
-
-const handleArchive = async () => {
-	if (!email.value) return;
 	try {
-		await emailStore.moveEmail(props.mailboxId, email.value.id, "archive");
-		toast.success("Conversation archived");
-		emit("archived", email.value);
-	} catch (e) {
-		toast.error("Failed to archive");
+		await emailStore.patchFlags(props.mailboxId, id, { starred: nextStar });
+	} catch {
+		if (email.value?.id === id) email.value.starred = !nextStar;
+		toast.error(nextStar ? "Couldn't star" : "Couldn't unstar");
 	}
 };
 
-const handleDelete = async () => {
+const handleMarkUnread = async () => {
 	if (!email.value) return;
+	const id = email.value.id;
 	try {
-		await emailStore.deleteEmail(props.mailboxId, email.value.id);
-		toast.success("Moved to Trash");
-		emit("deleted", email.value.id);
-	} catch (e) {
-		toast.error("Failed to delete");
+		await emailStore.patchFlags(props.mailboxId, id, { read: false });
+		folderStore.fetchFolders(props.mailboxId);
+		// Close the pane so the message isn't immediately re-marked as read.
+		emit("close");
+	} catch {
+		toast.error("Couldn't mark as unread");
 	}
 };
 
@@ -344,9 +366,9 @@ const handleReply = () => {
 		mode: isSentEmail.value ? "new" : "reply",
 		originalEmail: email.value,
 		initialTo: isSentEmail.value ? email.value.recipient : email.value.sender,
-		initialSubject: email.value.subject.startsWith("Re:")
+		initialSubject: (email.value.subject || "").startsWith("Re:")
 			? email.value.subject
-			: `Re: ${email.value.subject}`,
+			: `Re: ${email.value.subject || ""}`,
 	});
 };
 </script>

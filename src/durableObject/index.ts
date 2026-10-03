@@ -20,12 +20,15 @@ interface GetEmailsOptions {
 	folder?: string;
 	page?: number;
 	limit?: number;
+	/** Explicit row offset; takes precedence over `page` (used by infinite scroll). */
+	offset?: number;
 	sortColumn?: SortColumn;
 	sortDirection?: "ASC" | "DESC";
 }
 
 interface EmailData {
 	id: string;
+	folder_id?: string | null;
 	subject: string;
 	sender: string;
 	recipient: string;
@@ -464,6 +467,7 @@ export class MailboxDO extends DurableObject<Env> {
 			.select<EmailData>("emails")
 			.fields([
 				"id",
+				"folder_id",
 				"subject",
 				"sender",
 				"recipient",
@@ -486,7 +490,10 @@ export class MailboxDO extends DurableObject<Env> {
 
 		if (folder) {
 			if (folder.toLowerCase() === "starred") {
-				query = query.where("starred = 1");
+				// Virtual "Starred" view: don't resurface messages the user has trashed or that are spam.
+				query = query.where(
+					"starred = 1 AND (folder_id IS NULL OR folder_id NOT IN ('trash', 'spam'))",
+				);
 			} else {
 				const folderIdSubquery = this.#qb
 					.select("folders")
@@ -497,7 +504,10 @@ export class MailboxDO extends DurableObject<Env> {
 			}
 		}
 
-		const offset = (page - 1) * limit;
+		const offset =
+			typeof options.offset === "number" && options.offset >= 0
+				? options.offset
+				: (page - 1) * limit;
 		query = query
 			.orderBy(`${sortColumn} ${sortDirection}`)
 			.limit(limit)

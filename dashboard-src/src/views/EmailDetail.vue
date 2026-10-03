@@ -2,8 +2,8 @@
   <div v-if="email" class="flex-1 flex flex-col min-h-full bg-white dark:bg-gray-900 transition-colors">
     <!-- Email Header -->
     <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 bg-white dark:bg-gray-900">
-      <div class="flex items-center justify-between mb-5 gap-3">
-        <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center justify-between mb-4 gap-3">
+        <div class="flex items-center gap-3 min-w-0 shrink-0">
           <button 
             @click="handleBack" 
             class="px-2.5 py-1.5 text-gray-600 hover:text-emerald-600 dark:text-gray-300 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 group relative cursor-pointer flex-shrink-0 flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" 
@@ -14,11 +14,10 @@
             </svg>
             <span class="text-xs font-bold">Back</span>
           </button>
-          <h1 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight">{{ email.subject || "(No subject)" }}</h1>
         </div>
 
-        <!-- Top Actions Toolbar -->
-        <div class="flex items-center gap-1.5 flex-shrink-0">
+        <!-- Top Actions Toolbar (secondary actions hidden on phones so Back never gets overlapped) -->
+        <div class="flex items-center gap-0.5 sm:gap-1.5 min-w-0">
           <!-- Follow-up action for Sent emails -->
           <button 
             v-if="isSentEmail" 
@@ -47,7 +46,7 @@
           <!-- Reply All -->
           <button 
             @click="handleReplyAll" 
-            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
+            class="hidden sm:inline-flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
             title="Reply All"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -59,7 +58,7 @@
           <!-- Forward -->
           <button 
             @click="handleForward" 
-            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
+            class="hidden sm:inline-flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
             title="Forward"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -70,7 +69,7 @@
           <!-- Read/Unread -->
           <button 
             @click="toggleReadStatus" 
-            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
+            class="hidden sm:inline-flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
             :title="email.read ? 'Mark as unread' : 'Mark as read'"
           >
             <svg v-if="email.read" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,11 +119,27 @@
             </div>
           </div>
 
-          <!-- Delete -->
+          <!-- Archive / Move to Inbox -->
+          <button 
+            @click="handleMove(primaryMoveTarget)" 
+            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
+            :title="primaryMoveTarget === 'inbox' ? 'Move to Inbox (e)' : 'Archive (e)'"
+            :aria-label="primaryMoveTarget === 'inbox' ? 'Move to Inbox' : 'Archive'"
+          >
+            <svg v-if="primaryMoveTarget === 'inbox'" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+          </button>
+
+          <!-- Trash / Delete forever -->
           <button 
             @click="handleDelete" 
             class="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer" 
-            title="Delete"
+            :title="fromFolder === 'trash' ? 'Delete forever (#)' : 'Move to Trash (#)'"
+            :aria-label="fromFolder === 'trash' ? 'Delete forever' : 'Move to Trash'"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
@@ -132,6 +147,8 @@
           </button>
         </div>
       </div>
+
+      <h1 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-snug break-words">{{ email.subject || "(No subject)" }}</h1>
 
       <!-- Identity & Recipient Details -->
       <div class="flex items-center justify-between mt-4">
@@ -158,7 +175,7 @@
                 <span>Placed in Spam</span>
               </span>
               <span 
-                v-else
+                v-else-if="isSentEmail"
                 class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
               >
                 <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
@@ -295,9 +312,9 @@
   <!-- Custom Delete Confirmation Modal (Eliminating native confirm) -->
   <ConfirmModal
     :is-open="isDeleteConfirmOpen"
-    title="Delete Email"
-    message="Are you sure you want to delete this email? This will move it to Trash."
-    confirm-text="Delete"
+    title="Delete forever?"
+    message="This permanently removes the message and any attachments. This can't be undone."
+    confirm-text="Delete forever"
     :danger="true"
     :loading="isDeleting"
     @close="isDeleteConfirmOpen = false"
@@ -313,6 +330,7 @@ import ThreadView from "@/components/ThreadView.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import { useMailActions } from "@/composables/useMailActions";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
@@ -330,7 +348,8 @@ const { currentMailbox } = storeToRefs(mailboxStore);
 const uiStore = useUIStore();
 const route = useRoute();
 const router = useRouter();
-const { success: showSuccessToast, error: showErrorToast } = useToast();
+const { error: showErrorToast } = useToast();
+const mail = useMailActions();
 
 const isDeleteConfirmOpen = ref(false);
 const isDeleting = ref(false);
@@ -362,7 +381,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	if (uiStore.isComposeModalOpen) {
+	if (uiStore.isComposeModalOpen || uiStore.isCommandPaletteOpen || isDeleteConfirmOpen.value) {
+		return;
+	}
+	if (e.metaKey || e.ctrlKey || e.altKey) {
 		return;
 	}
 
@@ -374,7 +396,19 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 	if (e.key === "e" || e.key === "E") {
 		e.preventDefault();
-		handleMove("archive");
+		handleMove(primaryMoveTarget.value);
+		return;
+	}
+
+	if (e.key === "a" || e.key === "A") {
+		e.preventDefault();
+		handleReplyAll();
+		return;
+	}
+
+	if (e.key === "f" || e.key === "F") {
+		e.preventDefault();
+		handleForward();
 		return;
 	}
 
@@ -437,9 +471,18 @@ const emailBodyWithInlineImages = computed(() => {
 });
 
 const fromFolder = computed(() => route.query.fromFolder as string);
+const primaryMoveTarget = computed(() =>
+	["archive", "trash", "spam"].includes(fromFolder.value || "") ? "inbox" : "archive",
+);
+/**
+ * Outgoing message? Inbound rows also carry opened_count = 0, so that column can't be used to decide.
+ * Trust the folder we came from; otherwise compare the sender with this mailbox's address.
+ */
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	return fromFolder.value === "sent" || (email.value.opened_count !== undefined && email.value.opened_count !== null);
+	if (fromFolder.value) return fromFolder.value === "sent";
+	const own = (currentMailbox.value?.email || mailboxId.value || "").toLowerCase();
+	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });
 
 const formatFriendlyDate = (dateStr?: string): string => {
@@ -563,29 +606,33 @@ const toggleReadStatus = async () => {
 	}
 };
 
-const toggleStarStatus = () => {
-	if (email.value) {
-		emailStore.updateEmail(route.params.mailboxId as string, email.value.id, {
+const toggleStarStatus = async () => {
+	if (!email.value) return;
+	try {
+		await emailStore.patchFlags(route.params.mailboxId as string, email.value.id, {
 			starred: !email.value.starred,
 		});
+	} catch {
+		showErrorToast("Couldn't update star");
 	}
 };
 
+/** Optimistic move with Undo (toast button or `z`), then return to the list. */
 const handleMove = (targetFolderId: string) => {
-	if (email.value) {
-		emailStore.moveEmail(
-			route.params.mailboxId as string,
-			email.value.id,
-			targetFolderId,
-		);
-		isMoveMenuOpen.value = false;
-		folderStore.fetchFolders(route.params.mailboxId as string);
-		handleBack();
-	}
+	if (!email.value) return;
+	const target = email.value;
+	isMoveMenuOpen.value = false;
+	mail.moveEmails(route.params.mailboxId as string, [target], targetFolderId, fromFolder.value || target.folder_id || "inbox");
+	handleBack();
 };
 
+/** "Delete" moves to Trash (undoable). Only inside Trash does it mean permanent deletion (confirmed). */
 const handleDelete = () => {
-	isDeleteConfirmOpen.value = true;
+	if (fromFolder.value === "trash") {
+		isDeleteConfirmOpen.value = true;
+		return;
+	}
+	handleMove("trash");
 };
 
 const executeDelete = async () => {
@@ -593,16 +640,9 @@ const executeDelete = async () => {
 	isDeleting.value = true;
 	const mailboxId = route.params.mailboxId as string;
 	try {
-		await emailStore.deleteEmail(mailboxId, email.value.id);
-		folderStore.fetchFolders(mailboxId);
-		showSuccessToast("Email deleted");
+		const deleted = await mail.deleteForever(mailboxId, [email.value]);
 		isDeleteConfirmOpen.value = false;
-		router.push({
-			name: "EmailList",
-			params: { mailboxId, folder: "inbox" },
-		});
-	} catch (err: any) {
-		showErrorToast("Failed to delete email");
+		if (deleted.length > 0) handleBack();
 	} finally {
 		isDeleting.value = false;
 	}

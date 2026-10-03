@@ -439,7 +439,7 @@
     <!-- ⚡ Floating 5-Second Undo Send Buffer Snackbar -->
     <div 
       v-if="isUndoPending" 
-      class="fixed bottom-6 right-6 z-60 bg-gray-900/95 dark:bg-gray-800/95 text-white backdrop-blur-md rounded-2xl shadow-2xl p-4 flex items-center gap-4 border border-gray-700 animate-in slide-in-from-bottom duration-300 select-none"
+      class="fixed left-3 right-3 sm:left-auto sm:right-6 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-[60] bg-gray-900/95 dark:bg-gray-800/95 text-white backdrop-blur-md rounded-2xl shadow-2xl p-4 flex items-center gap-4 border border-gray-700 animate-in slide-in-from-bottom duration-300 select-none"
     >
       <div class="flex items-center gap-3">
         <div class="relative w-7 h-7 flex items-center justify-center">
