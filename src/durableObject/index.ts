@@ -20,8 +20,15 @@ interface GetEmailsOptions {
 	folder?: string;
 	page?: number;
 	limit?: number;
-	/** Explicit row offset; takes precedence over `page` (used by infinite scroll). */
+	/** Explicit row offset; takes precedence over `page`. */
 	offset?: number;
+	/**
+	 * Keyset cursor for infinite scroll (default date-DESC sort only): return rows strictly older than
+	 * (`beforeDate`, `beforeId`). Unlike `offset`, rows moved out of / into the folder between pages can't
+	 * make the next page skip or repeat a message. Takes precedence over `offset`/`page`.
+	 */
+	beforeDate?: string;
+	beforeId?: string;
 	sortColumn?: SortColumn;
 	sortDirection?: "ASC" | "DESC";
 }
@@ -504,14 +511,38 @@ export class MailboxDO extends DurableObject<Env> {
 			}
 		}
 
-		const offset =
-			typeof options.offset === "number" && options.offset >= 0
+		// Keyset cursor (only meaningful for the default newest-first order). `date` is always an ISO-8601
+		// UTC string, so lexical comparison == chronological comparison.
+		const useCursor =
+			sortColumn === "date" &&
+			sortDirection === "DESC" &&
+			typeof options.beforeDate === "string" &&
+			options.beforeDate.length > 0;
+		if (useCursor) {
+			const beforeDate = options.beforeDate as string;
+			if (options.beforeId) {
+				query = query.where("(date < ? OR (date = ? AND id < ?))", [
+					beforeDate,
+					beforeDate,
+					options.beforeId,
+				]);
+			} else {
+				query = query.where("date < ?", beforeDate);
+			}
+		}
+
+		const offset = useCursor
+			? 0
+			: typeof options.offset === "number" && options.offset >= 0
 				? options.offset
 				: (page - 1) * limit;
-		query = query
-			.orderBy(`${sortColumn} ${sortDirection}`)
-			.limit(limit)
-			.offset(offset);
+		// `id` tie-breaker makes the order total, so pages (offset or cursor) are deterministic when
+		// several messages share the same timestamp.
+		const order =
+			sortColumn === "id"
+				? [`id ${sortDirection}`]
+				: [`${sortColumn} ${sortDirection}`, `id ${sortDirection}`];
+		query = query.orderBy(order).limit(limit).offset(offset);
 
 		const result = query.execute();
 

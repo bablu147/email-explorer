@@ -3,10 +3,26 @@
     class="toast-region fixed z-[70] flex flex-col gap-2 pointer-events-none left-3 right-3 sm:left-6 sm:right-auto sm:w-[380px]"
     aria-live="polite"
     aria-atomic="false"
+    @pointerenter="onPointerEnter"
+    @pointerleave="onPointerLeave"
   >
-    <transition-group name="toast">
+    <!-- Overflow: older toasts (typically more Undo actions) stay alive instead of being dropped. -->
+    <button
+      v-if="toasts.length > MAX_VISIBLE"
+      type="button"
+      class="toast-more pointer-events-auto self-start inline-flex items-center gap-1.5 pl-2.5 pr-3 py-1 rounded-full text-[12px] font-medium shadow-lg border bg-gray-900/95 text-gray-200 border-gray-800 hover:text-white dark:bg-gray-800/95 dark:border-gray-700 transition-colors cursor-pointer"
+      :aria-expanded="toastsExpanded"
+      @click="toastsExpanded = !toastsExpanded"
+    >
+      <svg class="w-3.5 h-3.5 transition-transform" :class="{ 'rotate-180': toastsExpanded }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+      </svg>
+      <span v-if="toastsExpanded">Show less</span>
+      <span v-else>{{ hiddenToastCount }} more {{ hiddenUndoCount > 0 ? (hiddenUndoCount === 1 ? "action to undo" : "actions to undo") : (hiddenToastCount === 1 ? "notification" : "notifications") }}</span>
+    </button>
+    <transition-group name="toast" tag="div" class="toast-stack flex flex-col gap-2" :class="{ 'is-expanded pointer-events-auto': toastsExpanded }">
       <div
-        v-for="toast in toasts"
+        v-for="toast in visibleToasts"
         :key="toast.id"
         class="pointer-events-auto flex items-center gap-3 pl-3.5 pr-2 py-2.5 rounded-xl shadow-2xl border bg-gray-900 text-white border-gray-800 dark:bg-gray-800 dark:border-gray-700"
         :role="toast.type === 'error' ? 'alert' : 'status'"
@@ -59,10 +75,47 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
-import { useToast, type ToastType } from "@/composables/useToast";
+import { computed, onMounted, onUnmounted, watch } from "vue";
+import {
+	hiddenToastCount,
+	MAX_VISIBLE,
+	type ToastType,
+	toastsExpanded,
+	useToast,
+	visibleToasts,
+} from "@/composables/useToast";
 
-const { toasts, removeToast, triggerLatestAction } = useToast();
+const { toasts, removeToast, triggerLatestAction, pauseTimers, resumeTimers } = useToast();
+
+const hiddenUndoCount = computed(() => {
+	const shown = new Set(visibleToasts.value.map((t) => t.id));
+	return toasts.value.filter((t) => t.action && !shown.has(t.id)).length;
+});
+
+// Auto-dismiss pauses while a mouse is over the stack (so an Undo can't vanish under the cursor) and
+// while the overflow is expanded. Mouse only: touch "hover" has no reliable leave event.
+let hoverPaused = false;
+const onPointerEnter = (e: PointerEvent) => {
+	if (e.pointerType !== "mouse" || hoverPaused) return;
+	hoverPaused = true;
+	pauseTimers();
+};
+const onPointerLeave = () => {
+	if (!hoverPaused) return;
+	hoverPaused = false;
+	resumeTimers();
+};
+watch(toastsExpanded, (open, was) => {
+	if (open && !was) pauseTimers();
+	else if (!open && was) resumeTimers();
+});
+// When the stack empties the pointer may never "leave" it (the element shrinks away).
+watch(
+	() => toasts.value.length,
+	(n) => {
+		if (n === 0) onPointerLeave();
+	},
+);
 
 const iconColor = (type: ToastType) => {
 	switch (type) {
@@ -91,7 +144,11 @@ const onKeyDown = (e: KeyboardEvent) => {
 };
 
 onMounted(() => window.addEventListener("keydown", onKeyDown, true));
-onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
+onUnmounted(() => {
+	window.removeEventListener("keydown", onKeyDown, true);
+	onPointerLeave();
+	if (toastsExpanded.value) toastsExpanded.value = false;
+});
 </script>
 
 <style scoped>
@@ -103,6 +160,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
   .toast-region {
     bottom: 1.5rem;
   }
+}
+
+/* Expanded overflow can exceed the viewport on short phones: scroll inside the stack instead. */
+.toast-stack.is-expanded {
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .toast-enter-active,

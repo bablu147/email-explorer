@@ -3,40 +3,19 @@ import api from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import type { Email } from "@/types";
+import { settleAll } from "@/utils/concurrency";
 
 /** Folders that are "virtual" views rather than a real folder_id an email can live in. */
 const VIRTUAL_FOLDERS = new Set(["starred"]);
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
-/** Like Promise.allSettled, but at most `limit` requests in flight (bulk actions on hundreds of rows). */
-async function settleAll<T>(
-	items: T[],
-	fn: (item: T) => Promise<unknown>,
-	limit = 6,
-): Promise<PromiseSettledResult<unknown>[]> {
-	const results: PromiseSettledResult<unknown>[] = new Array(items.length);
-	let next = 0;
-	const worker = async () => {
-		while (next < items.length) {
-			const i = next++;
-			try {
-				results[i] = { status: "fulfilled", value: await fn(items[i]) };
-			} catch (reason) {
-				results[i] = { status: "rejected", reason };
-			}
-		}
-	};
-	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-	return results;
-}
-
 /**
  * Shared, safe mail actions used by the list, reading pane and full-screen reader.
  *
  * - Every move (archive / trash / restore / move-to-folder) is optimistic and offers Undo (button or `z`).
  * - "Delete" means *move to Trash*. Permanent deletion is only exposed from inside Trash, behind a confirm.
- * - Bulk operations run in parallel and report partial failures instead of silently stopping.
+ * - Bulk operations run with bounded concurrency and report partial failures instead of silently stopping.
  */
 export function useMailActions() {
 	const emailStore = useEmailStore();
@@ -87,15 +66,15 @@ export function useMailActions() {
 		const listKeyAtAction = emailStore.listKey;
 		const origins = new Map(rows.map((e) => [e.id, originalFolderOf(e, fromFolder)]));
 
-		if (!staysVisible) emailStore.removeLocal(rows.map((e) => e.id));
+		const removal = staysVisible ? null : emailStore.removeLocal(rows.map((e) => e.id));
 
 		const results = await settleAll(rows, (e) => api.moveEmail(mailboxId, e.id, target));
-		emailStore.noteMutation();
+		removal?.settle();
 		const moved = rows.filter((_, i) => results[i].status === "fulfilled");
 		const failed = rows.filter((_, i) => results[i].status === "rejected");
 
 		if (failed.length > 0) {
-			if (!staysVisible && emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(failed);
+			if (!staysVisible && emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(failed, { settled: true });
 			toast.error(
 				moved.length === 0
 					? `Couldn't move ${failed.length === 1 ? "conversation" : "conversations"} to ${folderLabel(target)}`
@@ -105,12 +84,15 @@ export function useMailActions() {
 
 		if (moved.length > 0) {
 			toast.undoable(doneMessage(moved.length, target), async () => {
-				if (!staysVisible && emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(moved);
+				const restore =
+					!staysVisible && emailStore.listKey === listKeyAtAction ? emailStore.restoreLocal(moved) : null;
 				const back = await settleAll(moved, (e) => api.moveEmail(mailboxId, e.id, origins.get(e.id) || "inbox"));
-				emailStore.noteMutation();
+				restore?.settle();
 				const backFailed = moved.filter((_, i) => back[i].status === "rejected");
 				if (backFailed.length > 0) {
-					if (emailStore.listKey === listKeyAtAction) emailStore.removeLocal(backFailed.map((e) => e.id));
+					if (emailStore.listKey === listKeyAtAction) {
+						emailStore.removeLocal(backFailed.map((e) => e.id), { settled: true });
+					}
 					toast.error("Undo failed for some conversations");
 				} else {
 					toast.info(`${moved.length === 1 ? "Conversation" : `${moved.length} conversations`} restored`, 2500);
@@ -134,7 +116,7 @@ export function useMailActions() {
 		const results = await settleAll(rows, (e) => api.deleteEmail(mailboxId, e.id));
 		const deleted = rows.filter((_, i) => results[i].status === "fulfilled");
 		const failedCount = rows.length - deleted.length;
-		emailStore.removeLocal(deleted.map((e) => e.id));
+		emailStore.removeLocal(deleted.map((e) => e.id), { settled: true });
 		if (deleted.length > 0) {
 			toast.success(
 				`${deleted.length === 1 ? "Conversation" : `${deleted.length} conversations`} permanently deleted`,
@@ -145,21 +127,35 @@ export function useMailActions() {
 		return deleted.map((e) => e.id);
 	};
 
+	/**
+	 * Bulk-safe read/star: every row flips at once (optimistic), requests go out with bounded concurrency,
+	 * and failures roll back only the rows that failed.
+	 */
 	const setRead = async (mailboxId: string, emails: Email[], read: boolean) => {
 		const rows = emails.filter((e) => e && e.read !== read);
-		if (rows.length === 0) return;
-		const results = await Promise.allSettled(rows.map((e) => emailStore.patchFlags(mailboxId, e.id, { read })));
-		if (results.some((r) => r.status === "rejected")) toast.error(`Couldn't mark as ${read ? "read" : "unread"}`);
+		if (!mailboxId || rows.length === 0) return;
+		const failed = await emailStore.patchFlagsMany(mailboxId, rows.map((e) => e.id), { read });
+		if (failed.length > 0) {
+			toast.error(
+				rows.length === 1
+					? `Couldn't mark as ${read ? "read" : "unread"}`
+					: `${failed.length} of ${rows.length} conversations couldn't be marked as ${read ? "read" : "unread"}`,
+			);
+		}
 		folderStore.fetchFolders(mailboxId);
 	};
 
 	const setStarred = async (mailboxId: string, emails: Email[], starred: boolean) => {
 		const rows = emails.filter((e) => e && e.starred !== starred);
-		if (rows.length === 0) return;
-		const results = await Promise.allSettled(
-			rows.map((e) => emailStore.patchFlags(mailboxId, e.id, { starred })),
-		);
-		if (results.some((r) => r.status === "rejected")) toast.error(`Couldn't ${starred ? "star" : "unstar"}`);
+		if (!mailboxId || rows.length === 0) return;
+		const failed = await emailStore.patchFlagsMany(mailboxId, rows.map((e) => e.id), { starred });
+		if (failed.length > 0) {
+			toast.error(
+				rows.length === 1
+					? `Couldn't ${starred ? "star" : "unstar"}`
+					: `${failed.length} of ${rows.length} conversations couldn't be ${starred ? "starred" : "unstarred"}`,
+			);
+		}
 	};
 
 	return { moveEmails, trashEmails, deleteForever, setRead, setStarred, folderLabel };

@@ -678,7 +678,7 @@ import AppBadge from "@/components/AppBadge.vue";
 import ConfirmModal from "@/components/ConfirmModal.vue";
 import ReadingPane from "@/components/ReadingPane.vue";
 import { useMailActions } from "@/composables/useMailActions";
-import { useToast } from "@/composables/useToast";
+import { visibleToastRows } from "@/composables/useToast";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
@@ -726,10 +726,10 @@ const isSplitActive = computed(() => uiStore.splitViewMode === "split" && isTabl
 
 // Desktop toasts sit bottom-left (380px wide); below ~1360px they collide with the centered bulk bar,
 // so lift the bar above the toast stack (≈3.5rem per toast) while any are visible. Phones use fixed lanes.
-const { toasts } = useToast();
 const bulkBarStyle = computed(() => {
-	if (windowWidth.value < 640 || windowWidth.value >= 1360 || toasts.value.length === 0) return undefined;
-	return { bottom: `calc(1.5rem + ${toasts.value.length * 3.5}rem)` };
+	const rows = Math.min(visibleToastRows.value, 6);
+	if (windowWidth.value < 640 || windowWidth.value >= 1360 || rows === 0) return undefined;
+	return { bottom: `calc(1.5rem + ${rows * 3.5}rem)` };
 });
 
 const leftPaneStyle = computed(() => {

@@ -312,7 +312,7 @@
         </form>
       </div>
 
-      <!-- 🔍 Full Email Preview Modal -->
+      <!-- Full Email Preview Modal -->
       <div v-if="showPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-60 p-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
           <div class="px-6 py-4 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -397,7 +397,7 @@
       </div>
     </div>
 
-    <!-- ⚠️ Dirty-State Exit Confirmation Dialog -->
+    <!-- Dirty-State Exit Confirmation Dialog -->
     <div v-if="showDirtyModal" class="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-60 p-4">
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
         <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
@@ -436,54 +436,62 @@
       </div>
     </div>
 
-    <!-- ⚡ Floating 5-Second Undo Send Buffer Snackbar -->
-    <div 
-      v-if="isUndoPending" 
-      class="fixed left-3 right-3 sm:left-auto sm:right-6 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-[60] bg-gray-900/95 dark:bg-gray-800/95 text-white backdrop-blur-md rounded-2xl shadow-2xl p-4 flex items-center gap-4 border border-gray-700 animate-in slide-in-from-bottom duration-300 select-none"
+    <!--
+      Undo Send bar. Phones: sits in the bottom lane but stops short of the compose FAB on the right
+      (FAB: right 1.25rem, 3.5rem wide), so composing another message stays possible during the 5 s window.
+    -->
+    <div
+      v-if="isUndoPending"
+      role="status"
+      aria-live="polite"
+      class="undo-send-bar fixed left-3 sm:left-auto sm:right-6 sm:w-[400px] z-[60] bg-gray-900/95 dark:bg-gray-800/95 text-white backdrop-blur-md rounded-2xl shadow-2xl pl-3 pr-2 py-2.5 sm:p-4 flex items-center gap-3 border border-gray-800 dark:border-gray-700 animate-in slide-in-from-bottom duration-300 select-none"
     >
-      <div class="flex items-center gap-3">
-        <div class="relative w-7 h-7 flex items-center justify-center">
-          <svg class="w-7 h-7 -rotate-90 text-emerald-500" viewBox="0 0 36 36">
-            <path
-              class="text-gray-700"
-              stroke-width="3"
-              stroke="currentColor"
-              fill="none"
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            />
-            <path
-              stroke-dasharray="100, 100"
-              :stroke-dashoffset="100 - (undoCountdown / 5) * 100"
-              stroke-linecap="round"
-              stroke-width="3"
-              stroke="currentColor"
-              fill="none"
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            />
-          </svg>
-          <span class="absolute text-[10px] font-bold font-mono">{{ undoCountdown }}</span>
-        </div>
-
-        <div>
-          <div class="text-xs font-bold text-white">Sending message...</div>
-          <div class="text-[11px] text-gray-400">To {{ to || 'recipient' }}</div>
-        </div>
+      <div class="relative w-7 h-7 flex-shrink-0 flex items-center justify-center">
+        <svg class="w-7 h-7 -rotate-90 text-emerald-500" viewBox="0 0 36 36" aria-hidden="true">
+          <path
+            class="text-gray-700"
+            stroke-width="3"
+            stroke="currentColor"
+            fill="none"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <path
+            stroke-dasharray="100, 100"
+            :stroke-dashoffset="100 - (undoCountdown / 5) * 100"
+            stroke-linecap="round"
+            stroke-width="3"
+            stroke="currentColor"
+            fill="none"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+        </svg>
+        <span class="absolute text-[10px] font-bold font-mono">{{ undoCountdown }}</span>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex-1 min-w-0">
+        <div class="text-xs font-bold text-white truncate">Sending…</div>
+        <div class="text-[11px] text-gray-400 truncate">To {{ pendingSend?.recipientLabel || 'recipient' }}</div>
+      </div>
+
+      <div class="flex items-center gap-1 flex-shrink-0">
         <button
           type="button"
           @click="cancelUndoSend"
-          class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-gray-900 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+          class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-gray-900 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
         >
           Undo
         </button>
         <button
           type="button"
           @click="commitSendImmediately"
-          class="text-xs text-gray-400 hover:text-white underline cursor-pointer"
+          class="inline-flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          title="Send now"
+          aria-label="Send now"
         >
-          Send now
+          <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+          <span class="hidden sm:inline">Send now</span>
         </button>
       </div>
     </div>
@@ -492,14 +500,14 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, h, ref, watch } from "vue";
+import { computed, h, nextTick, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useMailboxStore } from "@/stores/mailboxes";
-import { useUIStore } from "@/stores/ui";
+import { type ComposeMode, type ComposeOptions, useUIStore } from "@/stores/ui";
 import type { AppPlatform, OutgoingAttachment } from "@/types";
 import RecipientInput from "./RecipientInput.vue";
 import RichTextEditor from "./RichTextEditor.vue";
@@ -510,7 +518,7 @@ const emailStore = useEmailStore();
 const mailboxStore = useMailboxStore();
 const { currentMailbox } = storeToRefs(mailboxStore);
 const route = useRoute();
-const { success: showSuccessToast, error: showErrorToast } = useToast();
+const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
 const appBindingsStore = useAppBindingsStore();
 
 const to = ref("");
@@ -540,8 +548,47 @@ let autosaveTimeout: any = null;
 // Undo Send buffer
 const isUndoPending = ref(false);
 const undoCountdown = ref(5);
-let undoTimer: any = null;
-const pendingSendPayload = ref<any>(null);
+let undoTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Everything needed to put the composer back exactly as it was (Undo, or a failed send). */
+interface ComposeSnapshot {
+	options: ComposeOptions;
+	to: string;
+	cc: string;
+	bcc: string;
+	showCc: boolean;
+	showBcc: boolean;
+	subject: string;
+	body: string;
+	attachments: OutgoingAttachment[];
+	inlineAttachments: any[];
+	currentDraftId: string | null;
+}
+/**
+ * The message waiting out its undo window. Mode / original id are captured at send time: the composer
+ * closes (and its options reset) as soon as you hit Send, so reading them later sent every reply as a
+ * brand-new message without threading headers.
+ */
+interface PendingSend {
+	payload: any;
+	mode: ComposeMode;
+	originalEmailId?: string;
+	recipientLabel: string;
+	snapshot: ComposeSnapshot;
+}
+const pendingSend = ref<PendingSend | null>(null);
+/** Set while reopening from Undo / failed send so the open-watcher restores instead of re-initialising. */
+let restoringSnapshot: ComposeSnapshot | null = null;
+/** True while fields are filled programmatically, so that doesn't count as an edit (dirty / autosave). */
+let populating = false;
+const populate = (fn: () => void) => {
+	populating = true;
+	fn();
+	// Field watchers queued by `fn` run in the current/next flush; release after it.
+	nextTick(() => {
+		populating = false;
+	});
+};
 
 // Platform tab & badge icons
 const PlayIcon = () =>
@@ -739,6 +786,11 @@ const discardAndClose = () => {
 };
 
 const forceCloseModal = () => {
+	resetComposeState();
+	uiStore.closeComposeModal();
+};
+
+const resetComposeState = () => {
 	error.value = null;
 	to.value = "";
 	cc.value = "";
@@ -755,11 +807,53 @@ const forceCloseModal = () => {
 	showPreviewModal.value = false;
 	showDirtyModal.value = false;
 	if (autosaveTimeout) clearTimeout(autosaveTimeout);
-	uiStore.closeComposeModal();
+};
+
+const takeSnapshot = (): ComposeSnapshot => ({
+	options: { ...composeOptions.value },
+	to: to.value,
+	cc: cc.value,
+	bcc: bcc.value,
+	showCc: showCc.value,
+	showBcc: showBcc.value,
+	subject: subject.value,
+	body: body.value,
+	attachments: [...attachments.value],
+	inlineAttachments: [...inlineAttachments.value],
+	currentDraftId: currentDraftId.value,
+});
+
+const applySnapshot = (snap: ComposeSnapshot) => {
+	to.value = snap.to;
+	cc.value = snap.cc;
+	bcc.value = snap.bcc;
+	showCc.value = snap.showCc || !!snap.cc;
+	showBcc.value = snap.showBcc || !!snap.bcc;
+	subject.value = snap.subject;
+	body.value = snap.body;
+	attachments.value = [...snap.attachments];
+	inlineAttachments.value = [...snap.inlineAttachments];
+	currentDraftId.value = snap.currentDraftId;
+	// Not sent and possibly newer than the last autosave: closing should ask before discarding.
+	isDirty.value = true;
+};
+
+/** Reopen the composer with a previous state (Undo send / failed send). */
+const reopenWith = (snap: ComposeSnapshot) => {
+	restoringSnapshot = snap;
+	uiStore.openComposeModal(snap.options);
+};
+
+/** Refresh the visible list when it shows a folder this action changed (Drafts / Sent). */
+const refreshListIfShowing = (mailboxId: string, folders: string[]) => {
+	const folder = route.params.folder as string | undefined;
+	if (!folder || route.params.mailboxId !== mailboxId || !folders.includes(folder)) return;
+	emailStore.fetchEmails(mailboxId, { folder }).catch(() => {});
 };
 
 // Track field changes for debounced autosaving
 watch([to, cc, bcc, subject, body], () => {
+	if (populating) return;
 	scheduleAutosave();
 });
 
@@ -778,29 +872,130 @@ const getSignatureBlock = (): string => {
 // Watch compose modal options
 watch(
 	[isComposeModalOpen, composeOptions],
-	([isOpen, options]) => {
+	([isOpen, options], [wasOpen]) => {
 		if (isOpen && options) {
-			appBindingsStore.fetchBindings();
-			const original = options.originalEmail;
-			const sigBlock = getSignatureBlock();
+			if (restoringSnapshot) {
+				const snap = restoringSnapshot;
+				restoringSnapshot = null;
+				populate(() => applySnapshot(snap));
+				return;
+			}
+			// Starting another message while the previous one waits out its undo window: send it now
+			// (otherwise its Undo would have to overwrite what you're writing).
+			if (isUndoPending.value && !wasOpen) commitSendImmediately();
+			populate(() => initComposer(options));
+		}
+	},
+	{ deep: true },
+);
 
+let draftLoadSeq = 0;
+const isLoadingDraftAttachments = ref(false);
+
+const blobToBase64 = (blob: Blob) =>
+	new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const result = String(reader.result || "");
+			resolve(result.split(",")[1] || "");
+		};
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(blob);
+	});
+
+/**
+ * Drafts reopen with their attachments: list rows carry no attachment data, so fetch the draft and
+ * each file. Inline images get a local blob URL so the editor can show them; it's swapped back to
+ * `cid:` on send/save like freshly pasted images.
+ */
+const loadDraftAttachments = async (draft: any) => {
+	if (!currentMailbox.value) return;
+	const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
+	const token = ++draftLoadSeq;
+	const stillCurrent = () =>
+		token === draftLoadSeq && isComposeModalOpen.value && currentDraftId.value === draft.id;
+	isLoadingDraftAttachments.value = true;
+	try {
+		let meta: any[] = Array.isArray(draft.attachments) ? draft.attachments : [];
+		if (meta.length === 0) {
+			const res = await api.getEmail(mailboxId, draft.id);
+			meta = Array.isArray(res.data?.attachments) ? res.data.attachments : [];
+		}
+		if (!meta.length || !stillCurrent()) return;
+		const files = await Promise.all(
+			meta.map(async (att: any) => {
+				const res = await api.getAttachment(mailboxId, draft.id, att.id);
+				const blob = res.data as Blob;
+				return { att, blob, content: await blobToBase64(blob) };
+			}),
+		);
+		if (!stillCurrent()) return;
+		let html = body.value;
+		for (const { att, blob, content } of files) {
+			const type = att.mimetype || blob.type || "application/octet-stream";
+			const cid = att.content_id ? String(att.content_id).replace(/^<|>$/g, "") : "";
+			if (cid && att.disposition === "inline" && html.includes(`cid:${cid}`)) {
+				const localUrl = URL.createObjectURL(blob);
+				html = html.split(`cid:${cid}`).join(localUrl);
+				inlineAttachments.value.push({
+					filename: att.filename,
+					content,
+					type,
+					size: att.size || blob.size,
+					disposition: "inline",
+					contentId: `<${cid}>`,
+					localUrl,
+				});
+			} else {
+				attachments.value.push({
+					filename: att.filename,
+					content,
+					type,
+					size: att.size || blob.size,
+					disposition: "attachment",
+				});
+			}
+		}
+		if (html !== body.value) populate(() => (body.value = html));
+	} catch (e) {
+		console.error("Failed to load draft attachments", e);
+		if (stillCurrent()) error.value = "Couldn't load this draft's attachments. Re-attach them before sending.";
+	} finally {
+		if (token === draftLoadSeq) isLoadingDraftAttachments.value = false;
+	}
+};
+
+/** Fill the composer for a freshly opened compose / reply / forward / draft. */
+const initComposer = (options: ComposeOptions) => {
+	appBindingsStore.fetchBindings();
+	const original = options.originalEmail;
+	const sigBlock = getSignatureBlock();
+
+	// Per-message state must not leak from the previous composer (attachments, draft id, errors).
+	draftLoadSeq++;
+	isLoadingDraftAttachments.value = false;
+	attachments.value = [];
+	inlineAttachments.value = [];
+	currentDraftId.value = null;
+	error.value = null;
+	draftAutosaveStatus.value = "";
+	showCc.value = false;
+	showBcc.value = false;
+	if (autosaveTimeout) clearTimeout(autosaveTimeout);
+
+	{
+		{
 			if (options.mode === "draft" && original) {
 				currentDraftId.value = original.id;
 				to.value = original.recipient || "";
 				cc.value = original.cc || "";
 				bcc.value = original.bcc || "";
-				subject.value = original.subject || "";
+				showCc.value = !!cc.value;
+				showBcc.value = !!bcc.value;
+				subject.value = original.subject === "(No Subject)" ? "" : original.subject || "";
 				body.value = original.body || "";
-				if (original.attachments) {
-					attachments.value = original.attachments.map((att: any) => ({
-						filename: att.filename,
-						content: "",
-						type: att.mimetype,
-						size: att.size,
-						disposition: att.disposition || "attachment",
-					}));
-				}
 				isDirty.value = false;
+				void loadDraftAttachments(original);
 			} else if (options.mode === "reply" && original) {
 				const isSent =
 					Boolean(currentMailbox.value?.email &&
@@ -881,9 +1076,8 @@ ${original.body || ""}
 				isDirty.value = false;
 			}
 		}
-	},
-	{ deep: true },
-);
+	}
+};
 
 const htmlToPlainText = (html: string): string => {
 	const div = document.createElement("div");
@@ -968,7 +1162,15 @@ const triggerSendFlow = (isDraft = false) => {
 	if (bcc.value.trim()) payload.bcc = bcc.value;
 	if (allAttachments.length > 0) payload.attachments = allAttachments;
 
-	pendingSendPayload.value = payload;
+	const snapshot = takeSnapshot();
+	const recipientLabel = to.value.trim().split(",")[0] || "recipient";
+	pendingSend.value = {
+		payload,
+		mode: composeOptions.value.mode,
+		originalEmailId: composeOptions.value.originalEmail?.id,
+		recipientLabel,
+		snapshot,
+	};
 
 	// Start 5-second Undo buffer
 	isUndoPending.value = true;
@@ -979,61 +1181,79 @@ const triggerSendFlow = (isDraft = false) => {
 	undoTimer = setInterval(() => {
 		undoCountdown.value--;
 		if (undoCountdown.value <= 0) {
-			clearInterval(undoTimer);
+			if (undoTimer) {
+				clearInterval(undoTimer);
+				undoTimer = null;
+			}
 			commitSend();
 		}
 	}, 1000);
 };
 
 const cancelUndoSend = () => {
-	if (undoTimer) clearInterval(undoTimer);
+	if (undoTimer) {
+		clearInterval(undoTimer);
+		undoTimer = null;
+	}
 	isUndoPending.value = false;
-	uiStore.isComposeModalOpen = true;
+	const pending = pendingSend.value;
+	pendingSend.value = null;
+	if (pending) {
+		reopenWith(pending.snapshot);
+	} else {
+		uiStore.isComposeModalOpen = true;
+	}
 	showSuccessToast("Sending canceled. Draft preserved.");
 };
 
 const commitSendImmediately = () => {
-	if (undoTimer) clearInterval(undoTimer);
+	if (undoTimer) {
+		clearInterval(undoTimer);
+		undoTimer = null;
+	}
 	commitSend();
 };
 
 const commitSend = async () => {
-	if (!pendingSendPayload.value) return;
-	const payload = pendingSendPayload.value;
-	pendingSendPayload.value = null;
+	if (!pendingSend.value) return;
+	const pending = pendingSend.value;
+	pendingSend.value = null;
 	isUndoPending.value = false;
+	if (undoTimer) {
+		clearInterval(undoTimer);
+		undoTimer = null;
+	}
 
 	isLoading.value = true;
 	try {
-		const mailboxId = payload.mailboxId;
+		const mailboxId = pending.payload.mailboxId;
 		if (
-			composeOptions.value.mode === "reply" ||
-			composeOptions.value.mode === "reply-all"
+			pending.mode === "reply" ||
+			pending.mode === "reply-all"
 		) {
-			const originalEmailId = composeOptions.value.originalEmail?.id;
-			if (originalEmailId) {
-				await api.replyToEmail(mailboxId, originalEmailId, payload);
+			if (pending.originalEmailId) {
+				await api.replyToEmail(mailboxId, pending.originalEmailId, pending.payload);
 			} else {
-				await emailStore.sendEmail(mailboxId, payload);
+				await emailStore.sendEmail(mailboxId, pending.payload);
 			}
-		} else if (composeOptions.value.mode === "forward") {
-			const originalEmailId = composeOptions.value.originalEmail?.id;
-			if (originalEmailId) {
-				await api.forwardEmail(mailboxId, originalEmailId, payload);
+		} else if (pending.mode === "forward") {
+			if (pending.originalEmailId) {
+				await api.forwardEmail(mailboxId, pending.originalEmailId, pending.payload);
 			} else {
-				await emailStore.sendEmail(mailboxId, payload);
+				await emailStore.sendEmail(mailboxId, pending.payload);
 			}
 		} else {
-			await emailStore.sendEmail(mailboxId, payload);
+			await emailStore.sendEmail(mailboxId, pending.payload);
 		}
 
 		forceCloseModal();
 		showSuccessToast("Email sent successfully!");
+		refreshListIfShowing(mailboxId, ["sent", "drafts", "inbox"]);
 	} catch (e: any) {
 		const errorMessage =
 			e.response?.data?.error || "Failed to dispatch email.";
 		showErrorToast(errorMessage);
-		uiStore.isComposeModalOpen = true;
+		reopenWith(pending.snapshot);
 	} finally {
 		isLoading.value = false;
 	}
@@ -1047,3 +1267,17 @@ const formatBytes = (bytes: number, decimals = 1) => {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
 };
 </script>
+
+<style scoped>
+/* Phones: bottom lane above the nav, left of the compose FAB (right 1.25rem + 3.5rem wide + 1rem gap). */
+.undo-send-bar {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+  right: 5.75rem;
+}
+@media (min-width: 640px) {
+  .undo-send-bar {
+    bottom: 1.5rem;
+    right: 1.5rem;
+  }
+}
+</style>

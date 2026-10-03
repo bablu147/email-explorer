@@ -183,7 +183,7 @@
           </button>
         </div>
 
-        <!-- 📷 Image Insertion (Upload from PC, Paste, or URL) -->
+        <!-- Image Insertion (Upload from PC, Paste, or URL) -->
         <div v-if="viewMode === 'visual'" class="relative flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
           <input
             type="file"
@@ -259,7 +259,7 @@
         </div>
       </div>
 
-      <!-- 👁️ View Mode Switcher: Visual · HTML Source · Live Split Preview -->
+      <!-- View Mode Switcher: Visual · HTML Source · Live Split Preview -->
       <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
         <button
           type="button"

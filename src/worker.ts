@@ -457,6 +457,9 @@ class GetEmails extends OpenAPIRoute {
 				page: z.number().int().optional(),
 				limit: z.number().int().min(1).max(200).optional(),
 				offset: z.number().int().min(0).optional(),
+				/** Keyset cursor: return messages older than this (date, id). Preferred over `offset` for paging. */
+				before_date: z.string().max(64).optional(),
+				before_id: z.string().max(512).optional(),
 				sortColumn: z
 					.enum([
 						"id",
@@ -483,7 +486,7 @@ class GetEmails extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId } = data.params;
-		const { folder, page, limit, offset, sortColumn, sortDirection } = data.query;
+		const { folder, page, limit, offset, before_date, before_id, sortColumn, sortDirection } = data.query;
 
 		const key = `mailboxes/${mailboxId}.json`;
 		const obj = await c.env.BUCKET.head(key);
@@ -500,12 +503,25 @@ class GetEmails extends OpenAPIRoute {
 			page,
 			limit,
 			offset,
+			beforeDate: before_date,
+			beforeId: before_id,
 			sortColumn,
 			sortDirection,
 		});
 
 		return c.json(emails);
 	}
+}
+
+/**
+ * Decode base64 attachment content to raw bytes for R2. (Putting the `atob()` *string* stored it
+ * UTF-8-encoded, which corrupted every byte >= 0x80 — i.e. any binary attachment on sent mail / drafts.)
+ */
+export function base64ToBytes(b64: string): Uint8Array {
+	const bin = atob(b64 || "");
+	const out = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+	return out;
 }
 
 export function injectEmailTracking(
@@ -657,7 +673,7 @@ class PostEmail extends OpenAPIRoute {
 			for (const att of attachments) {
 				const attachmentId = crypto.randomUUID();
 				const key = `attachments/${messageId}/${attachmentId}/${att.filename}`;
-				const decoded = atob(att.content);
+				const decoded = base64ToBytes(att.content);
 				await c.env.BUCKET.put(key, decoded);
 				attachmentData.push({
 					id: attachmentId,
