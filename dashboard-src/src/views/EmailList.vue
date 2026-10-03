@@ -339,7 +339,15 @@
                 <!-- Line 3 (Sent): delivery & engagement -->
                 <div v-if="folderId === 'sent'" class="mt-1 flex items-center gap-3 text-[11px] font-medium min-w-0">
                   <span
-                    v-if="email.delivery_status === 'spam'"
+                    v-if="email.delivery_status === 'bounced'"
+                    class="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400"
+                    title="Permanent delivery failure: the address does not exist or rejected the message"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    Bounced
+                  </span>
+                  <span
+                    v-else-if="email.delivery_status === 'spam'"
                     class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
                     title="Delivered to the recipient's spam folder"
                   >
@@ -823,7 +831,7 @@ const filteredEmails = computed<Email[]>(() => {
 			list = list.filter((e) => e.clicked_count && e.clicked_count > 0);
 			break;
 		case "delivered":
-			list = list.filter((e) => e.delivery_status !== "spam");
+			list = list.filter((e) => e.delivery_status !== "spam" && e.delivery_status !== "bounced");
 			break;
 	}
 
@@ -859,13 +867,16 @@ const sentStats = computed(() => {
 	const opened = list.filter((e) => e.opened_count && e.opened_count > 0).length;
 	const clicked = list.filter((e) => e.clicked_count && e.clicked_count > 0).length;
 	const spam = list.filter((e) => e.delivery_status === "spam").length;
+	// Bounced messages never reached anyone, so they are left out of inbox placement entirely.
+	const bounced = list.filter((e) => e.delivery_status === "bounced").length;
+	const reached = total - bounced;
 	return {
 		total,
 		opened,
 		openRate: total ? Math.round((opened / total) * 100) : 0,
 		clicked,
 		clickRate: total ? Math.round((clicked / total) * 100) : 0,
-		inboxRate: total ? Math.round(((total - spam) / total) * 100) : 100,
+		inboxRate: reached > 0 ? Math.round(((reached - spam) / reached) * 100) : 100,
 		pending: total - opened,
 	};
 });

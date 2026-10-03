@@ -397,6 +397,47 @@
       </div>
     </div>
 
+    <!-- Do-not-contact warning (advisory) -->
+    <div v-if="suppressionWarning" class="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-60 p-4">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1.5">Check these recipients</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+          Sending to these addresses may hurt deliverability or ignore their request.
+        </p>
+        <ul class="mb-5 space-y-1.5 max-h-40 overflow-y-auto">
+          <li
+            v-for="hit in suppressionWarning"
+            :key="hit.email"
+            class="flex items-center justify-between gap-3 text-xs bg-gray-50 dark:bg-gray-900/50 rounded-lg px-3 py-2"
+          >
+            <span class="font-medium text-gray-800 dark:text-gray-200 truncate">{{ hit.email }}</span>
+            <span class="shrink-0 text-amber-700 dark:text-amber-400 font-semibold">{{ suppressionLabel(hit.reason) }}</span>
+          </li>
+        </ul>
+        <div class="flex items-center justify-end gap-2 text-xs">
+          <button
+            type="button"
+            @click="suppressionWarning = null"
+            class="px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl font-semibold transition-colors cursor-pointer"
+          >
+            Go back
+          </button>
+          <button
+            type="button"
+            @click="sendAnywayDespiteSuppression"
+            class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold shadow-sm transition-all cursor-pointer"
+          >
+            Send anyway
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Dirty-State Exit Confirmation Dialog -->
     <div v-if="showDirtyModal" class="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-60 p-4">
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
@@ -543,6 +584,46 @@ const isDirty = ref(false);
 const isAutosaving = ref(false);
 const draftAutosaveStatus = ref<string>("");
 const showDirtyModal = ref(false);
+
+// Suppression warning (advisory only: the user can always send anyway)
+interface SuppressedHit {
+	email: string;
+	reason: string;
+}
+const suppressionWarning = ref<SuppressedHit[] | null>(null);
+const isCheckingSuppression = ref(false);
+let suppressionAcknowledged = false;
+const SUPPRESSION_LABELS: Record<string, string> = {
+	bounce: "Previous email bounced",
+	unsubscribe: "Unsubscribed",
+	manual: "On the do-not-contact list",
+};
+const suppressionLabel = (reason: string) => SUPPRESSION_LABELS[reason] || reason;
+
+/** New messages warn on any entry; replies and forwards only on bounces (they are not outreach). */
+const findSuppressedRecipients = async (): Promise<SuppressedHit[]> => {
+	const emails = [to.value, cc.value, bcc.value]
+		.join(",")
+		.split(/[,;\n]+/)
+		.map((part) => (part.match(/<([^>]+)>/)?.[1] || part).trim().toLowerCase())
+		.filter((e) => e.includes("@"));
+	if (emails.length === 0) return [];
+	try {
+		const res = await api.checkSuppressions(emails);
+		const hits: SuppressedHit[] = res.data?.suppressed || [];
+		const mode = composeOptions.value.mode;
+		const isOutreach = mode === "new" || mode === "draft";
+		return isOutreach ? hits : hits.filter((h) => h.reason === "bounce");
+	} catch {
+		return []; // fail open: a failed check must never block sending
+	}
+};
+
+const sendAnywayDespiteSuppression = () => {
+	suppressionAcknowledged = true;
+	suppressionWarning.value = null;
+	void triggerSendFlow(false);
+};
 let autosaveTimeout: any = null;
 
 // Undo Send buffer
@@ -1118,11 +1199,12 @@ const previewHtmlDoc = computed(() => {
 });
 
 // Speed Ergonomics & 5-Second Undo Send
-const triggerSendFlow = (isDraft = false) => {
+const triggerSendFlow = async (isDraft = false) => {
 	if (isDraft) {
 		manualSaveDraft();
 		return;
 	}
+	if (isCheckingSuppression.value) return;
 
 	error.value = null;
 	if (!currentMailbox.value) {
@@ -1134,6 +1216,17 @@ const triggerSendFlow = (isDraft = false) => {
 		error.value = "Please specify at least one recipient.";
 		return;
 	}
+
+	if (!suppressionAcknowledged) {
+		isCheckingSuppression.value = true;
+		const hits = await findSuppressedRecipients();
+		isCheckingSuppression.value = false;
+		if (hits.length > 0) {
+			suppressionWarning.value = hits;
+			return;
+		}
+	}
+	suppressionAcknowledged = false;
 
 	// Prepare payload with inline CID replacements
 	let finalHtml = body.value;

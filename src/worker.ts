@@ -5,6 +5,12 @@ import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
 import { buildMimeMessage } from "./mime-builder";
+import { registerSuppressionRoutes } from "./routes/suppression";
+import {
+	appendUnsubscribeFooter,
+	parseBounce,
+	signUnsubscribeToken,
+} from "./suppression";
 import {
 	GetMe,
 	GetUsers,
@@ -538,7 +544,11 @@ export function injectEmailTracking(
 	let trackedHtml = htmlContent.replace(
 		/<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi,
 		(match, prefix, quote, originalUrl, suffix) => {
-			if (originalUrl.includes("/api/v1/track/")) return match;
+			if (
+				originalUrl.includes("/api/v1/track/") ||
+				originalUrl.includes("/api/v1/unsubscribe/")
+			)
+				return match;
 			const trackedUrl = `${trackingBase}/api/v1/track/click/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}?url=${encodeURIComponent(originalUrl)}`;
 			return `<a ${prefix}href="${trackedUrl}"${suffix}>`;
 		},
@@ -634,29 +644,53 @@ class PostEmail extends OpenAPIRoute {
 
 			const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
 
-			// Build MIME message using RFC 5322 builder
-			const mimeMessage = buildMimeMessage({
-				from,
-				to: toList,
-				cc: ccList.length > 0 ? ccList : undefined,
-				bcc: bccList.length > 0 ? bccList : undefined,
-				subject,
-				text,
-				html: outboundHtml,
-				attachments: attachments?.map((att) => ({
-					filename: att.filename,
-					content: att.content,
-					type: att.type,
-					disposition: att.disposition || "attachment",
-					contentId: att.contentId,
-				})),
-				inReplyTo: in_reply_to,
-				references: references,
-			});
+			// Outreach = a brand-new message (not a reply or forward). Only outreach carries an
+			// unsubscribe link and the List-Unsubscribe headers, signed per recipient.
+			const isOutreach = !in_reply_to;
+			const unsubscribeSecret = isOutreach
+				? await c.env.MAILBOX.get(c.env.MAILBOX.idFromName("AUTH")).getUnsubscribeSecret()
+				: null;
+
+			const buildMimeFor = async (recipient: string) => {
+				let bodyHtml = outboundHtml;
+				let bodyText = text;
+				let extraHeaders: Record<string, string> | undefined;
+				if (unsubscribeSecret) {
+					const token = await signUnsubscribeToken(unsubscribeSecret, recipient, mailboxId);
+					const unsubscribeUrl = `https://mail.reflect.cloud/api/v1/unsubscribe/${token}`;
+					const withFooter = appendUnsubscribeFooter(outboundHtml, text, unsubscribeUrl);
+					bodyHtml = withFooter.html;
+					bodyText = withFooter.text;
+					extraHeaders = {
+						"List-Unsubscribe": `<${unsubscribeUrl}>`,
+						"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+					};
+				}
+				// Build MIME message using RFC 5322 builder
+				return buildMimeMessage({
+					from,
+					to: toList,
+					cc: ccList.length > 0 ? ccList : undefined,
+					bcc: bccList.length > 0 ? bccList : undefined,
+					subject,
+					text: bodyText,
+					html: bodyHtml,
+					attachments: attachments?.map((att) => ({
+						filename: att.filename,
+						content: att.content,
+						type: att.type,
+						disposition: att.disposition || "attachment",
+						contentId: att.contentId,
+					})),
+					inReplyTo: in_reply_to,
+					references: references,
+					headers: extraHeaders,
+				});
+			};
 
 			try {
 				for (const recipient of allEnvelopeRecipients) {
-					const message = new EmailMessage(from, recipient, mimeMessage);
+					const message = new EmailMessage(from, recipient, await buildMimeFor(recipient));
 					await c.env.SEND_EMAIL.send(message);
 				}
 			} catch (e) {
@@ -1776,6 +1810,7 @@ function isPublicRoute(pathname: string): boolean {
 		"/api/docs",
 		"/api/openapi.json",
 		"/api/v1/track/",
+		"/api/v1/unsubscribe/",
 	];
 	return publicRoutes.some((route) => pathname.startsWith(route));
 }
@@ -1844,6 +1879,8 @@ app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
 	}
 	return c.redirect(targetUrl, 302);
 });
+
+registerSuppressionRoutes(app);
 
 const openapi = fromHono(app);
 
@@ -2038,6 +2075,45 @@ async function receiveEmail(
 		attachmentData,
 		mailboxId,
 	);
+
+	// A permanent-failure bounce marks the original sent message and puts the address on the
+	// suppression list. Never allowed to break delivery of the bounce itself.
+	try {
+		const headerMap: Record<string, string> = {};
+		for (const h of headers as Array<{ key?: string; value?: unknown }>) {
+			if (h.key) headerMap[h.key.toLowerCase()] = String(h.value ?? "");
+		}
+		const decoder = new TextDecoder();
+		let bodyText = parsedEmail.text || "";
+		for (const att of parsedEmail.attachments || []) {
+			if (/delivery-status|rfc822-headers/i.test(att.mimeType || "")) {
+				bodyText +=
+					"\n\n" +
+					(typeof att.content === "string" ? att.content : decoder.decode(att.content));
+			}
+		}
+		const bounce = parseBounce({
+			fromAddress: parsedEmail.from?.address || "",
+			subject: parsedEmail.subject || "",
+			headers: headerMap,
+			bodyText,
+		});
+		if (bounce) {
+			const authDO = env.MAILBOX.get(env.MAILBOX.idFromName("AUTH"));
+			for (const address of bounce.recipients) {
+				if (await stub.markBounced(address)) {
+					await authDO.addSuppression(
+						address,
+						"bounce",
+						"Permanent delivery failure (hard bounce)",
+						mailboxId,
+					);
+				}
+			}
+		}
+	} catch (err) {
+		console.error("Bounce handling failed:", err);
+	}
 }
 
 const defaultOptions: EmailExplorerOptions = {

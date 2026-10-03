@@ -206,8 +206,15 @@
               <span class="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">To</span>
               <span class="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white" style="color: var(--fg) !important;">{{ email.recipient }}</span>
               <AppBadge :email="email.recipient" />
+              <span
+                v-if="email.delivery_status === 'bounced'"
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <span>Bounced</span>
+              </span>
               <span 
-                v-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
+                v-else-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
                 class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
               >
                 <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -238,8 +245,16 @@
       <div v-if="isSentEmail" class="mt-4 pt-3.5 border-t border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div class="flex items-center gap-2.5 flex-wrap">
           <!-- Delivery Status & Placement -->
+          <span
+            v-if="email.delivery_status === 'bounced'"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+            title="Permanent delivery failure: the address does not exist or rejected the message"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            Bounced · Not delivered
+          </span>
           <span 
-            v-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
+            v-else-if="email.delivery_status === 'spam' || fromFolder === 'spam'"
             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
             title="Warning: Routed to recipient spam folder"
           >

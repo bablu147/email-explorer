@@ -5,7 +5,8 @@
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
-		"start": "wrangler dev"
+		"start": "wrangler dev",
+		"test": "node --test --experimental-strip-types test/*.test.ts"
 	},
 	"dependencies": {
 		"email-explorer": "^1.0.4"

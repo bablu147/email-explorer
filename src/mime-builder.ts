@@ -18,11 +18,23 @@ export interface MimeMessageOptions {
 	}>;
 	inReplyTo?: string;
 	references?: string[];
+	/** Extra headers (e.g. List-Unsubscribe). Names/values must not contain line breaks. */
+	headers?: Record<string, string>;
 }
 
 export function buildMimeMessage(options: MimeMessageOptions): string {
-	const { from, to, cc, subject, text, html, attachments, inReplyTo, references } =
-		options;
+	const {
+		from,
+		to,
+		cc,
+		subject,
+		text,
+		html,
+		attachments,
+		inReplyTo,
+		references,
+		headers,
+	} = options;
 
 	const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2)}`;
 	const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).substring(2)}`;
@@ -52,6 +64,12 @@ export function buildMimeMessage(options: MimeMessageOptions): string {
 	if (references && references.length > 0) {
 		const refs = references.map((ref) => `<${ref}>`).join(" ");
 		mime += `References: ${refs}\r\n`;
+	}
+
+	if (headers) {
+		for (const [name, value] of Object.entries(headers)) {
+			mime += `${name.replace(/[\r\n:]/g, "")}: ${String(value).replace(/[\r\n]/g, " ")}\r\n`;
+		}
 	}
 
 	// Content-Type

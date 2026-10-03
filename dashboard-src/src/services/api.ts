@@ -177,5 +177,14 @@ export default {
 	saveDiscoverLead: (lead: any) => apiClient.post("/api/v1/discover/leads", lead),
 	deleteDiscoverLead: (id: string) =>
 		apiClient.delete(`/api/v1/discover/leads/${encodeURIComponent(id)}`),
+
+	// Suppression list (bounces, unsubscribes, manual entries)
+	listSuppressions: () => apiClient.get("/api/v1/suppressions"),
+	addSuppression: (email: string, detail?: string) =>
+		apiClient.post("/api/v1/suppressions", { email, detail }),
+	removeSuppression: (email: string) =>
+		apiClient.delete(`/api/v1/suppressions/${encodeURIComponent(email)}`),
+	checkSuppressions: (emails: string[]) =>
+		apiClient.post("/api/v1/suppressions/check", { emails }),
 };
 

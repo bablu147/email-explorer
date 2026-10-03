@@ -215,4 +215,17 @@ export const authMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id);
         `,
 	},
+	{
+		// Org-wide "do not contact" list: hard bounces, unsubscribes and manual entries.
+		name: "6_suppressions",
+		sql: `
+            CREATE TABLE IF NOT EXISTS suppressions (
+                email TEXT PRIMARY KEY,
+                reason TEXT NOT NULL,
+                detail TEXT,
+                source_mailbox TEXT,
+                created_at TEXT NOT NULL
+            );
+        `,
+	},
 ];
