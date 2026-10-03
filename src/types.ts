@@ -62,10 +62,22 @@ export interface DiscoverLead {
 	updated_at: number;
 }
 
+export interface PushSubscriptionRecord {
+	id: string;
+	endpoint: string;
+	p256dh: string;
+	auth: string;
+	user_agent?: string | null;
+	created_at: string;
+}
+
 export type Env = {
 	MAILBOX: DurableObjectNamespace<import("./durableObject/index").MailboxDO>;
 	BUCKET: R2Bucket;
 	SEND_EMAIL: SendEmail;
 	config?: EmailExplorerOptions;
+	VAPID_PUBLIC_KEY?: string;
+	VAPID_PRIVATE_KEY?: string;
+	VAPID_SUBJECT?: string;
 };
 

@@ -85,6 +85,20 @@ export const mailboxMigrations: Migration[] = [
             ALTER TABLE emails ADD COLUMN spam_score REAL DEFAULT 0.0;
         `,
 	},
+	{
+		name: "8_add_push_subscriptions",
+		sql: `
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id TEXT PRIMARY KEY,
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                user_agent TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [
@@ -167,6 +181,20 @@ export const authMigrations: Migration[] = [
 
             CREATE INDEX IF NOT EXISTS idx_discover_leads_bundle ON discover_leads(bundle_id, platform);
             CREATE INDEX IF NOT EXISTS idx_discover_leads_email ON discover_leads(developer_email);
+        `,
+	},
+	{
+		name: "4_add_push_subscriptions",
+		sql: `
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id TEXT PRIMARY KEY,
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                user_agent TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
         `,
 	},
 ];

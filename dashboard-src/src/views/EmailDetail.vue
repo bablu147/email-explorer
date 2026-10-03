@@ -6,12 +6,13 @@
         <div class="flex items-center gap-3 min-w-0">
           <button 
             @click="handleBack" 
-            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 group relative cursor-pointer flex-shrink-0" 
-            title="Back"
+            class="px-2.5 py-1.5 text-gray-600 hover:text-emerald-600 dark:text-gray-300 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all duration-200 group relative cursor-pointer flex-shrink-0 flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700" 
+            title="Back to Inbox"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
             </svg>
+            <span class="text-xs font-bold">Back</span>
           </button>
           <h1 class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate tracking-tight">{{ email.subject || "(No subject)" }}</h1>
         </div>

@@ -30,6 +30,12 @@ import {
 	PostDiscoverLead,
 } from "./routes/discover";
 import { PostForwardEmail, PostReplyEmail } from "./routes/reply-forward";
+import {
+	GetVapidPublicKey,
+	PostSubscribePush,
+	PostTestPush,
+	PostUnsubscribePush,
+} from "./routes/push";
 import type { EmailExplorerOptions, Env, Session } from "./types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
@@ -1752,6 +1758,8 @@ function isPublicRoute(pathname: string): boolean {
 		"/api/docs",
 		"/api/openapi.json",
 		"/api/v1/track/",
+		"/api/push/",
+		"/api/v1/push/",
 	];
 	return publicRoutes.some((route) => pathname.startsWith(route));
 }
@@ -1851,6 +1859,17 @@ openapi.get("/api/v1/discover/apps", GetDiscoverApps);
 openapi.get("/api/v1/discover/leads", GetDiscoverLeads);
 openapi.post("/api/v1/discover/leads", PostDiscoverLead);
 openapi.delete("/api/v1/discover/leads/:id", DeleteDiscoverLead);
+
+// Web Push Notifications endpoints (supported with and without /v1)
+openapi.get("/api/v1/push/vapid-public-key", GetVapidPublicKey);
+openapi.post("/api/v1/push/subscribe", PostSubscribePush);
+openapi.post("/api/v1/push/unsubscribe", PostUnsubscribePush);
+openapi.post("/api/v1/push/test", PostTestPush);
+
+openapi.get("/api/push/vapid-public-key", GetVapidPublicKey);
+openapi.post("/api/push/subscribe", PostSubscribePush);
+openapi.post("/api/push/unsubscribe", PostUnsubscribePush);
+openapi.post("/api/push/test", PostTestPush);
 
 // Existing endpoints
 openapi.post("/api/v1/debug/create-mailbox", CreateDummyMailbox);

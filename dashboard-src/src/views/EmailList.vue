@@ -5,7 +5,7 @@
       class="flex flex-col min-h-0 h-full overflow-y-auto"
       :class="[
         uiStore.splitViewMode === 'split' 
-          ? 'w-full lg:w-auto shrink-0' 
+          ? 'w-full md:w-auto shrink-0' 
           : 'w-full flex-1',
         isResizing ? 'transition-none select-none' : 'transition-[width] duration-150'
       ]"
@@ -24,11 +24,11 @@
 
         <!-- Search, View Toggle & Filters Container -->
         <div class="flex items-center gap-2.5 flex-wrap">
-          <!-- Split View Mode Toggle Button (Desktop Only) -->
+          <!-- Split View Mode Toggle Button (Tablets & Desktops >= 768px) -->
           <button
             type="button"
             @click="uiStore.toggleSplitViewMode()"
-            class="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs"
+            class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs"
             :class="[
               uiStore.splitViewMode === 'split'
                 ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-bold'
@@ -672,7 +672,7 @@
     @mousedown.prevent="startResizing"
     @touchstart="startTouchResizing"
     @dblclick="resetSplitWidth"
-    class="hidden lg:flex items-center justify-center w-2 -mx-1 hover:w-2 hover:bg-emerald-500/20 active:bg-emerald-500/40 cursor-col-resize z-20 group relative transition-colors select-none shrink-0"
+    class="hidden md:flex items-center justify-center w-2 -mx-1 hover:w-2 hover:bg-emerald-500/20 active:bg-emerald-500/40 cursor-col-resize z-20 group relative transition-colors select-none shrink-0"
     :class="{ '!bg-emerald-500/30': isResizing }"
     title="Drag to resize panels (Double-click to reset to 480px)"
   >
@@ -689,10 +689,10 @@
     ></div>
   </div>
 
-  <!-- Right Pane: Docked Reading Pane (Desktop only when split mode is active) -->
+  <!-- Right Pane: Docked Reading Pane (Tablets & Desktops >= 768px when split mode is active) -->
   <div 
     v-if="uiStore.splitViewMode === 'split'" 
-    class="hidden lg:flex flex-1 min-w-0 h-full overflow-hidden flex-col bg-white dark:bg-gray-900"
+    class="hidden md:flex flex-1 min-w-0 h-full overflow-hidden flex-col bg-white dark:bg-gray-900"
   >
     <ReadingPane
       :mailbox-id="(route.params.mailboxId as string)"
@@ -979,7 +979,7 @@ const handleRowClick = (email: Email, idx: number) => {
 		return;
 	}
 
-	const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+	const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 	if (isMobile || uiStore.splitViewMode === "full") {
 		router.push({
 			name: "EmailDetail",

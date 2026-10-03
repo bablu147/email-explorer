@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { DOQB } from "workers-qb";
-import type { AppBinding, DiscoverLead, Env, Session, User } from "../types";
+import { generateVapidKeys, sendWebPush, type VapidKeys } from "../push-crypto";
+import type { AppBinding, DiscoverLead, Env, PushSubscriptionRecord, Session, User } from "../types";
 import { authMigrations, mailboxMigrations } from "./migrations";
 
 const ALLOWED_SORT_COLUMNS = [
@@ -892,6 +893,10 @@ export class MailboxDO extends DurableObject<Env> {
 				})
 				.execute();
 		}
+
+		if (folder === "inbox") {
+			this.ctx.waitUntil(this.#dispatchPushNotifications(email));
+		}
 	}
 
 	async upsertDraft(
@@ -1346,6 +1351,220 @@ export class MailboxDO extends DurableObject<Env> {
 			}
 		}
 		return result;
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// Web Push Engine & Subscriptions Registry (RFC 8291 / 8292)
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	async #dispatchPushNotifications(email: EmailData): Promise<void> {
+		try {
+			const subscriptions = await this.getPushSubscriptions();
+			if (!subscriptions || subscriptions.length === 0) return;
+
+			const vapidKeys = await this.getVapidKeys();
+			const subjectContact = this.env.VAPID_SUBJECT || "support@reflect.cloud";
+
+			const senderDisplay = email.sender
+				? email.sender.replace(/<.*>/, "").replace(/^["']|["']$/g, "").trim() || email.sender
+				: "Someone";
+			const cleanSubject = email.subject || "(No subject)";
+
+			let preview = email.body || "";
+			if (preview.includes("<") && preview.includes(">")) {
+				preview = preview.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+			}
+			if (preview.length > 120) {
+				preview = preview.slice(0, 117) + "...";
+			}
+
+			const payload = {
+				title: `New Email: ${senderDisplay}`,
+				body: `${cleanSubject}\n${preview}`,
+				icon: "/icons/icon-192.png",
+				badge: "/icons/badge-72.png",
+				tag: `email-${email.id}`,
+				data: {
+					emailId: email.id,
+					mailboxId: email.recipient || "default",
+					url: `/mailbox/${encodeURIComponent(email.recipient || "default")}/email/${email.id}`,
+				},
+				actions: [
+					{ action: "open", title: "Open" },
+					{ action: "mark_read", title: "Mark Read" },
+				],
+			};
+
+			const sendPromises = subscriptions.map(async (sub) => {
+				const result = await sendWebPush(
+					{
+						endpoint: sub.endpoint,
+						keys: {
+							p256dh: sub.p256dh,
+							auth: sub.auth,
+						},
+					},
+					payload,
+					vapidKeys,
+					subjectContact,
+				);
+
+				if (!result.success && (result.statusCode === 404 || result.statusCode === 410)) {
+					await this.deletePushSubscription(sub.endpoint);
+				}
+			});
+
+			await Promise.allSettled(sendPromises);
+		} catch (err) {
+			console.error("Web Push dispatch error:", err);
+		}
+	}
+
+	async getVapidKeys(): Promise<VapidKeys> {
+		if (this.env.VAPID_PUBLIC_KEY && this.env.VAPID_PRIVATE_KEY) {
+			return {
+				publicKey: this.env.VAPID_PUBLIC_KEY,
+				privateKey: this.env.VAPID_PRIVATE_KEY,
+			};
+		}
+
+		if (this.#isAuthDO) {
+			const stored = (await this.ctx.storage.get("vapid_keys")) as VapidKeys | undefined;
+			if (stored && stored.publicKey && stored.privateKey) {
+				return stored;
+			}
+			const generated = await generateVapidKeys();
+			await this.ctx.storage.put("vapid_keys", generated);
+			return generated;
+		}
+
+		const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+		return await authDO.getVapidKeys();
+	}
+
+	async savePushSubscription(sub: {
+		endpoint: string;
+		p256dh: string;
+		auth: string;
+		userAgent?: string | null;
+	}): Promise<PushSubscriptionRecord> {
+		this.ctx.storage.sql.exec(`
+			CREATE TABLE IF NOT EXISTS push_subscriptions (
+				id TEXT PRIMARY KEY,
+				endpoint TEXT NOT NULL UNIQUE,
+				p256dh TEXT NOT NULL,
+				auth TEXT NOT NULL,
+				user_agent TEXT,
+				created_at TEXT NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscriptions(endpoint);
+		`);
+
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		this.ctx.storage.sql.exec(
+			`INSERT INTO push_subscriptions (id, endpoint, p256dh, auth, user_agent, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(endpoint) DO UPDATE SET
+			   p256dh = excluded.p256dh,
+			   auth = excluded.auth,
+			   user_agent = excluded.user_agent`,
+			id,
+			sub.endpoint,
+			sub.p256dh,
+			sub.auth,
+			sub.userAgent || null,
+			now,
+		);
+
+		return {
+			id,
+			endpoint: sub.endpoint,
+			p256dh: sub.p256dh,
+			auth: sub.auth,
+			user_agent: sub.userAgent || null,
+			created_at: now,
+		};
+	}
+
+	async deletePushSubscription(endpoint: string): Promise<boolean> {
+		this.ctx.storage.sql.exec(
+			"DELETE FROM push_subscriptions WHERE endpoint = ?",
+			endpoint,
+		);
+		return true;
+	}
+
+	async getPushSubscriptions(): Promise<PushSubscriptionRecord[]> {
+		try {
+			const rows = this.ctx.storage.sql
+				.exec("SELECT id, endpoint, p256dh, auth, user_agent, created_at FROM push_subscriptions")
+				.toArray();
+			return rows.map((r: any) => ({
+				id: String(r.id),
+				endpoint: String(r.endpoint),
+				p256dh: String(r.p256dh),
+				auth: String(r.auth),
+				user_agent: r.user_agent ? String(r.user_agent) : null,
+				created_at: String(r.created_at),
+			}));
+		} catch {
+			return [];
+		}
+	}
+
+	async sendTestNotification(endpoint?: string): Promise<{ success: boolean; sentCount: number; error?: string }> {
+		try {
+			const all = await this.getPushSubscriptions();
+			const targets = endpoint ? all.filter((s) => s.endpoint === endpoint) : all;
+
+			if (targets.length === 0) {
+				return { success: false, sentCount: 0, error: "No matching push subscription found" };
+			}
+
+			const vapidKeys = await this.getVapidKeys();
+			const subjectContact = this.env.VAPID_SUBJECT || "support@reflect.cloud";
+
+			const payload = {
+				title: "Reflect Mail — Test Notification",
+				body: "Web Push notifications are live and fully operational on this device!",
+				icon: "/icons/icon-192.png",
+				badge: "/icons/badge-72.png",
+				tag: "test-push",
+				data: {
+					url: "/",
+				},
+				actions: [
+					{ action: "open", title: "Open Reflect Mail" },
+				],
+			};
+
+			let sentCount = 0;
+			for (const sub of targets) {
+				const result = await sendWebPush(
+					{
+						endpoint: sub.endpoint,
+						keys: {
+							p256dh: sub.p256dh,
+							auth: sub.auth,
+						},
+					},
+					payload,
+					vapidKeys,
+					subjectContact,
+				);
+				if (result.success) {
+					sentCount++;
+				} else if (result.statusCode === 404 || result.statusCode === 410) {
+					await this.deletePushSubscription(sub.endpoint);
+				}
+			}
+
+			return { success: sentCount > 0, sentCount };
+		} catch (err: any) {
+			return { success: false, sentCount: 0, error: err?.message || String(err) };
+		}
 	}
 }
 

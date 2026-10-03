@@ -1,14 +1,14 @@
 <template>
   <div>
     <!-- Main Compose Modal -->
-    <div v-if="isComposeModalOpen" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div v-if="isComposeModalOpen" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
       <div 
         @keydown.meta.enter="triggerSendFlow(false)"
         @keydown.ctrl.enter="triggerSendFlow(false)"
-        class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all flex flex-col max-h-[92vh]"
+        class="bg-white dark:bg-gray-800 rounded-none sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-4xl text-gray-900 dark:text-gray-100 border-0 sm:border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all flex flex-col"
       >
         <!-- Header -->
-        <div class="flex justify-between items-center bg-gray-100 dark:bg-gray-900/90 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div class="flex justify-between items-center bg-gray-100 dark:bg-gray-900/90 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
