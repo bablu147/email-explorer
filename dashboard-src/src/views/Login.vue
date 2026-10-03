@@ -1,69 +1,102 @@
 <template>
-	<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-		<div class="max-w-md w-full space-y-8">
-			<div>
-				<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-					Sign in to Email Explorer
-				</h2>
-				<p class="mt-2 text-center text-sm text-gray-600">
-					<span v-if="isRegistrationEnabled()">
-						Or
-						<router-link
-							to="/register"
-							class="font-medium text-emerald-600 hover:text-emerald-500"
-						>
-							create a new account
-						</router-link>
-					</span>
-				</p>
-			</div>
-			<form class="mt-8 space-y-6" @submit.prevent="handleLogin">
-				<div v-if="authStore.error" class="rounded-md bg-red-50 p-4">
-					<p class="text-sm text-red-800">{{ authStore.error }}</p>
+	<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
+		<div class="max-w-md w-full">
+			<!-- Reflect Brand Card -->
+			<div class="bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-3xl p-8 sm:p-10 shadow-xl transition-colors">
+				<!-- Logo & Header -->
+				<div class="flex flex-col items-center text-center mb-8">
+					<div class="flex items-center gap-3 mb-4">
+						<svg width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" class="shadow-sm">
+							<rect width="32" height="32" rx="7" fill="#0A0F0C"/>
+							<text x="16" y="22" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" font-weight="800" fill="#FFFFFF">R</text>
+							<path d="M 22.5 9 L 25 9 L 25 11.5" stroke="#4ED49B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<div class="flex items-center gap-1.5">
+							<span class="font-extrabold text-xl text-gray-900 dark:text-white tracking-tight">Reflect</span>
+							<span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Mail</span>
+						</div>
+					</div>
+
+					<h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+						Sign in to your account
+					</h2>
+					<p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+						MMP Support & App Growth Communications Hub
+					</p>
 				</div>
-				<div class="rounded-md shadow-sm -space-y-px">
+
+				<!-- Error Banner -->
+				<div v-if="authStore.error" class="mb-5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-3.5 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+					<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+					<span>{{ authStore.error }}</span>
+				</div>
+
+				<!-- Form -->
+				<form class="space-y-4" @submit.prevent="handleLogin">
 					<div>
-						<label for="email" class="sr-only">Email address</label>
+						<label for="email" class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+							Email address
+						</label>
 						<input
 							id="email"
 							v-model="email"
 							type="email"
 							required
-							class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
-							placeholder="Email address"
+							autocomplete="email"
+							placeholder="admin@reflect.cloud"
+							class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-mono"
 						/>
 					</div>
+
 					<div>
-						<label for="password" class="sr-only">Password</label>
+						<div class="flex items-center justify-between mb-1.5">
+							<label for="password" class="block text-xs font-semibold text-gray-700 dark:text-gray-300">
+								Password
+							</label>
+							<router-link
+								v-if="isAccountRecoveryEnabled()"
+								to="/forgot-password"
+								class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+							>
+								Forgot password?
+							</router-link>
+						</div>
 						<input
 							id="password"
 							v-model="password"
 							type="password"
 							required
-							class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
-							placeholder="Password"
+							autocomplete="current-password"
+							placeholder="••••••••"
+							class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
 						/>
 					</div>
-				</div>
 
-				<div>
-					<button
-						type="submit"
-						:disabled="authStore.loading"
-						class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50"
-					>
-						{{ authStore.loading ? "Signing in..." : "Sign in" }}
-					</button>
+					<div class="pt-2">
+						<button
+							type="submit"
+							:disabled="authStore.loading"
+							class="w-full py-2.5 px-4 text-sm font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						>
+							<svg v-if="authStore.loading" class="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							<span>{{ authStore.loading ? "Signing in..." : "Sign in to Reflect Mail" }}</span>
+						</button>
+					</div>
+				</form>
+
+				<!-- Registration Footer Link -->
+				<div v-if="isRegistrationEnabled()" class="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800/80 text-center text-xs text-gray-500 dark:text-gray-400">
+					Don't have an account?
+					<router-link to="/register" class="font-bold text-emerald-600 dark:text-emerald-400 hover:underline ml-1">
+						Create an account &rarr;
+					</router-link>
 				</div>
-			<div v-if="isAccountRecoveryEnabled()" class="text-center">
-				<router-link
-					to="/forgot-password"
-					class="text-sm font-medium text-emerald-600 hover:text-emerald-500"
-				>
-					Forgot your password?
-				</router-link>
 			</div>
-		</form>
 		</div>
 	</div>
 </template>
@@ -74,19 +107,18 @@ import { useRouter } from "vue-router";
 import { useAppSettings } from "@/composables/useAppSettings";
 import { useAuthStore } from "@/stores/auth";
 
-const router = useRouter();
-const authStore = useAuthStore();
-const { isRegistrationEnabled, isAccountRecoveryEnabled } = useAppSettings();
-
 const email = ref("");
 const password = ref("");
+const authStore = useAuthStore();
+const router = useRouter();
+const { isRegistrationEnabled, isAccountRecoveryEnabled } = useAppSettings();
 
-async function handleLogin() {
+const handleLogin = async () => {
 	try {
 		await authStore.login(email.value, password.value);
 		router.push("/");
 	} catch (error) {
-		// Error is handled by store
+		console.error("Login failed:", error);
 	}
-}
+};
 </script>

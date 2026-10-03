@@ -177,11 +177,10 @@
       }
 
       /* ── Tooltips ────────────────────────────────────────────────────── */
-      .group > div.absolute.bottom-full,
-      button > div.absolute.bottom-full,
-      a > div.absolute.bottom-full,
-      [class*="bottom-full"][class*="group-hover:opacity-100"] {
-        display: none !important;
+      .group:hover > div.absolute.bottom-full,
+      button:hover > div.absolute.bottom-full,
+      a:hover > div.absolute.bottom-full {
+        pointer-events: none;
       }
     </style>
   </head>

@@ -30,7 +30,13 @@ export const useAppBindingsStore = defineStore("appBindings", {
 		getBinding: (state) => (rawEmail?: string | null): AppBinding | null => {
 			if (!rawEmail) return null;
 			const clean = extractCleanEmail(rawEmail);
-			return state.bindingsMap[clean] || null;
+			if (state.bindingsMap[clean]) return state.bindingsMap[clean];
+			const parts = clean.split("@");
+			if (parts.length === 2 && parts[1]) {
+				const wildcard = `*@${parts[1].toLowerCase()}`;
+				if (state.bindingsMap[wildcard]) return state.bindingsMap[wildcard];
+			}
+			return null;
 		},
 	},
 

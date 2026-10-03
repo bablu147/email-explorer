@@ -597,10 +597,14 @@
       </li>
     </ul>
 
-    <!-- Refined Empty State -->
+    <!-- Refined Empty State / Celebratory Inbox Zero -->
     <div v-else class="p-16 flex-1 flex flex-col items-center justify-center text-center">
-      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500">
-        <svg v-if="filterMode === 'viewed'" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div 
+        class="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center shadow-xs"
+        :class="folderId === 'inbox' && !searchQuery ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'"
+      >
+        <span v-if="folderId === 'inbox' && !searchQuery" class="text-3xl">✨</span>
+        <svg v-else-if="filterMode === 'viewed'" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
         </svg>
@@ -608,29 +612,43 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
         </svg>
       </div>
+
       <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-1">
         <span v-if="searchQuery">No emails matching "{{ searchQuery }}"</span>
+        <span v-else-if="folderId === 'inbox'">Inbox Zero — You're all caught up!</span>
         <span v-else-if="filterMode === 'viewed'">No opened emails yet</span>
         <span v-else-if="filterMode === 'unopened'">All sent emails have been opened!</span>
         <span v-else-if="filterMode === 'clicked'">No link clicks recorded yet</span>
-        <span v-else-if="filterMode === 'starred'">No starred emails in this folder</span>
+        <span v-else-if="filterMode === 'starred'">No starred emails</span>
         <span v-else-if="filterMode === 'unread'">No unread emails</span>
         <span v-else>No messages in this folder</span>
       </h2>
-      <p class="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-4">
+
+      <p class="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-5 leading-relaxed">
         <span v-if="searchQuery">Try adjusting your search keywords or clear the filter.</span>
+        <span v-else-if="folderId === 'inbox'">Enjoy your clear inbox. Press <kbd class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-mono">c</kbd> to compose or <kbd class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 font-mono">⌘K</kbd> to jump anywhere.</span>
         <span v-else-if="filterMode === 'viewed'">When recipients view your sent emails, their engagement will appear here live.</span>
-        <span v-else-if="filterMode === 'all'">Any sent messages will appear here with live deliverability and open tracking.</span>
-        <span v-else>Try selecting a different filter above.</span>
+        <span v-else>Messages will appear here as they are received or processed.</span>
       </p>
-      <button
-        v-if="filterMode !== 'all' || searchQuery"
-        type="button"
-        @click="filterMode = 'all'; searchQuery = ''"
-        class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm"
-      >
-        Reset filters
-      </button>
+
+      <div class="flex items-center gap-2">
+        <button
+          v-if="filterMode !== 'all' || searchQuery"
+          type="button"
+          @click="filterMode = 'all'; searchQuery = ''"
+          class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm"
+        >
+          Reset filters
+        </button>
+        <button
+          v-else-if="folderId === 'inbox'"
+          type="button"
+          @click="uiStore.openComposeModal()"
+          class="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+        >
+          <span>✍️ Compose New Message</span>
+        </button>
+      </div>
     </div>
   </div>
 
