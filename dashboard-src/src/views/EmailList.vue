@@ -182,82 +182,83 @@
     <!-- 📊 Outreach Performance Metrics Banner (for Sent folder) -->
     <div 
       v-if="folderId === 'sent' && emails.length > 0" 
-      class="px-4 sm:px-6 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs"
+      class="px-4 sm:px-5 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 grid gap-2.5 text-xs"
+      :class="uiStore.splitViewMode === 'split' ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'"
     >
       <!-- Total Sent Card -->
       <div 
         @click="filterMode = 'all'"
-        class="p-3.5 rounded-xl border transition-all cursor-pointer select-none group"
-        :class="filterMode === 'all' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group min-w-0"
+        :class="filterMode === 'all' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-xs ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
       >
-        <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 font-medium mb-1">
-          <span class="text-[11px] uppercase tracking-wider font-bold">Total Sent</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <div class="flex items-center justify-between text-gray-500 dark:text-gray-400 font-medium mb-1 min-w-0 gap-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold truncate">Total Sent</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-1"></span>
         </div>
-        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+        <div class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5 flex-wrap">
           {{ sentStats.total }}
-          <span class="text-xs font-normal text-gray-500">messages</span>
+          <span class="text-xs font-normal text-gray-500 truncate">messages</span>
         </div>
       </div>
 
       <!-- Open Rate Card -->
       <div 
         @click="filterMode = 'viewed'"
-        class="p-3.5 rounded-xl border transition-all cursor-pointer select-none group"
-        :class="filterMode === 'viewed' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group min-w-0"
+        :class="filterMode === 'viewed' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-xs ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
       >
-        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1">
-          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            Open Rate
+        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1 min-w-0 gap-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1 min-w-0 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span class="truncate">Open Rate</span>
           </span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap">
             {{ sentStats.opened }}/{{ sentStats.total }}
           </span>
         </div>
-        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+        <div class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5 flex-wrap">
           {{ sentStats.openRate }}%
-          <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">viewed</span>
+          <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 truncate">viewed</span>
         </div>
       </div>
 
       <!-- Click-Through Rate Card -->
       <div 
         @click="filterMode = 'clicked'"
-        class="p-3.5 rounded-xl border transition-all cursor-pointer select-none group"
-        :class="filterMode === 'clicked' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group min-w-0"
+        :class="filterMode === 'clicked' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-xs ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
       >
-        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1">
-          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-            Click Rate
+        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1 min-w-0 gap-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1 min-w-0 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span class="truncate">Click Rate</span>
           </span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            {{ sentStats.clicked }} clicks
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap">
+            {{ sentStats.clicked }} click{{ sentStats.clicked === 1 ? '' : 's' }}
           </span>
         </div>
-        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+        <div class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5 flex-wrap">
           {{ sentStats.clickRate }}%
-          <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">engaged</span>
+          <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 truncate">engaged</span>
         </div>
       </div>
 
       <!-- Primary Inbox Placement Card -->
       <div 
         @click="filterMode = 'delivered'"
-        class="p-3.5 rounded-xl border transition-all cursor-pointer select-none group"
-        :class="filterMode === 'delivered' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
+        class="p-3 rounded-xl border transition-all cursor-pointer select-none group min-w-0"
+        :class="filterMode === 'delivered' ? 'bg-white dark:bg-gray-800 border-emerald-500 shadow-xs ring-1 ring-emerald-500/20' : 'bg-white/70 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'"
       >
-        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1">
-          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            Delivered
+        <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-medium mb-1 min-w-0 gap-1">
+          <span class="text-[11px] uppercase tracking-wider font-bold flex items-center gap-1 min-w-0 truncate">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span class="truncate">Delivered</span>
           </span>
-          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">SPF/DKIM ✓</span>
+          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap">SPF/DKIM ✓</span>
         </div>
-        <div class="text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5">
+        <div class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5 flex-wrap">
           {{ sentStats.inboxRate }}%
-          <span class="text-xs font-normal text-gray-500">inbox placement</span>
+          <span class="text-xs font-normal text-gray-500 truncate">inbox placement</span>
         </div>
       </div>
     </div>
@@ -439,7 +440,7 @@
           <!-- Right Column: Deliverability & Engagement Status Badge + Date / Hover Action Bar -->
           <div class="flex-shrink-0 flex items-center gap-3">
             <!-- 📬 Dedicated Delivery & Engagement Status Pillar (Visible on Sent) -->
-            <div v-if="folderId === 'sent'" class="hidden md:flex flex-col items-end gap-1 min-w-[140px]">
+            <div v-if="folderId === 'sent'" class="hidden sm:flex flex-col items-end gap-1 shrink-0">
               <!-- Spam Placement Detected -->
               <span 
                 v-if="email.delivery_status === 'spam'"
