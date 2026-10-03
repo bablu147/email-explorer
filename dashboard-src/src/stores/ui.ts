@@ -20,12 +20,22 @@ export const useUIStore = defineStore("ui", {
 			originalEmail: null,
 		} as ComposeOptions,
 		isMobileSidebarOpen: false,
+		isCommandPaletteOpen: false,
 		splitViewMode: ((typeof localStorage !== "undefined" &&
 			localStorage.getItem("reflect_split_view")) as SplitViewMode) || "split",
 		sidebarCollapsed: typeof localStorage !== "undefined" &&
 			localStorage.getItem("reflect_sidebar_collapsed") === "true",
 	}),
 	actions: {
+		openCommandPalette() {
+			this.isCommandPaletteOpen = true;
+		},
+		closeCommandPalette() {
+			this.isCommandPaletteOpen = false;
+		},
+		toggleCommandPalette() {
+			this.isCommandPaletteOpen = !this.isCommandPaletteOpen;
+		},
 		openComposeModal(options?: ComposeOptions) {
 			this.composeOptions = options || { mode: "new", originalEmail: null };
 			this.isComposeModalOpen = true;

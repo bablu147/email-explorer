@@ -105,21 +105,23 @@
         </div>
       </div>
 
-      <!-- Live Search Bar -->
-      <div class="relative flex-1 min-w-[160px]">
+      <!-- Omni-Search Bar & Command Palette Launcher -->
+      <button 
+        type="button"
+        @click="uiStore.openCommandPalette"
+        class="relative flex-1 min-w-[160px] sm:min-w-[220px] max-w-sm flex items-center justify-between pl-9 pr-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-xl text-gray-400 dark:text-gray-400 text-left transition-all cursor-pointer group shadow-2xs"
+        title="Open Command Palette (⌘K)"
+      >
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-          <svg class="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="h-3.5 w-3.5 text-gray-400 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </span>
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          @keyup.enter="performSearch" 
-          placeholder="Search emails..." 
-          class="w-full pl-9 pr-4 py-1.5 text-xs sm:text-sm border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all" 
-        />
-      </div>
+        <span class="truncate">Search emails, contacts, commands...</span>
+        <kbd class="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300 shadow-2xs">
+          ⌘K
+        </kbd>
+      </button>
     </div>
 
     <!-- Right: External Links, Theme Toggle, Settings, & Profile Menu -->
