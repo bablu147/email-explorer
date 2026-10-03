@@ -27,10 +27,22 @@ export const useEmailStore = defineStore("emails", {
 		/** Whether the server may have more (older) messages for `listKey`. */
 		hasMore: false,
 		isLoadingMore: false,
+		/** Last infinite-scroll page request failed (list shows a Retry button). */
+		loadMoreFailed: false,
+		/**
+		 * Bumped on every optimistic local change (move / restore / flag) and again when its request settles.
+		 * A background refresh that was requested *before* such a change carries a stale server snapshot and
+		 * would resurrect an archived row or revert a flag, so its response is discarded.
+		 */
+		mutationSeq: 0,
 	}),
 	actions: {
 		listKeyFor(mailboxId: string, folder?: string) {
 			return listKeyOf(mailboxId, folder);
+		},
+		/** Mark that the visible list was changed locally (see `mutationSeq`). */
+		noteMutation() {
+			this.mutationSeq++;
 		},
 		/**
 		 * Load (or background-refresh) the first page of a folder.
@@ -40,6 +52,7 @@ export const useEmailStore = defineStore("emails", {
 		async fetchEmails(mailboxId: string, params: { folder?: string; [k: string]: any } = {}) {
 			const key = listKeyOf(mailboxId, params.folder);
 			const isSameList = this.listKey === key;
+			const seqAtRequest = this.mutationSeq;
 			this.requestedKey = key;
 			this.isRefreshing = true;
 			try {
@@ -49,6 +62,9 @@ export const useEmailStore = defineStore("emails", {
 				});
 				// A newer request for a different folder was issued while this one was in flight — drop it.
 				if (this.requestedKey !== key) return;
+				// Background refresh of the list on screen, but the user changed it meanwhile: this snapshot
+				// predates that change. Keep the local state; the next refresh will reconcile.
+				if (isSameList && this.listKey === key && this.mutationSeq !== seqAtRequest) return;
 				const fresh: Email[] = Array.isArray(response.data) ? response.data : [];
 				const limit = Number(params.limit) || EMAIL_PAGE_SIZE;
 
@@ -64,6 +80,7 @@ export const useEmailStore = defineStore("emails", {
 				} else {
 					this.emails = fresh;
 					this.hasMore = fresh.length >= limit;
+					this.loadMoreFailed = false;
 				}
 				this.listKey = key;
 				if (this.errorKey === key) this.errorKey = "";
@@ -93,6 +110,10 @@ export const useEmailStore = defineStore("emails", {
 				const additions = page.filter((e) => !known.has(e.id));
 				this.emails = [...this.emails, ...additions];
 				this.hasMore = page.length >= EMAIL_PAGE_SIZE;
+				this.loadMoreFailed = false;
+			} catch (err) {
+				if (this.listKey === key) this.loadMoreFailed = true;
+				throw err;
 			} finally {
 				this.isLoadingMore = false;
 			}
@@ -126,6 +147,7 @@ export const useEmailStore = defineStore("emails", {
 				this.currentEmail && this.currentEmail.id === id ? { ...this.currentEmail } : null;
 			if (index !== -1) this.emails[index] = { ...this.emails[index], ...data };
 			if (beforeCurrent) this.currentEmail = { ...(this.currentEmail as Email), ...data };
+			this.mutationSeq++;
 			try {
 				await this.updateEmail(mailboxId, id, data);
 			} catch (err) {
@@ -133,6 +155,8 @@ export const useEmailStore = defineStore("emails", {
 				if (before && i !== -1) this.emails[i] = before;
 				if (beforeCurrent && this.currentEmail?.id === id) this.currentEmail = beforeCurrent;
 				throw err;
+			} finally {
+				this.mutationSeq++;
 			}
 		},
 		/** Permanently deletes a message (and its attachments). Only offered from Trash. */
@@ -149,6 +173,7 @@ export const useEmailStore = defineStore("emails", {
 			const idSet = new Set(ids);
 			const removed = this.emails.filter((e) => idSet.has(e.id));
 			this.emails = this.emails.filter((e) => !idSet.has(e.id));
+			this.mutationSeq++;
 			return removed;
 		},
 		/** Put previously removed rows back (undo / failed request), keeping date order. */
@@ -158,6 +183,7 @@ export const useEmailStore = defineStore("emails", {
 			const merged = [...this.emails, ...rows.filter((r) => !known.has(r.id))];
 			merged.sort(byDateDesc);
 			this.emails = merged;
+			this.mutationSeq++;
 		},
 	},
 });

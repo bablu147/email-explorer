@@ -241,6 +241,7 @@
 import { computed, ref, watch } from "vue";
 import ThreadView from "@/components/ThreadView.vue";
 import { useToast } from "@/composables/useToast";
+import { extractCleanEmail } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
@@ -274,12 +275,13 @@ const loading = ref(false);
 
 const isRestoreFolder = computed(() => ["archive", "trash", "spam"].includes(props.fromFolder || ""));
 
-// Inbound rows also carry opened_count = 0, so only the folder (or sender == this mailbox) marks a message as outgoing.
+// Inbound rows also carry opened_count = 0, so that column can't decide. A message is outgoing if it lives in
+// Sent, was opened from Sent, or was sent by this mailbox (covers sent mail later archived / starred / searched).
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	if (props.fromFolder) return props.fromFolder === "sent";
-	const sender = (email.value.sender || "").toLowerCase();
-	return !!props.mailboxId && sender.includes(props.mailboxId.toLowerCase());
+	if (email.value.folder_id === "sent" || props.fromFolder === "sent") return true;
+	const own = (props.mailboxId || "").toLowerCase();
+	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });
 
 const loadEmail = async (id: string) => {

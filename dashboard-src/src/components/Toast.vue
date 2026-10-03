@@ -95,9 +95,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 </script>
 
 <style scoped>
-/* Sit above the mobile bottom nav (+ safe area); plain bottom inset on larger screens. */
+/* Phones: clear the bottom nav, the compose FAB (top ≈ 8.25rem) and the bulk-action bar (top ≈ 7.75rem). */
 .toast-region {
-  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
 }
 @media (min-width: 640px) {
   .toast-region {

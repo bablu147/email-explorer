@@ -225,7 +225,7 @@
             @touchend="cancelLongPress"
             @touchcancel="cancelLongPress"
             @contextmenu="onRowContextMenu"
-            class="group relative cursor-pointer border-b border-gray-100 dark:border-gray-800/80 transition-colors duration-100"
+            class="touch-row group relative cursor-pointer border-b border-gray-100 dark:border-gray-800/80 transition-colors duration-100"
             :class="rowClass(email, idx)"
             role="option"
             :aria-selected="activeEmailId === email.id || selectedEmailIds.includes(email.id)"
@@ -469,6 +469,16 @@
             </svg>
             Loading older messages…
           </span>
+          <span v-else-if="loadMoreFailed && hasMore" class="inline-flex items-center gap-2">
+            Couldn't load older messages.
+            <button
+              type="button"
+              @click="loadMore"
+              class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+          </span>
           <button
             v-else-if="hasMore && isFiltering"
             type="button"
@@ -583,6 +593,7 @@
     >
       <div
         v-if="selectedEmailIds.length > 0"
+        :style="bulkBarStyle"
         class="bulk-bar fixed left-3 sm:left-1/2 sm:-translate-x-1/2 z-50 bg-gray-900 dark:bg-gray-800 text-white pl-4 pr-1.5 py-1.5 rounded-xl shadow-2xl border border-gray-800 dark:border-gray-700 flex items-center gap-1 text-xs font-medium max-w-[calc(100vw-6.5rem)] sm:max-w-[calc(100vw-1.5rem)]"
         role="toolbar"
         aria-label="Bulk actions"
@@ -667,6 +678,7 @@ import AppBadge from "@/components/AppBadge.vue";
 import ConfirmModal from "@/components/ConfirmModal.vue";
 import ReadingPane from "@/components/ReadingPane.vue";
 import { useMailActions } from "@/composables/useMailActions";
+import { useToast } from "@/composables/useToast";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
@@ -679,7 +691,7 @@ const router = useRouter();
 const route = useRoute();
 const appBindingsStore = useAppBindingsStore();
 const emailStore = useEmailStore();
-const { emails, isRefreshing, hasMore, isLoadingMore } = storeToRefs(emailStore);
+const { emails, isRefreshing, hasMore, isLoadingMore, loadMoreFailed } = storeToRefs(emailStore);
 const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
 const uiStore = useUIStore();
@@ -711,6 +723,14 @@ const startWidth = ref(0);
 const windowWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
 const isTabletOrDesktop = computed(() => windowWidth.value >= 768);
 const isSplitActive = computed(() => uiStore.splitViewMode === "split" && isTabletOrDesktop.value);
+
+// Desktop toasts sit bottom-left (380px wide); below ~1360px they collide with the centered bulk bar,
+// so lift the bar above the toast stack (≈3.5rem per toast) while any are visible. Phones use fixed lanes.
+const { toasts } = useToast();
+const bulkBarStyle = computed(() => {
+	if (windowWidth.value < 640 || windowWidth.value >= 1360 || toasts.value.length === 0) return undefined;
+	return { bottom: `calc(1.5rem + ${toasts.value.length * 3.5}rem)` };
+});
 
 const leftPaneStyle = computed(() => {
 	if (uiStore.splitViewMode !== "split" || !isTabletOrDesktop.value) return {};
@@ -1583,9 +1603,20 @@ watch(
   display: none;
 }
 
+/* Long-press = multi-select on touch screens: keep iOS/Android from starting a text selection or link callout. */
+@media (pointer: coarse) {
+  .touch-row {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* Bulk bar sits above the mobile bottom nav (+ safe area). */
 .bulk-bar {
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  transition-property: opacity, transform, translate, bottom;
+  transition-duration: 0.18s;
 }
 @media (min-width: 640px) {
   .bulk-bar {

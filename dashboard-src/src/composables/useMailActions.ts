@@ -9,6 +9,28 @@ const VIRTUAL_FOLDERS = new Set(["starred"]);
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
+/** Like Promise.allSettled, but at most `limit` requests in flight (bulk actions on hundreds of rows). */
+async function settleAll<T>(
+	items: T[],
+	fn: (item: T) => Promise<unknown>,
+	limit = 6,
+): Promise<PromiseSettledResult<unknown>[]> {
+	const results: PromiseSettledResult<unknown>[] = new Array(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const i = next++;
+			try {
+				results[i] = { status: "fulfilled", value: await fn(items[i]) };
+			} catch (reason) {
+				results[i] = { status: "rejected", reason };
+			}
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
+}
+
 /**
  * Shared, safe mail actions used by the list, reading pane and full-screen reader.
  *
@@ -67,7 +89,8 @@ export function useMailActions() {
 
 		if (!staysVisible) emailStore.removeLocal(rows.map((e) => e.id));
 
-		const results = await Promise.allSettled(rows.map((e) => api.moveEmail(mailboxId, e.id, target)));
+		const results = await settleAll(rows, (e) => api.moveEmail(mailboxId, e.id, target));
+		emailStore.noteMutation();
 		const moved = rows.filter((_, i) => results[i].status === "fulfilled");
 		const failed = rows.filter((_, i) => results[i].status === "rejected");
 
@@ -83,9 +106,8 @@ export function useMailActions() {
 		if (moved.length > 0) {
 			toast.undoable(doneMessage(moved.length, target), async () => {
 				if (!staysVisible && emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(moved);
-				const back = await Promise.allSettled(
-					moved.map((e) => api.moveEmail(mailboxId, e.id, origins.get(e.id) || "inbox")),
-				);
+				const back = await settleAll(moved, (e) => api.moveEmail(mailboxId, e.id, origins.get(e.id) || "inbox"));
+				emailStore.noteMutation();
 				const backFailed = moved.filter((_, i) => back[i].status === "rejected");
 				if (backFailed.length > 0) {
 					if (emailStore.listKey === listKeyAtAction) emailStore.removeLocal(backFailed.map((e) => e.id));
@@ -109,7 +131,7 @@ export function useMailActions() {
 	const deleteForever = async (mailboxId: string, emails: Email[]): Promise<string[]> => {
 		const rows = emails.filter(Boolean);
 		if (!mailboxId || rows.length === 0) return [];
-		const results = await Promise.allSettled(rows.map((e) => api.deleteEmail(mailboxId, e.id)));
+		const results = await settleAll(rows, (e) => api.deleteEmail(mailboxId, e.id));
 		const deleted = rows.filter((_, i) => results[i].status === "fulfilled");
 		const failedCount = rows.length - deleted.length;
 		emailStore.removeLocal(deleted.map((e) => e.id));

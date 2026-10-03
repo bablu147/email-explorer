@@ -22,13 +22,14 @@
           <button 
             v-if="isSentEmail" 
             @click="handleReply" 
-            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
+            class="px-2.5 sm:px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
             title="Send follow-up message to this recipient"
+            aria-label="Follow-up"
           >
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
-            <span>Follow-up</span>
+            <span class="hidden sm:inline">Follow-up</span>
           </button>
 
           <!-- Reply -->
@@ -145,6 +146,44 @@
               <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
             </svg>
           </button>
+
+          <!-- Phones: overflow for the actions hidden above (Reply all / Forward / Read state) -->
+          <div class="relative sm:hidden">
+            <button
+              type="button"
+              @click="isMoreMenuOpen = !isMoreMenuOpen"
+              class="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
+              :class="{ 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white': isMoreMenuOpen }"
+              title="More actions"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              :aria-expanded="isMoreMenuOpen"
+            >
+              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
+            <div v-if="isMoreMenuOpen" class="fixed inset-0 z-20" @click="isMoreMenuOpen = false"></div>
+            <div
+              v-if="isMoreMenuOpen"
+              class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl z-30 border border-gray-200 dark:border-gray-700 overflow-hidden py-1"
+              role="menu"
+            >
+              <button
+                v-for="item in moreMenuItems"
+                :key="item.label"
+                type="button"
+                role="menuitem"
+                @click="isMoreMenuOpen = false; item.run()"
+                class="flex items-center gap-2.5 w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors cursor-pointer"
+              >
+                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                </svg>
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -359,6 +398,28 @@ const mailboxId = computed(() => (route.params.mailboxId as string) || mailboxSt
 const loading = ref(true);
 const isMoveMenuOpen = ref(false);
 const moveMenu = ref<HTMLElement | null>(null);
+const isMoreMenuOpen = ref(false);
+const moreMenuItems = computed(() => {
+	const items: { label: string; icon: string; run: () => void }[] = [];
+	if (!isSentEmail.value) {
+		items.push({
+			label: "Reply all",
+			icon: "M8 10h5a8 8 0 018 8v2M8 10l5 5M8 10l5-5M3 10l5 5M3 10l5-5",
+			run: () => handleReplyAll(),
+		});
+	}
+	items.push({
+		label: "Forward",
+		icon: "M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6",
+		run: () => handleForward(),
+	});
+	items.push({
+		label: email.value?.read ? "Mark as unread" : "Mark as read",
+		icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+		run: () => toggleReadStatus(),
+	});
+	return items;
+});
 
 const handleThreadUpdated = () => {
 	const mbId = route.params.mailboxId as string;
@@ -476,11 +537,12 @@ const primaryMoveTarget = computed(() =>
 );
 /**
  * Outgoing message? Inbound rows also carry opened_count = 0, so that column can't be used to decide.
- * Trust the folder we came from; otherwise compare the sender with this mailbox's address.
+ * Outgoing = lives in Sent, was opened from Sent, or was sent by this mailbox (covers sent mail that was later
+ * archived / starred / opened from search or a push link).
  */
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	if (fromFolder.value) return fromFolder.value === "sent";
+	if (email.value.folder_id === "sent" || fromFolder.value === "sent") return true;
 	const own = (currentMailbox.value?.email || mailboxId.value || "").toLowerCase();
 	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });
