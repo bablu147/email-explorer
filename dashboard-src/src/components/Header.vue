@@ -1,7 +1,19 @@
 <template>
   <header class="h-14 flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 transition-colors">
-    <!-- Left: Mailbox Switcher Dropdown & Live Search -->
-    <div class="flex items-center gap-3 flex-1 max-w-2xl min-w-0">
+    <!-- Left: Mobile Menu Toggle, Mailbox Switcher Dropdown & Live Search -->
+    <div class="flex items-center gap-2 sm:gap-3 flex-1 max-w-2xl min-w-0">
+      <!-- Mobile Drawer Hamburger Button -->
+      <button
+        type="button"
+        @click="uiStore.toggleMobileSidebar"
+        class="lg:hidden p-2 -ml-1 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex-shrink-0"
+        title="Open menu"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
       <!-- Quick Mailbox Switcher Dropdown -->
       <div v-if="currentMailboxId" class="relative flex-shrink-0" ref="mailboxDropdownRef">
         <button
@@ -276,7 +288,9 @@ import { useTheme } from "@/composables/useTheme";
 import { useAuthStore } from "@/stores/auth";
 import { useMailboxStore } from "@/stores/mailboxes";
 import { useSearchStore } from "@/stores/search";
+import { useUIStore } from "@/stores/ui";
 
+const uiStore = useUIStore();
 const searchQuery = ref("");
 const searchStore = useSearchStore();
 const mailboxStore = useMailboxStore();

@@ -359,6 +359,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Loading Skeleton State -->
+  <div v-else-if="loading" class="flex-1 flex flex-col p-6 animate-pulse bg-white dark:bg-gray-900">
+    <div class="h-6 bg-gray-200 dark:bg-gray-800 rounded-lg w-2/3 mb-4"></div>
+    <div class="h-10 bg-gray-100 dark:bg-gray-800/60 rounded-xl mb-6"></div>
+    <div class="space-y-3 flex-1">
+      <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-5/6"></div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-800 rounded w-4/6"></div>
+    </div>
+  </div>
+
+  <!-- Not Found State -->
+  <div v-else class="flex-1 flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-gray-900">
+    <div class="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center mb-3">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+    <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-1">Conversation Not Found</h3>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">This message may have been deleted, archived, or moved.</p>
+    <button @click="handleBack" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer">
+      &larr; Back to List
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -387,6 +412,7 @@ const route = useRoute();
 const router = useRouter();
 const { success: showSuccessToast, error: showErrorToast } = useToast();
 
+const loading = ref(true);
 const isMoveMenuOpen = ref(false);
 const moveMenu = ref<HTMLElement | null>(null);
 
@@ -399,6 +425,49 @@ const handleClickOutside = (event: MouseEvent) => {
 	}
 };
 
+const handleKeyDown = (e: KeyboardEvent) => {
+	const activeElement = document.activeElement;
+	const tagName = activeElement?.tagName?.toLowerCase();
+	const isEditable = (activeElement as HTMLElement)?.isContentEditable;
+	if (tagName === "input" || tagName === "textarea" || tagName === "select" || isEditable) {
+		return;
+	}
+
+	if (uiStore.isComposeModalOpen) {
+		return;
+	}
+
+	if (e.key === "Escape" || e.key === "u") {
+		e.preventDefault();
+		handleBack();
+		return;
+	}
+
+	if (e.key === "e" || e.key === "E") {
+		e.preventDefault();
+		handleMove("archive");
+		return;
+	}
+
+	if (e.key === "d" || e.key === "D" || e.key === "#") {
+		e.preventDefault();
+		handleDelete();
+		return;
+	}
+
+	if (e.key === "s" || e.key === "S") {
+		e.preventDefault();
+		toggleStarStatus();
+		return;
+	}
+
+	if (e.key === "r" || e.key === "R") {
+		e.preventDefault();
+		handleReply();
+		return;
+	}
+};
+
 watch(isMoveMenuOpen, (isOpen) => {
 	if (isOpen) {
 		document.addEventListener("click", handleClickOutside);
@@ -408,6 +477,7 @@ watch(isMoveMenuOpen, (isOpen) => {
 });
 
 onBeforeUnmount(() => {
+	window.removeEventListener("keydown", handleKeyDown);
 	document.removeEventListener("click", handleClickOutside);
 });
 
@@ -519,18 +589,24 @@ const formatBytes = (bytes: number, decimals = 2) => {
 };
 
 onMounted(async () => {
+	window.addEventListener("keydown", handleKeyDown);
 	const mailboxId = route.params.mailboxId as string;
 	const emailId = route.params.id as string;
 
-	await emailStore.fetchEmail(mailboxId, emailId);
-	folderStore.fetchFolders(mailboxId);
-	if (!currentMailbox.value || currentMailbox.value.id !== mailboxId) {
-		await mailboxStore.fetchMailbox(mailboxId);
-	}
-
-	if (email.value && !email.value.read) {
-		await emailStore.updateEmail(mailboxId, emailId, { read: true });
+	loading.value = true;
+	try {
+		await emailStore.fetchEmail(mailboxId, emailId);
 		folderStore.fetchFolders(mailboxId);
+		if (!currentMailbox.value || currentMailbox.value.id !== mailboxId) {
+			await mailboxStore.fetchMailbox(mailboxId);
+		}
+
+		if (email.value && !email.value.read) {
+			await emailStore.updateEmail(mailboxId, emailId, { read: true });
+			folderStore.fetchFolders(mailboxId);
+		}
+	} finally {
+		loading.value = false;
 	}
 });
 

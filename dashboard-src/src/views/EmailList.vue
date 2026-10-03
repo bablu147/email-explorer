@@ -1,19 +1,49 @@
 <template>
-  <div class="flex-1 flex flex-col min-h-full bg-white dark:bg-gray-900 relative">
-    <!-- Header with Folder Name, Live Search, Filter Pills, and Refresh -->
-    <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10">
-      <div class="flex items-center gap-3">
-        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white capitalize tracking-tight flex items-center gap-2">
-          {{ folderName }}
-        </h1>
-        <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-          {{ filteredEmails.length }} {{ filteredEmails.length === 1 ? 'message' : 'messages' }}
-        </span>
-      </div>
+  <div class="flex-1 flex min-h-0 h-full overflow-hidden bg-white dark:bg-gray-900 relative">
+    <!-- Left Pane: Email Stream List -->
+    <div 
+      class="flex flex-col min-h-0 h-full overflow-y-auto transition-all duration-200"
+      :class="[
+        uiStore.splitViewMode === 'split' 
+          ? 'w-full lg:w-[420px] xl:w-[480px] 2xl:w-[540px] shrink-0 border-r border-gray-200 dark:border-gray-800' 
+          : 'w-full flex-1'
+      ]"
+    >
+      <!-- Header with Folder Name, Live Search, Filter Pills, and Refresh -->
+      <div class="px-4 sm:px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10">
+        <div class="flex items-center gap-3">
+          <h1 class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white capitalize tracking-tight flex items-center gap-2">
+            {{ folderName }}
+          </h1>
+          <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            {{ filteredEmails.length }} {{ filteredEmails.length === 1 ? 'message' : 'messages' }}
+          </span>
+        </div>
 
-      <!-- Search & Filters Container -->
-      <div class="flex items-center gap-3 flex-wrap">
-        <!-- Quick In-Folder Filter Search -->
+        <!-- Search, View Toggle & Filters Container -->
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- Split View Mode Toggle Button (Desktop Only) -->
+          <button
+            type="button"
+            @click="uiStore.toggleSplitViewMode()"
+            class="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer shadow-xs"
+            :class="[
+              uiStore.splitViewMode === 'split'
+                ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-bold'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+            ]"
+            :title="uiStore.splitViewMode === 'split' ? 'Switch to Full Width List' : 'Switch to 3-Pane Split View'"
+          >
+            <svg v-if="uiStore.splitViewMode === 'split'" class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v16M4 4h16a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z" />
+            </svg>
+            <svg v-else class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span>{{ uiStore.splitViewMode === 'split' ? 'Split' : 'Full' }}</span>
+          </button>
+
+          <!-- Quick In-Folder Filter Search -->
         <div class="relative w-48 sm:w-64">
           <input
             v-model="searchQuery"
@@ -262,16 +292,18 @@
         v-for="(email, idx) in filteredEmails" 
         :key="email.id" 
         :ref="(el) => setRowRef(el, idx)"
-        @click="activeRowIndex = idx"
+        @click="handleRowClick(email, idx)"
         class="group relative transition-all duration-150 border-l-4 cursor-pointer"
         :class="[
           selectedEmailIds.includes(email.id)
             ? 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-950/20'
-            : activeRowIndex === idx
-              ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-500 ring-1 ring-emerald-500/40 ring-inset'
-              : !email.read 
-                ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-500 font-semibold' 
-                : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800/40',
+            : activeEmailId === email.id
+              ? 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-950/30 ring-1 ring-emerald-500/30 font-semibold'
+              : activeRowIndex === idx
+                ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-500 ring-1 ring-emerald-500/40 ring-inset'
+                : !email.read 
+                  ? 'bg-emerald-50/20 dark:bg-emerald-950/10 border-emerald-500 font-semibold' 
+                  : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800/40',
           'hover:bg-gray-50/90 dark:hover:bg-gray-800/90'
         ]"
       >
@@ -314,8 +346,8 @@
           </div>
 
           <!-- Middle: Recipient/Sender Name, Subject & Preview Snippet -->
-          <router-link 
-            :to="{ name: 'EmailDetail', params: { id: email.id }, query: { fromFolder: folderId } }" 
+          <div 
+            @click="handleRowClick(email, idx)" 
             class="flex-grow min-w-0 block pr-2 cursor-pointer"
           >
             <!-- Top Row: Recipient/Sender + Chips -->
@@ -395,7 +427,7 @@
                 — {{ getSnippet(email.body) }}
               </span>
             </p>
-          </router-link>
+          </div>
 
           <!-- Right Column: Deliverability & Engagement Status Badge + Date / Hover Action Bar -->
           <div class="flex-shrink-0 flex items-center gap-3">
@@ -593,6 +625,29 @@
         Reset filters
       </button>
     </div>
+  </div>
+
+  <!-- Right Pane: Docked Reading Pane (Desktop only when split mode is active) -->
+  <div 
+    v-if="uiStore.splitViewMode === 'split'" 
+    class="hidden lg:flex flex-1 min-w-0 h-full overflow-hidden flex-col bg-white dark:bg-gray-900"
+  >
+    <ReadingPane
+      :mailbox-id="(route.params.mailboxId as string)"
+      :email-id="activeEmailId"
+      :from-folder="folderId"
+      :can-go-prev="activeRowIndex > 0"
+      :can-go-next="activeRowIndex < filteredEmails.length - 1"
+      @close="activeEmailId = null"
+      @expand="expandToFullView"
+      @prev="handleReadingPanePrev"
+      @next="handleReadingPaneNext"
+      @archived="onReadingPaneArchived"
+      @deleted="onReadingPaneDeleted"
+      @starred-changed="onReadingPaneStarred"
+      @read-changed="onReadingPaneRead"
+    />
+  </div>
 
     <!-- ⚡ Floating Batch Actions Bar (slides up when 1+ emails selected) -->
     <div 
@@ -726,6 +781,7 @@ import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
+import ReadingPane from "@/components/ReadingPane.vue";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import type { Email } from "@/types";
 
@@ -743,8 +799,100 @@ const filterMode = ref<"all" | "unread" | "starred" | "viewed" | "unopened" | "c
 const searchQuery = ref("");
 const selectedEmailIds = ref<string[]>([]);
 const activeRowIndex = ref<number>(-1);
+const activeEmailId = ref<string | null>(null);
 const showShortcutsModal = ref(false);
 const rowElements = ref<(HTMLElement | null)[]>([]);
+
+const handleRowClick = (email: Email, idx: number) => {
+	activeRowIndex.value = idx;
+
+	// If in drafts folder or email is draft, immediately open compose modal
+	if (folderId.value === "drafts" || folderId.value === "draft") {
+		openDraftInComposer(email);
+		return;
+	}
+
+	const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+	if (isMobile || uiStore.splitViewMode === "full") {
+		router.push({
+			name: "EmailDetail",
+			params: { id: email.id },
+			query: { fromFolder: folderId.value },
+		});
+		return;
+	}
+
+	activeEmailId.value = email.id;
+};
+
+const openDraftInComposer = (draftEmail: Email) => {
+	uiStore.openComposeModal({
+		mode: "new",
+		initialTo: draftEmail.recipient,
+		initialSubject: draftEmail.subject,
+		initialBody: draftEmail.body ?? undefined,
+		originalEmail: draftEmail,
+	});
+};
+
+const expandToFullView = () => {
+	if (!activeEmailId.value) return;
+	router.push({
+		name: "EmailDetail",
+		params: { id: activeEmailId.value },
+		query: { fromFolder: folderId.value },
+	});
+};
+
+const handleReadingPanePrev = () => {
+	if (activeRowIndex.value > 0) {
+		activeRowIndex.value--;
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value]?.id || null;
+		scrollToActiveRow();
+	}
+};
+
+const handleReadingPaneNext = () => {
+	if (activeRowIndex.value < filteredEmails.value.length - 1) {
+		activeRowIndex.value++;
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value]?.id || null;
+		scrollToActiveRow();
+	}
+};
+
+const onReadingPaneArchived = (_archivedEmail: Email) => {
+	if (activeRowIndex.value < filteredEmails.value.length - 1) {
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value + 1]?.id || null;
+	} else if (activeRowIndex.value > 0) {
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value - 1]?.id || null;
+	} else {
+		activeEmailId.value = null;
+	}
+	loadEmails();
+};
+
+const onReadingPaneDeleted = (_deletedId: string) => {
+	if (activeRowIndex.value < filteredEmails.value.length - 1) {
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value + 1]?.id || null;
+	} else if (activeRowIndex.value > 0) {
+		activeEmailId.value = filteredEmails.value[activeRowIndex.value - 1]?.id || null;
+	} else {
+		activeEmailId.value = null;
+	}
+	loadEmails();
+};
+
+const onReadingPaneStarred = (starred: boolean) => {
+	if (activeRowIndex.value >= 0 && filteredEmails.value[activeRowIndex.value]) {
+		filteredEmails.value[activeRowIndex.value].starred = starred;
+	}
+};
+
+const onReadingPaneRead = (read: boolean) => {
+	if (activeRowIndex.value >= 0 && filteredEmails.value[activeRowIndex.value]) {
+		filteredEmails.value[activeRowIndex.value].read = read;
+	}
+};
 
 let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -1057,10 +1205,21 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		return;
 	}
 
-	// 'Escape' to deselect all or clear focus
+	// 'Escape' to deselect reading pane, batch selection, or search
 	if (e.key === "Escape") {
 		e.preventDefault();
-		selectedEmailIds.value = [];
+		if (activeEmailId.value) {
+			activeEmailId.value = null;
+			return;
+		}
+		if (selectedEmailIds.value.length > 0) {
+			selectedEmailIds.value = [];
+			return;
+		}
+		if (searchQuery.value) {
+			searchQuery.value = "";
+			return;
+		}
 		activeRowIndex.value = -1;
 		return;
 	}
@@ -1076,6 +1235,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		} else if (activeRowIndex.value === -1) {
 			activeRowIndex.value = 0;
 		}
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+			const email = list[activeRowIndex.value];
+			if (email) activeEmailId.value = email.id;
+		}
 		scrollToActiveRow();
 		return;
 	}
@@ -1087,6 +1250,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 			activeRowIndex.value--;
 		} else if (activeRowIndex.value === -1) {
 			activeRowIndex.value = 0;
+		}
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+			const email = list[activeRowIndex.value];
+			if (email) activeEmailId.value = email.id;
 		}
 		scrollToActiveRow();
 		return;
@@ -1102,11 +1269,19 @@ const handleKeyDown = (e: KeyboardEvent) => {
 	// 'Enter' or 'o' to open email detail
 	if (e.key === "Enter" || e.key === "o") {
 		e.preventDefault();
-		router.push({
-			name: "EmailDetail",
-			params: { id: activeEmail.id },
-			query: { fromFolder: folderId.value },
-		});
+		if (folderId.value === "drafts" || folderId.value === "draft") {
+			openDraftInComposer(activeEmail);
+			return;
+		}
+		if (uiStore.splitViewMode === "split" && typeof window !== "undefined" && window.innerWidth >= 1024) {
+			activeEmailId.value = activeEmail.id;
+		} else {
+			router.push({
+				name: "EmailDetail",
+				params: { id: activeEmail.id },
+				query: { fromFolder: folderId.value },
+			});
+		}
 		return;
 	}
 
@@ -1131,6 +1306,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 			archiveSelected();
 		} else {
 			handleArchive(activeEmail);
+			if (uiStore.splitViewMode === "split" && activeRowIndex.value < list.length - 1) {
+				const nextEmail = list[activeRowIndex.value + 1];
+				if (nextEmail) activeEmailId.value = nextEmail.id;
+			}
 		}
 		return;
 	}
@@ -1142,6 +1321,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 			deleteSelected();
 		} else {
 			handleDelete(activeEmail.id);
+			if (uiStore.splitViewMode === "split" && activeRowIndex.value < list.length - 1) {
+				const nextEmail = list[activeRowIndex.value + 1];
+				if (nextEmail) activeEmailId.value = nextEmail.id;
+			}
 		}
 		return;
 	}
@@ -1216,6 +1399,7 @@ watch(
 		searchQuery.value = "";
 		selectedEmailIds.value = [];
 		activeRowIndex.value = -1;
+		activeEmailId.value = null;
 		rowElements.value = [];
 		loadEmails();
 	}

@@ -151,9 +151,9 @@ router.beforeEach(async (to, _from, next) => {
 
 router.afterEach((to) => {
 	if (to.meta.title) {
-		document.title = `${to.meta.title} - Email Explorer`;
+		document.title = `${to.meta.title} — Reflect Mail`;
 	} else {
-		document.title = "Email Explorer";
+		document.title = "Reflect Mail";
 	}
 });
 
