@@ -228,4 +228,20 @@ export const authMigrations: Migration[] = [
             );
         `,
 	},
+	{
+		// Org-wide reply snippets and the Discover pitch, editable from Settings.
+		name: "7_templates",
+		sql: `
+            CREATE TABLE IF NOT EXISTS templates (
+                id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                name TEXT NOT NULL,
+                subject TEXT,
+                body TEXT NOT NULL,
+                updated_by TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        `,
+	},
 ];

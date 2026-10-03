@@ -113,6 +113,8 @@
           </div>
         </div>
 
+        <TemplatesSettings />
+
         <!-- Suppression list -->
         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
           <div class="mb-3">
@@ -194,6 +196,7 @@ import { storeToRefs } from "pinia";
 import { onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import RichTextEditor from "@/components/RichTextEditor.vue";
+import TemplatesSettings from "@/components/TemplatesSettings.vue";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { usePushNotification } from "@/services/pushNotification";

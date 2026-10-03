@@ -178,6 +178,18 @@ export default {
 	deleteDiscoverLead: (id: string) =>
 		apiClient.delete(`/api/v1/discover/leads/${encodeURIComponent(id)}`),
 
+	// Shared templates (reply snippets and the Discover pitch)
+	listTemplates: () => apiClient.get("/api/v1/templates"),
+	createTemplate: (template: { name: string; body: string }) =>
+		apiClient.post("/api/v1/templates", template),
+	updateTemplate: (
+		id: string,
+		template: { name: string; body: string; subject?: string | null },
+	) => apiClient.put(`/api/v1/templates/${encodeURIComponent(id)}`, template),
+	deleteTemplate: (id: string) =>
+		apiClient.delete(`/api/v1/templates/${encodeURIComponent(id)}`),
+	resetPitchTemplate: () => apiClient.post("/api/v1/templates/pitch/reset"),
+
 	// Suppression list (bounces, unsubscribes, manual entries)
 	listSuppressions: () => apiClient.get("/api/v1/suppressions"),
 	addSuppression: (email: string, detail?: string) =>

@@ -6,6 +6,7 @@ import PostalMime from "postal-mime";
 import { z } from "zod";
 import { buildMimeMessage } from "./mime-builder";
 import { registerSuppressionRoutes } from "./routes/suppression";
+import { registerTemplateRoutes } from "./routes/templates";
 import {
 	appendUnsubscribeFooter,
 	parseBounce,
@@ -1881,6 +1882,7 @@ app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
 });
 
 registerSuppressionRoutes(app);
+registerTemplateRoutes(app);
 
 const openapi = fromHono(app);
 

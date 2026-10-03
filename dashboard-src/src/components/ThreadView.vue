@@ -237,10 +237,8 @@
               @change="applyCannedSnippet"
               class="text-[11px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none"
             >
-              <option value="">Insert Canned Snippet...</option>
-              <option value="sdk_setup">Unity SDK Setup Guide</option>
-              <option value="postback_test">Attribution Postback Verification</option>
-              <option value="outreach_pitch">MMP Switch & Lower Fee Pitch</option>
+              <option value="">Insert template...</option>
+              <option v-for="t in templatesStore.replies" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
             <span class="text-[10px] text-gray-400 font-mono hidden sm:inline">⌘+Enter</span>
           </div>
@@ -291,6 +289,7 @@ import EmailIframe from "@/components/EmailIframe.vue";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
+import { firstNameFromSender, renderTemplate, useTemplatesStore } from "@/stores/templates";
 import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
 
@@ -322,14 +321,10 @@ const sendingReply = ref(false);
 const quickReplyInput = ref<HTMLTextAreaElement | null>(null);
 const selectedCannedSnippet = ref("");
 
-const cannedSnippets: Record<string, string> = {
-  sdk_setup:
-    "Hi team,\n\nHere is the quick setup guide for Reflect Unity SDK:\n1. Import the reflect-sdk.unitypackage into your project.\n2. Ensure EDM4U resolves native dependencies.\n3. Initialize in your game bootstrap:\nReflect.Initialize(\"YOUR_APP_KEY\");\n\nLet us know if you hit any build warnings!\n\nBest regards,\nReflect MMP Support",
-  postback_test:
-    "Hi,\n\nWe verified your postback configuration. Raw installs and SAN attribution events are recording cleanly on api.reflect.cloud with valid signatures.\n\nCould you trigger a test purchase event to verify in-app event postbacks?\n\nThanks,\nReflect MMP Engineering",
-  outreach_pitch:
-    "Hi,\n\nI noticed your recent launch on the store! Reflect is a modern, transparent mobile measurement platform (MMP) built specifically for mobile game studios.\n\nWe offer zero-data sampling, real-time raw event streaming to your own S3/R2/BigQuery, and flat pricing without punitive MAU penalties.\n\nWould you have 10 minutes next week for a quick sandbox walkthrough?\n\nBest,\nReflect Growth Team",
-};
+const templatesStore = useTemplatesStore();
+templatesStore.load().catch(() => {
+  /* the dropdown simply stays empty if templates can't be loaded */
+});
 
 const isSentMessage = (msg: Email): boolean => {
   return (
@@ -496,8 +491,11 @@ const getSnippet = (body?: string | null): string => {
 };
 
 const applyCannedSnippet = () => {
-  if (selectedCannedSnippet.value && cannedSnippets[selectedCannedSnippet.value]) {
-    quickReplyText.value = cannedSnippets[selectedCannedSnippet.value];
+  const template = templatesStore.replies.find((t) => t.id === selectedCannedSnippet.value);
+  if (template) {
+    quickReplyText.value = renderTemplate(template.body, {
+      first_name: firstNameFromSender(replyTargetEmail.value),
+    });
     nextTick(() => {
       quickReplyInput.value?.focus();
     });

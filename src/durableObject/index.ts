@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+	DEFAULT_TEMPLATES,
+	PITCH_TEMPLATE_ID,
+	TEMPLATE_LIMITS,
+} from "../templates";
 import { DOQB } from "workers-qb";
 import { generateVapidKeys, sendWebPush, type VapidKeys } from "../push-crypto";
 import type { AppBinding, DiscoverLead, Env, PushSubscriptionRecord, Session, User } from "../types";
@@ -64,6 +69,16 @@ interface AttachmentData {
 	size: number;
 	content_id?: string | null;
 	disposition?: string | null;
+}
+
+export interface StoredTemplate {
+	id: string;
+	kind: "reply" | "pitch";
+	name: string;
+	subject: string | null;
+	body: string;
+	updated_by: string | null;
+	updated_at: string;
 }
 
 export class MailboxDO extends DurableObject<Env> {
@@ -1815,5 +1830,133 @@ export class MailboxDO extends DurableObject<Env> {
 			hit.id,
 		);
 		return true;
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// Shared templates (AUTH DO)
+	// ---------------------------------------------------------------------------------------
+
+	#mapTemplate(r: any): StoredTemplate {
+		return {
+			id: String(r.id),
+			kind: r.kind === "pitch" ? "pitch" : "reply",
+			name: String(r.name),
+			subject: r.subject ? String(r.subject) : null,
+			body: String(r.body),
+			updated_by: r.updated_by ? String(r.updated_by) : null,
+			updated_at: String(r.updated_at),
+		};
+	}
+
+	/** Lists templates. The built-in ones are written the first time, so they can be edited or deleted. */
+	async listTemplates(): Promise<StoredTemplate[]> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const sql = this.ctx.storage.sql;
+		const now = new Date().toISOString();
+		if (!(await this.ctx.storage.get("templates_seeded"))) {
+			for (const t of DEFAULT_TEMPLATES) {
+				sql.exec(
+					`INSERT OR IGNORE INTO templates (id, kind, name, subject, body, updated_by, created_at, updated_at)
+					 VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+					t.id,
+					t.kind,
+					t.name,
+					t.subject,
+					t.body,
+					now,
+					now,
+				);
+			}
+			await this.ctx.storage.put("templates_seeded", true);
+		}
+		const rows = sql
+			.exec(
+				"SELECT id, kind, name, subject, body, updated_by, updated_at FROM templates ORDER BY kind DESC, name COLLATE NOCASE",
+			)
+			.toArray();
+		const out = rows.map((r) => this.#mapTemplate(r));
+		if (!out.some((t) => t.id === PITCH_TEMPLATE_ID)) {
+			await this.resetPitchTemplate();
+			return await this.listTemplates();
+		}
+		return out;
+	}
+
+	async saveTemplate(
+		template: {
+			id?: string;
+			kind: "reply" | "pitch";
+			name: string;
+			subject: string | null;
+			body: string;
+		},
+		userEmail: string,
+	): Promise<StoredTemplate | null> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const sql = this.ctx.storage.sql;
+		const now = new Date().toISOString();
+		if (template.id) {
+			const cursor = sql.exec(
+				"UPDATE templates SET name = ?, subject = ?, body = ?, updated_by = ?, updated_at = ? WHERE id = ? AND kind = ?",
+				template.name,
+				template.subject,
+				template.body,
+				userEmail,
+				now,
+				template.id,
+				template.kind,
+			);
+			if (cursor.rowsWritten === 0) return null;
+			return this.#mapTemplate(
+				sql.exec("SELECT * FROM templates WHERE id = ?", template.id).toArray()[0],
+			);
+		}
+		const count = (sql.exec("SELECT COUNT(*) AS n FROM templates").toArray()[0] as any).n as number;
+		if (count >= TEMPLATE_LIMITS.maxTemplates) throw new Error("Template limit reached");
+		const id = crypto.randomUUID();
+		sql.exec(
+			`INSERT INTO templates (id, kind, name, subject, body, updated_by, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			id,
+			template.kind,
+			template.name,
+			template.subject,
+			template.body,
+			userEmail,
+			now,
+			now,
+		);
+		return this.#mapTemplate(sql.exec("SELECT * FROM templates WHERE id = ?", id).toArray()[0]);
+	}
+
+	/** Reply templates only: the pitch can be reset but never deleted. */
+	async deleteTemplate(id: string): Promise<boolean> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const cursor = this.ctx.storage.sql.exec(
+			"DELETE FROM templates WHERE id = ? AND kind = 'reply'",
+			id,
+		);
+		return cursor.rowsWritten > 0;
+	}
+
+	async resetPitchTemplate(): Promise<StoredTemplate> {
+		if (!this.#isAuthDO) throw new Error("Not an auth DO");
+		const seed = DEFAULT_TEMPLATES.find((t) => t.id === PITCH_TEMPLATE_ID)!;
+		const now = new Date().toISOString();
+		this.ctx.storage.sql.exec(
+			`INSERT INTO templates (id, kind, name, subject, body, updated_by, created_at, updated_at)
+			 VALUES (?, 'pitch', ?, ?, ?, NULL, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET name = excluded.name, subject = excluded.subject,
+			   body = excluded.body, updated_by = NULL, updated_at = excluded.updated_at`,
+			seed.id,
+			seed.name,
+			seed.subject,
+			seed.body,
+			now,
+			now,
+		);
+		return this.#mapTemplate(
+			this.ctx.storage.sql.exec("SELECT * FROM templates WHERE id = ?", seed.id).toArray()[0],
+		);
 	}
 }
