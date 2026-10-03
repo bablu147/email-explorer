@@ -399,18 +399,53 @@ describe("pagination and search", () => {
 });
 
 describe("tracking", () => {
-	test("open pixel and tracked link increment the counters", async () => {
-		const res = await send({ to: "track@client.io", subject: "Tracked", html: '<p><a href="https://example.com/page">link</a></p>', text: "t" });
+	// Pulls the rewritten, signed tracking links out of the MIME that was actually sent.
+	const trackedLinks = (mime: string) =>
+		[...mime.matchAll(/href="(https:\/\/mail\.reflect\.cloud\/api\/v1\/track\/click\/[^"]+)"/g)].map((m) => m[1].replace("https://mail.reflect.cloud", ""));
+
+	test("open pixel and signed tracked link increment the counters", async () => {
+		const before = new Set(sentFiles());
+		const res = await send({ to: "track@client.io", subject: "Tracked", html: '<p><a href="https://example.com/page?a=1&amp;b=2">link</a></p>', text: "t" });
 		const id = res.body.id;
+		const [mime] = await waitForNewMessages(before, 1);
+		const [link] = trackedLinks(mime);
+		assert.ok(link, "link was rewritten to a tracked link");
+		assert.match(link, /[?&]s=[A-Za-z0-9_-]+/, "tracked link is signed");
 		const px = await api.get(`/api/v1/track/open/${enc(BOX)}/${id}`);
 		assert.equal(px.status, 200);
 		assert.equal(px.headers.get("content-type"), "image/gif");
-		const click = await api.call("GET", `/api/v1/track/click/${enc(BOX)}/${id}?url=${enc("https://example.com/page")}`);
+		const click = await api.call("GET", link);
 		assert.equal(click.status, 302);
-		assert.equal(click.headers.get("location"), "https://example.com/page");
+		assert.equal(click.headers.get("location"), "https://example.com/page?a=1&b=2", "html entities in the href are decoded");
 		const full = (await api.get(`/api/v1/mailboxes/${enc(BOX)}/emails/${id}`, admin)).body;
 		assert.ok(full.opened_count >= 1);
 		assert.ok(full.clicked_count >= 1);
+	});
+
+	test("click tracking is not an open redirect", async () => {
+		const before = new Set(sentFiles());
+		const res = await send({ to: "track2@client.io", subject: "Tracked 2", html: '<p><a href="https://example.com/ok">link</a></p>', text: "t" });
+		const id = res.body.id;
+		const [mime] = await waitForNewMessages(before, 1);
+		const [link] = trackedLinks(mime);
+		const sig = new URL(`https://x${link}`).searchParams.get("s");
+
+		// A valid signature for one URL cannot be reused for another.
+		const swapped = await api.call("GET", `/api/v1/track/click/${enc(BOX)}/${id}?url=${enc("https://evil.example.com/phish")}&s=${sig}`);
+		assert.equal(swapped.status, 302);
+		assert.ok(!String(swapped.headers.get("location")).includes("evil.example.com"));
+		// ...nor for another message.
+		const other = await api.call("GET", `/api/v1/track/click/${enc(BOX)}/other-id?url=${enc("https://example.com/ok")}&s=${sig}`);
+		assert.ok(!String(other.headers.get("location") || "").includes("example.com/ok"));
+		// Garbage signature.
+		const bad = await api.call("GET", `/api/v1/track/click/${enc(BOX)}/${id}?url=${enc("https://evil.example.com/phish")}&s=AAAA`);
+		assert.ok(!String(bad.headers.get("location")).includes("evil.example.com"));
+
+		// Unsigned (legacy) links show the destination instead of redirecting.
+		const legacy = await api.call("GET", `/api/v1/track/click/${enc(BOX)}/${id}?url=${enc("https://evil.example.com/phish")}`);
+		assert.equal(legacy.status, 200);
+		assert.equal(legacy.headers.get("location"), null);
+		assert.match(String(legacy.body), /You are leaving this site/);
 	});
 
 	test("click tracking never redirects to non-http schemes", async () => {

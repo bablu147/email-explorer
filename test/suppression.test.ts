@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	appendUnsubscribeFooter,
+	isHttpUrl,
 	normalizeEmail,
+	renderLeavingPage,
+	signClickLink,
+	verifyClickLink,
 	parseBounce,
 	signUnsubscribeToken,
 	verifyUnsubscribeToken,
@@ -95,4 +99,27 @@ test("footer is appended inside the body and as a text line", () => {
 	assert.ok(out.html?.indexOf("unsubscribe") < out.html!.indexOf("</body>"));
 	assert.ok(out.text?.includes(url));
 	assert.equal(appendUnsubscribeFooter(undefined, undefined, url).html, undefined);
+});
+
+test("click link signatures bind the url, mailbox and message", async () => {
+	const sig = await signClickLink(SECRET, "a@x.io", "m1", "https://example.com/p");
+	assert.equal(await verifyClickLink(SECRET, "a@x.io", "m1", "https://example.com/p", sig), true);
+	assert.equal(await verifyClickLink(SECRET, "a@x.io", "m1", "https://evil.com/p", sig), false);
+	assert.equal(await verifyClickLink(SECRET, "a@x.io", "m2", "https://example.com/p", sig), false);
+	assert.equal(await verifyClickLink(SECRET, "b@x.io", "m1", "https://example.com/p", sig), false);
+	assert.equal(await verifyClickLink("other-secret", "a@x.io", "m1", "https://example.com/p", sig), false);
+	assert.equal(await verifyClickLink(SECRET, "a@x.io", "m1", "https://example.com/p", ""), false);
+});
+
+test("isHttpUrl accepts only absolute http(s) urls", () => {
+	assert.equal(isHttpUrl("https://example.com/a?b=1"), true);
+	assert.equal(isHttpUrl("http://example.com"), true);
+	for (const bad of ["javascript:alert(1)", "data:text/html,x", "//evil.com", "/relative", "", undefined, null]) {
+		assert.equal(isHttpUrl(bad as string), false, String(bad));
+	}
+});
+
+test("the leaving page escapes the destination", () => {
+	const html = renderLeavingPage('https://e.com/"><script>alert(1)</script>');
+	assert.ok(!html.includes("<script>alert(1)"));
 });

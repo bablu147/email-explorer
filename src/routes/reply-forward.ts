@@ -130,7 +130,10 @@ export class PostReplyEmail extends OpenAPIRoute {
 		}
 
 		const messageId = crypto.randomUUID();
-		const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
+		const clickSecret = await c.env.MAILBOX.get(
+			c.env.MAILBOX.idFromName("AUTH"),
+		).getUnsubscribeSecret();
+		const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, clickSecret);
 
 		// Build MIME message
 		const mimeMessage = buildMimeMessage({
@@ -263,7 +266,10 @@ export class PostForwardEmail extends OpenAPIRoute {
 		}
 
 		const messageId = crypto.randomUUID();
-		const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
+		const clickSecret = await c.env.MAILBOX.get(
+			c.env.MAILBOX.idFromName("AUTH"),
+		).getUnsubscribeSecret();
+		const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, clickSecret);
 
 		// Forwarded emails don't have threading headers
 		const mimeMessage = buildMimeMessage({

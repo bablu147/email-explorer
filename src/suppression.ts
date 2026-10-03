@@ -78,6 +78,54 @@ export async function verifyUnsubscribeToken(
 }
 
 // ---------------------------------------------------------------------------------------------
+// Click-tracking link signatures. Without a signature the redirect endpoint would send visitors
+// to any URL an attacker puts in the link (open redirect), so every tracked link is signed.
+// ---------------------------------------------------------------------------------------------
+
+export function isHttpUrl(url: string | undefined | null): url is string {
+	if (!url) return false;
+	try {
+		const u = new URL(url);
+		return u.protocol === "http:" || u.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
+export async function signClickLink(
+	secret: string,
+	mailboxId: string,
+	emailId: string,
+	url: string,
+): Promise<string> {
+	return hmac(secret, `click|${mailboxId}|${emailId}|${url}`);
+}
+
+export async function verifyClickLink(
+	secret: string,
+	mailboxId: string,
+	emailId: string,
+	url: string,
+	sig: string,
+): Promise<boolean> {
+	if (!sig) return false;
+	return constantTimeEqual(await signClickLink(secret, mailboxId, emailId, url), sig);
+}
+
+// Shown for links sent before signing existed: they cannot be verified, so the visitor sees
+// the destination and chooses whether to continue instead of being redirected silently.
+export function renderLeavingPage(url: string): string {
+	const safe = escapeHtml(url);
+	return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>Leaving Reflect</title><style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f9fafb;font:16px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827}
+main{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:32px;max-width:480px;margin:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+h1{font-size:20px;margin:0 0 12px}p{margin:0 0 20px;color:#4b5563;word-break:break-all}
+a.b{display:inline-block;background:#4f46e5;color:#fff;border-radius:8px;padding:10px 18px;font-size:15px;font-weight:600;text-decoration:none}
+@media(prefers-color-scheme:dark){body{background:#0b0f19;color:#f3f4f6}main{background:#111827;border-color:#1f2937}p{color:#9ca3af}}
+</style></head><body><main><h1>You are leaving this site</h1><p>${safe}</p><a class="b" href="${safe}" rel="noopener noreferrer nofollow">Continue</a></main></body></html>`;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Bounce (delivery status notification) parsing
 // ---------------------------------------------------------------------------------------------
 

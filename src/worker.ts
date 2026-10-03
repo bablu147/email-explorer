@@ -11,7 +11,11 @@ import { registerTemplateRoutes } from "./routes/templates";
 import {
 	appendUnsubscribeFooter,
 	parseBounce,
+	renderLeavingPage,
+	isHttpUrl,
+	signClickLink,
 	signUnsubscribeToken,
+	verifyClickLink,
 } from "./suppression";
 import {
 	GetMe,
@@ -532,26 +536,46 @@ export function base64ToBytes(b64: string): Uint8Array {
 	return out;
 }
 
-export function injectEmailTracking(
+// An href holds HTML, so "&amp;" means "&". Decode it so the tracked link points at the real URL.
+function decodeHrefEntities(url: string): string {
+	return url.replace(/&amp;/gi, "&");
+}
+
+export async function injectEmailTracking(
 	htmlContent: string | undefined,
 	mailboxId: string,
 	messageId: string,
-): string | undefined {
+	clickSecret: string,
+): Promise<string | undefined> {
 	if (!htmlContent) return htmlContent;
 	const trackingBase = "https://mail.reflect.cloud";
 	// Gmail & webmail clients skip fetching images with display:none!
 	// Using standard 1x1 inline pixel with opacity:0.01 guarantees GoogleImageProxy loads it upon open.
 	const openPixel = `<img src="${trackingBase}/api/v1/track/open/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}" width="1" height="1" alt="" border="0" style="width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;max-width:1px!important;max-height:1px!important;opacity:0.01;pointer-events:none;border:none!important;display:inline!important;margin:0!important;padding:0!important;" />`;
 
+	// Signing is async, so collect the links first, then substitute.
+	const linkPattern = /<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi;
+	const signatures = new Map<string, string>();
+	for (const m of htmlContent.matchAll(linkPattern)) {
+		const originalUrl = decodeHrefEntities(m[3]);
+		if (!signatures.has(originalUrl)) {
+			signatures.set(
+				originalUrl,
+				await signClickLink(clickSecret, mailboxId, messageId, originalUrl),
+			);
+		}
+	}
 	let trackedHtml = htmlContent.replace(
-		/<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi,
-		(match, prefix, quote, originalUrl, suffix) => {
+		linkPattern,
+		(match, prefix, _quote, rawUrl, suffix) => {
+			const originalUrl = decodeHrefEntities(rawUrl);
 			if (
 				originalUrl.includes("/api/v1/track/") ||
 				originalUrl.includes("/api/v1/unsubscribe/")
 			)
 				return match;
-			const trackedUrl = `${trackingBase}/api/v1/track/click/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}?url=${encodeURIComponent(originalUrl)}`;
+			const sig = signatures.get(originalUrl) ?? "";
+			const trackedUrl = `${trackingBase}/api/v1/track/click/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}?url=${encodeURIComponent(originalUrl)}&s=${encodeURIComponent(sig)}`;
 			return `<a ${prefix}href="${trackedUrl}"${suffix}>`;
 		},
 	);
@@ -644,14 +668,16 @@ class PostEmail extends OpenAPIRoute {
 				return c.json({ error: "No valid recipient email provided" }, 400);
 			}
 
-			const outboundHtml = injectEmailTracking(html, mailboxId, messageId);
+			// One signing secret serves unsubscribe tokens and click-tracking link signatures.
+			const signingSecret = await c.env.MAILBOX.get(
+				c.env.MAILBOX.idFromName("AUTH"),
+			).getUnsubscribeSecret();
+			const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, signingSecret);
 
 			// Outreach = a brand-new message (not a reply or forward). Only outreach carries an
 			// unsubscribe link and the List-Unsubscribe headers, signed per recipient.
 			const isOutreach = !in_reply_to;
-			const unsubscribeSecret = isOutreach
-				? await c.env.MAILBOX.get(c.env.MAILBOX.idFromName("AUTH")).getUnsubscribeSecret()
-				: null;
+			const unsubscribeSecret = isOutreach ? signingSecret : null;
 
 			const buildMimeFor = async (recipient: string) => {
 				let bodyHtml = outboundHtml;
@@ -1868,18 +1894,41 @@ app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
 	const mailboxId = decodeURIComponent(rawMailboxId);
 	const emailId = c.req.param("emailId");
 	const targetUrl = c.req.query("url");
+	const sig = c.req.query("s") ?? "";
+	const fallback = "https://reflect.cloud";
+	if (!isHttpUrl(targetUrl)) return c.redirect(fallback, 302);
+
+	let secret: string;
 	try {
-		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
-		await stub.recordClick(emailId);
-	} catch (e) {
-		// Ignore recording failure, still redirect user
+		secret = await c.env.MAILBOX.get(c.env.MAILBOX.idFromName("AUTH")).getUnsubscribeSecret();
+	} catch {
+		return c.redirect(fallback, 302);
 	}
-	if (!targetUrl || (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://"))) {
-		return c.redirect("https://reflect.cloud", 302);
+
+	const recordClick = async () => {
+		try {
+			await c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId)).recordClick(emailId);
+		} catch {
+			// Ignore recording failure, still redirect user
+		}
+	};
+
+	if (sig) {
+		// A signature that does not match means the link was altered: never redirect to it.
+		if (!(await verifyClickLink(secret, mailboxId, emailId, targetUrl, sig))) {
+			return c.redirect(fallback, 302);
+		}
+		await recordClick();
+		return c.redirect(targetUrl, 302);
 	}
-	return c.redirect(targetUrl, 302);
+
+	// Links sent before signing existed carry no signature and cannot be trusted, so the
+	// visitor sees the destination and confirms instead of being redirected.
+	await recordClick();
+	return c.html(renderLeavingPage(targetUrl), 200, {
+		"Cache-Control": "no-store",
+		"Referrer-Policy": "no-referrer",
+	});
 });
 
 registerSuppressionRoutes(app);
