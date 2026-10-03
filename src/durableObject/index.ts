@@ -601,6 +601,16 @@ export class MailboxDO extends DurableObject<Env> {
 			})
 			.execute();
 
+		this.#qb
+			.delete({
+				tableName: "attachments",
+				where: {
+					conditions: "email_id = ?",
+					params: [id],
+				},
+			})
+			.execute();
+
 		return attachments.results || [];
 	}
 
@@ -878,6 +888,130 @@ export class MailboxDO extends DurableObject<Env> {
 				})
 				.execute();
 		}
+	}
+
+	async upsertDraft(
+		draftId: string,
+		email: EmailData,
+		attachments: AttachmentData[],
+	) {
+		const existing = this.#qb
+			.select("emails")
+			.fields(["id"])
+			.where("id = ?", draftId)
+			.one();
+
+		if (existing.results) {
+			this.#qb
+				.update({
+					tableName: "emails",
+					data: {
+						subject: email.subject,
+						sender: email.sender,
+						recipient: email.recipient,
+						cc: email.cc,
+						bcc: email.bcc,
+						date: email.date,
+						body: email.body,
+						in_reply_to: email.in_reply_to,
+						email_references: email.email_references,
+						thread_id: email.thread_id,
+						delivery_status: "draft",
+						folder_id: "drafts",
+					},
+					where: {
+						conditions: "id = ?",
+						params: [draftId],
+					},
+				})
+				.execute();
+
+			this.#qb
+				.delete({
+					tableName: "attachments",
+					where: {
+						conditions: "email_id = ?",
+						params: [draftId],
+					},
+				})
+				.execute();
+
+			if (attachments && attachments.length > 0) {
+				this.#qb
+					.insert({
+						tableName: "attachments",
+						data: attachments as any,
+					})
+					.execute();
+			}
+		} else {
+			this.#qb
+				.insert({
+					tableName: "emails",
+					data: { ...email, id: draftId, folder_id: "drafts", delivery_status: "draft" },
+				})
+				.execute();
+
+			if (attachments && attachments.length > 0) {
+				this.#qb
+					.insert({
+						tableName: "attachments",
+						data: attachments as any,
+					})
+					.execute();
+			}
+		}
+	}
+
+	async getThreadEmails(threadId: string) {
+		const rows = this.ctx.storage.sql
+			.exec(
+				`SELECT * FROM emails 
+				 WHERE thread_id = ? 
+				    OR id = ? 
+				    OR in_reply_to = ? 
+				    OR thread_id = (SELECT thread_id FROM emails WHERE id = ? AND thread_id IS NOT NULL)
+				 ORDER BY date ASC`,
+				threadId,
+				threadId,
+				threadId,
+				threadId,
+			)
+			.toArray();
+
+		if (rows.length === 0) {
+			return [];
+		}
+
+		const emailMap = new Map<string, any>();
+		for (const row of rows) {
+			emailMap.set(String(row.id), {
+				...row,
+				read: !!row.read,
+				starred: !!row.starred,
+				attachments: [],
+			});
+		}
+
+		const emailIds = Array.from(emailMap.keys());
+		if (emailIds.length > 0) {
+			const placeholders = emailIds.map(() => "?").join(", ");
+			const attRows = this.ctx.storage.sql
+				.exec(
+					`SELECT * FROM attachments WHERE email_id IN (${placeholders})`,
+					...emailIds,
+				)
+				.toArray();
+
+			for (const att of attRows) {
+				const email = emailMap.get(String(att.email_id));
+				if (email) {
+					email.attachments.push(att);
+				}
+			}
+		}
+
+		return Array.from(emailMap.values());
 	}
 
 	// App Bindings methods (AUTH DO singleton)

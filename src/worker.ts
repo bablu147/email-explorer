@@ -122,6 +122,7 @@ const SendEmailRequestSchema = z
 		html: z.string().optional(),
 		text: z.string().optional(),
 		is_draft: z.boolean().optional(),
+		draft_id: z.string().optional(),
 		attachments: z
 			.array(
 				z.object({
@@ -137,7 +138,7 @@ const SendEmailRequestSchema = z
 		references: z.array(z.string()).optional(),
 		thread_id: z.string().optional(),
 	})
-	.refine((data) => data.html || data.text, {
+	.refine((data) => data.is_draft || data.html || data.text, {
 		message: "Either 'html' or 'text' must be provided",
 	});
 
@@ -568,6 +569,7 @@ class PostEmail extends OpenAPIRoute {
 			references,
 			thread_id,
 			is_draft,
+			draft_id,
 		} = data.body;
 
 		const key = `mailboxes/${mailboxId}.json`;
@@ -598,7 +600,7 @@ class PostEmail extends OpenAPIRoute {
 			new Set([...toList, ...ccList, ...bccList]),
 		);
 
-		const messageId = crypto.randomUUID();
+		const messageId = is_draft && draft_id ? draft_id : crypto.randomUUID();
 
 		// If not a draft, send email via Cloudflare Email Sending
 		if (!is_draft) {
@@ -661,10 +663,32 @@ class PostEmail extends OpenAPIRoute {
 			}
 		}
 
-		const folderTarget = is_draft ? "drafts" : "sent";
+		if (is_draft) {
+			await stub.upsertDraft(
+				messageId,
+				{
+					id: messageId,
+					subject: subject || "(No Subject)",
+					sender: from,
+					recipient: toList.join(", ") || (Array.isArray(to) ? to.join(", ") : to || ""),
+					cc: ccList.length > 0 ? ccList.join(", ") : null,
+					bcc: bccList.length > 0 ? bccList.join(", ") : null,
+					date: new Date().toISOString(),
+					body: html || text || "",
+					in_reply_to: in_reply_to || null,
+					email_references: references ? JSON.stringify(references) : null,
+					thread_id: thread_id || in_reply_to || messageId,
+					delivery_status: "draft",
+					spam_score: 0.0,
+				},
+				attachmentData,
+			);
+
+			return c.json({ id: messageId, status: "draft_saved" }, 201);
+		}
 
 		await stub.createEmail(
-			folderTarget,
+			"sent",
 			{
 				id: messageId,
 				subject,
@@ -677,13 +701,27 @@ class PostEmail extends OpenAPIRoute {
 				in_reply_to: in_reply_to || null,
 				email_references: references ? JSON.stringify(references) : null,
 				thread_id: thread_id || in_reply_to || messageId,
-				delivery_status: is_draft ? "draft" : "inbox",
+				delivery_status: "inbox",
 				spam_score: 0.0,
 			},
 			attachmentData,
 		);
 
-		return c.json({ id: messageId, status: is_draft ? "draft_saved" : "sent" }, 201);
+		if (draft_id) {
+			try {
+				const oldAttachments = await stub.deleteEmail(draft_id);
+				if (oldAttachments && oldAttachments.length > 0) {
+					const keys = oldAttachments.map(
+						(att: any) => `attachments/${draft_id}/${att.id}/${att.filename}`,
+					);
+					await c.env.BUCKET.delete(keys);
+				}
+			} catch (e) {
+				console.error("Failed to cleanup draft after send:", e);
+			}
+		}
+
+		return c.json({ id: messageId, status: "sent" }, 201);
 	}
 }
 
@@ -725,6 +763,45 @@ class GetEmail extends OpenAPIRoute {
 		}
 
 		return c.json(email);
+	}
+}
+
+class GetThreadEmails extends OpenAPIRoute {
+	schema = {
+		summary: "Get conversation thread emails",
+		operationId: "getThreadEmails",
+		tags: ["Emails"],
+		request: {
+			params: z.object({
+				mailboxId: z.string(),
+				threadId: z.string(),
+			}),
+		},
+		responses: {
+			"200": {
+				description: "Thread emails list",
+				...contentJson(z.array(EmailSchema)),
+			},
+			"404": { description: "Mailbox not found", ...contentJson(ErrorResponseSchema) },
+		},
+	};
+
+	async handle(c: AppContext) {
+		const data = await this.getValidatedData<typeof this.schema>();
+		const { mailboxId, threadId } = data.params;
+
+		const key = `mailboxes/${mailboxId}.json`;
+		const obj = await c.env.BUCKET.head(key);
+		if (!obj) {
+			return c.json({ error: "Not found" }, 404);
+		}
+
+		const ns = c.env.MAILBOX;
+		const doId = ns.idFromName(mailboxId);
+		const stub = ns.get(doId);
+
+		const threadEmails: any = await (stub as any).getThreadEmails(threadId);
+		return c.json(threadEmails || []);
 	}
 }
 
@@ -1785,6 +1862,7 @@ openapi.delete("/api/v1/mailboxes/:mailboxId", DeleteMailbox);
 openapi.get("/api/v1/mailboxes/:mailboxId/emails", GetEmails);
 openapi.post("/api/v1/mailboxes/:mailboxId/emails", PostEmail);
 openapi.get("/api/v1/mailboxes/:mailboxId/emails/:id", GetEmail);
+openapi.get("/api/v1/mailboxes/:mailboxId/threads/:threadId", GetThreadEmails);
 openapi.put("/api/v1/mailboxes/:mailboxId/emails/:id", PutEmail);
 openapi.delete("/api/v1/mailboxes/:mailboxId/emails/:id", DeleteEmail);
 openapi.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", PostMoveEmail);

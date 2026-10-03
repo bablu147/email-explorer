@@ -311,6 +311,46 @@
       @dragover.prevent
       class="editor-dropzone relative flex-grow min-h-[260px] cursor-text"
     >
+      <!-- Floating Image Controls Toolbar -->
+      <div 
+        v-if="selectedImgElement" 
+        class="absolute top-2 right-2 z-20 flex items-center gap-1.5 p-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg text-xs"
+      >
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1">Size</span>
+        <button
+          type="button"
+          @click="resizeSelectedImage('25%')"
+          class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors cursor-pointer"
+        >
+          25%
+        </button>
+        <button
+          type="button"
+          @click="resizeSelectedImage('50%')"
+          class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors cursor-pointer"
+        >
+          50%
+        </button>
+        <button
+          type="button"
+          @click="resizeSelectedImage('100%')"
+          class="px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors cursor-pointer"
+        >
+          100%
+        </button>
+        <div class="h-3 w-px bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
+        <button
+          type="button"
+          @click="removeSelectedImage"
+          class="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
+          title="Remove image"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+
       <editor-content :editor="editor" class="prose prose-sm max-w-none p-4 text-gray-900 dark:text-gray-100" />
       <div v-if="isDragging" class="absolute inset-0 bg-emerald-500/10 border-2 border-dashed border-emerald-500 rounded-lg flex items-center justify-center pointer-events-none">
         <span class="text-emerald-600 dark:text-emerald-400 font-bold text-sm bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow">Drop image to insert</span>
@@ -414,6 +454,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
 	"update:modelValue": [value: string];
+	"inline-image-added": [attachment: any];
 }>();
 
 const viewMode = ref<"visual" | "code" | "split">("visual");
@@ -422,6 +463,30 @@ const sourceCode = ref(props.modelValue || "");
 const showImageMenu = ref(false);
 const isDragging = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const selectedImgElement = ref<HTMLImageElement | null>(null);
+
+const resizeSelectedImage = (width: string) => {
+	if (!selectedImgElement.value) return;
+	selectedImgElement.value.style.width = width;
+	selectedImgElement.value.style.maxWidth = "100%";
+	selectedImgElement.value.style.height = "auto";
+	if (editor.value) {
+		const html = editor.value.getHTML();
+		sourceCode.value = html;
+		emit("update:modelValue", html);
+	}
+};
+
+const removeSelectedImage = () => {
+	if (!selectedImgElement.value) return;
+	selectedImgElement.value.remove();
+	selectedImgElement.value = null;
+	if (editor.value) {
+		const html = editor.value.getHTML();
+		sourceCode.value = html;
+		emit("update:modelValue", html);
+	}
+};
 
 const editor = useEditor({
 	extensions: [
@@ -440,7 +505,7 @@ const editor = useEditor({
 			inline: true,
 			allowBase64: true,
 			HTMLAttributes: {
-				class: "max-w-full h-auto rounded-lg shadow-sm my-2",
+				class: "max-w-full h-auto rounded-lg shadow-sm my-2 cursor-pointer",
 			},
 		}),
 		TextStyle,
@@ -453,6 +518,15 @@ const editor = useEditor({
 	editorProps: {
 		attributes: {
 			class: "prose prose-sm max-w-none focus:outline-none min-h-[220px]",
+		},
+		handleClick(view, pos, event) {
+			const target = event.target as HTMLElement;
+			if (target && target.tagName === "IMG") {
+				selectedImgElement.value = target as HTMLImageElement;
+				return true;
+			}
+			selectedImgElement.value = null;
+			return false;
 		},
 	},
 	onUpdate: ({ editor }) => {
@@ -529,19 +603,42 @@ const triggerImageUpload = () => {
 	fileInput.value?.click();
 };
 
+const stageInlineImage = (file: File) => {
+	const cid = "img_" + crypto.randomUUID().slice(0, 8);
+	const localUrl = URL.createObjectURL(file);
+
+	const reader = new FileReader();
+	reader.onload = (event) => {
+		const result = event.target?.result as string;
+		if (result) {
+			const base64Data = result.split(",")[1] || result;
+			emit("inline-image-added", {
+				filename: file.name || `${cid}.png`,
+				content: base64Data,
+				type: file.type || "image/png",
+				size: file.size,
+				disposition: "inline",
+				contentId: `<${cid}>`,
+				localUrl,
+			});
+
+			if (editor.value) {
+				editor.value
+					.chain()
+					.focus()
+					.setImage({ src: localUrl, alt: file.name || "Image", title: `cid:${cid}` })
+					.run();
+			}
+		}
+	};
+	reader.readAsDataURL(file);
+};
+
 const handleFileUpload = (e: Event) => {
 	const target = e.target as HTMLInputElement;
 	const file = target.files?.[0];
 	if (!file) return;
-
-	const reader = new FileReader();
-	reader.onload = (event) => {
-		const base64Url = event.target?.result as string;
-		if (base64Url && editor.value) {
-			editor.value.chain().focus().setImage({ src: base64Url, alt: file.name }).run();
-		}
-	};
-	reader.readAsDataURL(file);
+	stageInlineImage(file);
 	target.value = ""; // reset
 };
 
@@ -553,7 +650,7 @@ const promptImageUrl = () => {
 	}
 };
 
-// Clipboard Paste (Auto-upload screenshots)
+// Clipboard Paste (Auto-upload screenshots as inline CID attachments)
 const handlePaste = (e: ClipboardEvent) => {
 	const items = e.clipboardData?.items;
 	if (!items) return;
@@ -563,15 +660,7 @@ const handlePaste = (e: ClipboardEvent) => {
 			e.preventDefault();
 			const file = item.getAsFile();
 			if (!file) continue;
-
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				const base64Url = event.target?.result as string;
-				if (base64Url && editor.value) {
-					editor.value.chain().focus().setImage({ src: base64Url, alt: "Pasted image" }).run();
-				}
-			};
-			reader.readAsDataURL(file);
+			stageInlineImage(file);
 		}
 	}
 };
@@ -584,14 +673,7 @@ const handleDrop = (e: DragEvent) => {
 
 	const file = files[0];
 	if (file.type.startsWith("image/")) {
-		const reader = new FileReader();
-		reader.onload = (event) => {
-			const base64Url = event.target?.result as string;
-			if (base64Url && editor.value) {
-				editor.value.chain().focus().setImage({ src: base64Url, alt: file.name }).run();
-			}
-		};
-		reader.readAsDataURL(file);
+		stageInlineImage(file);
 	}
 };
 

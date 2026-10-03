@@ -193,8 +193,8 @@
         </div>
       </div>
 
-      <!-- Scrollable Message Canvas -->
-      <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+      <!-- Scrollable Message Canvas with Conversation Thread -->
+      <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
         <!-- Subject Banner -->
         <div>
           <h2 class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-snug">
@@ -202,145 +202,25 @@
           </h2>
         </div>
 
-        <!-- Sender / Recipient Banner -->
-        <div class="flex items-start justify-between gap-3 p-3.5 bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700/60 rounded-2xl">
-          <div class="flex items-start gap-3 min-w-0">
-            <!-- Avatar -->
-            <AppAvatar 
-              :email="isSentEmail ? (email.recipient || '') : (email.sender || '')" 
-              :opened-count="email.opened_count"
-              :clicked-count="email.clicked_count"
-              size="md"
-            />
-
-            <!-- Names & Recipient -->
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-bold text-gray-900 dark:text-white truncate">
-                  {{ isSentEmail ? 'You' : email.sender }}
-                </span>
-                <AppBadge :email="isSentEmail ? email.recipient : email.sender" />
-              </div>
-
-              <!-- Recipient Line -->
-              <div class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                <span class="text-gray-400">to:</span> {{ email.recipient }}
-                <span v-if="email.cc" class="ml-2"><span class="text-gray-400">cc:</span> {{ email.cc }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Date & Engagement Stats -->
-          <div class="text-right flex-shrink-0">
-            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400" :title="email.date">
-              {{ formatFriendlyDate(email.date) }}
-            </span>
-            <div v-if="isSentEmail && email.opened_count" class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-              Opened {{ email.opened_count }}x
-            </div>
-          </div>
-        </div>
-
-        <!-- Body Rendered via EmailIframe -->
-        <div class="w-full">
-          <EmailIframe :body="emailBodyWithInlineImages" />
-        </div>
-
-        <!-- Attachments List -->
-        <div v-if="email.attachments && email.attachments.length > 0" class="pt-3 border-t border-gray-100 dark:border-gray-800">
-          <div class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-            </svg>
-            <span>Attachments ({{ email.attachments.length }})</span>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <a 
-              v-for="att in email.attachments" 
-              :key="att.id"
-              :href="getAttachmentUrl(att.id)"
-              target="_blank"
-              download
-              class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors text-xs font-medium text-gray-800 dark:text-gray-200 group"
-            >
-              <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              <span class="truncate max-w-[180px]">{{ att.filename }}</span>
-              <span class="text-[10px] text-gray-400">({{ formatBytes(att.size) }})</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Quick Reply Box -->
-        <div class="pt-4 border-t border-gray-200 dark:border-gray-800">
-          <div class="bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700/60 rounded-2xl p-3.5 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-gray-700 dark:text-gray-300">
-                Reply to {{ isSentEmail ? email.recipient : email.sender }}
-              </span>
-              <div class="flex items-center gap-1.5">
-                <!-- Preset Canned Responses -->
-                <select 
-                  v-model="selectedCannedSnippet"
-                  @change="applyCannedSnippet"
-                  class="text-[11px] bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-0.5 text-gray-700 dark:text-gray-300 focus:outline-none"
-                >
-                  <option value="">Insert Canned Snippet...</option>
-                  <option value="sdk_setup">Unity SDK Setup Guide</option>
-                  <option value="postback_test">Attribution Postback Verification</option>
-                  <option value="outreach_pitch">MMP Switch & Lower Fee Pitch</option>
-                </select>
-                <span class="text-[10px] text-gray-400 font-mono hidden sm:inline">⌘+Enter</span>
-              </div>
-            </div>
-
-            <textarea 
-              ref="quickReplyInput"
-              v-model="quickReplyBody"
-              rows="3"
-              placeholder="Type your message... (Cmd+Enter to send)"
-              @keydown.meta.enter="submitQuickReply"
-              @keydown.ctrl.enter="submitQuickReply"
-              class="w-full bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none leading-relaxed"
-            ></textarea>
-
-            <div class="flex items-center justify-between pt-2 border-t border-gray-200/60 dark:border-gray-700/40">
-              <button 
-                type="button" 
-                @click="openFullComposerWithReply" 
-                class="text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-              >
-                Expand in full editor &rarr;
-              </button>
-              <button 
-                type="button" 
-                :disabled="sendingQuickReply || !quickReplyBody.trim()"
-                @click="submitQuickReply" 
-                class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg v-if="sendingQuickReply" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Send</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <!-- Stacked Conversation Thread -->
+        <ThreadView 
+          :mailbox-id="mailboxId" 
+          :root-email="email" 
+          :from-folder="fromFolder" 
+          @star-changed="handleThreadStar" 
+          @thread-updated="handleThreadUpdated" 
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
-import EmailIframe from "@/components/EmailIframe.vue";
+import ThreadView from "@/components/ThreadView.vue";
 import { useToast } from "@/composables/useToast";
-import api from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import { useUIStore } from "@/stores/ui";
@@ -373,57 +253,12 @@ const toast = useToast();
 const email = ref<Email | null>(null);
 const loading = ref(false);
 
-const quickReplyBody = ref("");
-const sendingQuickReply = ref(false);
-const quickReplyInput = ref<HTMLTextAreaElement | null>(null);
-const selectedCannedSnippet = ref("");
-
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
 	return (
 		props.fromFolder === "sent" ||
 		(email.value.opened_count !== undefined && email.value.opened_count !== null)
 	);
-});
-
-const cannedSnippets: Record<string, string> = {
-	sdk_setup:
-		"Hi team,\n\nHere is the quick setup guide for Reflect Unity SDK:\n1. Import the reflect-sdk.unitypackage into your project.\n2. Ensure EDM4U resolves native dependencies.\n3. Initialize in your game bootstrap:\nReflect.Initialize(\"YOUR_APP_KEY\");\n\nLet us know if you hit any build warnings!\n\nBest regards,\nReflect MMP Support",
-	postback_test:
-		"Hi,\n\nWe verified your postback configuration. Raw installs and SAN attribution events are recording cleanly on api.reflect.cloud with valid signatures.\n\nCould you trigger a test purchase event to verify in-app event postbacks?\n\nThanks,\nReflect MMP Engineering",
-	outreach_pitch:
-		"Hi,\n\nI noticed your recent launch on the store! Reflect is a modern, transparent mobile measurement platform (MMP) built specifically for mobile game studios.\n\nWe offer zero-data sampling, real-time raw event streaming to your own S3/R2/BigQuery, and flat pricing without punitive MAU penalties.\n\nWould you have 10 minutes next week for a quick sandbox walkthrough?\n\nBest,\nReflect Growth Team",
-};
-
-const applyCannedSnippet = () => {
-	if (selectedCannedSnippet.value && cannedSnippets[selectedCannedSnippet.value]) {
-		quickReplyBody.value = cannedSnippets[selectedCannedSnippet.value];
-		nextTick(() => {
-			quickReplyInput.value?.focus();
-		});
-	}
-};
-
-const getAttachmentUrl = (attachmentId: string) => {
-	return `/api/v1/mailboxes/${props.mailboxId}/emails/${props.emailId}/attachments/${attachmentId}`;
-};
-
-const emailBodyWithInlineImages = computed(() => {
-	if (!email.value || !email.value.body) return "";
-	let body = email.value.body;
-	if (email.value.attachments && email.value.attachments.length > 0) {
-		for (const att of email.value.attachments) {
-			if (att.disposition === "inline" && att.content_id) {
-				const url = getAttachmentUrl(att.id);
-				const cid = att.content_id.startsWith("<")
-					? att.content_id.slice(1, -1)
-					: att.content_id;
-				const regex = new RegExp(`cid:${cid}`, "g");
-				body = body.replace(regex, url);
-			}
-		}
-	}
-	return body;
 });
 
 const loadEmail = async (id: string) => {
@@ -461,6 +296,17 @@ watch(
 	},
 	{ immediate: true },
 );
+
+const handleThreadStar = (msgId: string, starred: boolean) => {
+	if (email.value && email.value.id === msgId) {
+		email.value.starred = starred;
+		emit("starred-changed", starred);
+	}
+};
+
+const handleThreadUpdated = () => {
+	folderStore.fetchFolders(props.mailboxId);
+};
 
 const handleToggleStar = async () => {
 	if (!email.value) return;
@@ -502,68 +348,5 @@ const handleReply = () => {
 			? email.value.subject
 			: `Re: ${email.value.subject}`,
 	});
-};
-
-const openFullComposerWithReply = () => {
-	if (!email.value) return;
-	uiStore.openComposeModal({
-		mode: isSentEmail.value ? "new" : "reply",
-		originalEmail: email.value,
-		initialTo: isSentEmail.value ? email.value.recipient : email.value.sender,
-		initialSubject: email.value.subject.startsWith("Re:")
-			? email.value.subject
-			: `Re: ${email.value.subject}`,
-		initialBody: quickReplyBody.value,
-	});
-};
-
-const submitQuickReply = async () => {
-	if (!email.value || !quickReplyBody.value.trim() || sendingQuickReply.value) return;
-
-	sendingQuickReply.value = true;
-	try {
-		const targetRecipient = isSentEmail.value ? email.value.recipient : email.value.sender;
-		const replySubject = email.value.subject.startsWith("Re:")
-			? email.value.subject
-			: `Re: ${email.value.subject}`;
-
-		await api.sendEmail(props.mailboxId, {
-			to: targetRecipient,
-			subject: replySubject,
-			body: `<p>${quickReplyBody.value.replace(/\n/g, "<br>")}</p>`,
-			inReplyTo: email.value.id,
-		});
-
-		toast.success("Reply dispatched");
-		quickReplyBody.value = "";
-		selectedCannedSnippet.value = "";
-	} catch (e) {
-		toast.error("Failed to send reply");
-	} finally {
-		sendingQuickReply.value = false;
-	}
-};
-
-const formatFriendlyDate = (dateStr?: string): string => {
-	if (!dateStr) return "";
-	const date = new Date(dateStr);
-	if (isNaN(date.getTime())) return dateStr;
-	const now = new Date();
-	if (
-		date.getDate() === now.getDate() &&
-		date.getMonth() === now.getMonth() &&
-		date.getFullYear() === now.getFullYear()
-	) {
-		return `Today, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-	}
-	return date.toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-};
-
-const formatBytes = (bytes: number, decimals = 1) => {
-	if (bytes === 0) return "0 B";
-	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
 };
 </script>

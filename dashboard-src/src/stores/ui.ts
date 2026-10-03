@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-export type ComposeMode = "new" | "reply" | "reply-all" | "forward";
+export type ComposeMode = "new" | "reply" | "reply-all" | "forward" | "draft";
 export type SplitViewMode = "split" | "full";
 
 export interface ComposeOptions {

@@ -36,6 +36,11 @@ export interface Email {
 	delivery_status?: string | null;
 	spam_score?: number | null;
 	attachments?: Attachment[];
+	in_reply_to?: string | null;
+	thread_id?: string | null;
+	email_references?: string | null;
+	folder_id?: string | null;
+	reply_count?: number;
 }
 
 export interface Attachment {

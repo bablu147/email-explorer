@@ -420,6 +420,13 @@
                 {{ email.subject || "(No subject)" }}
               </span>
               <span 
+                v-if="getThreadCount(email) > 1"
+                class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                :title="`${getThreadCount(email)} messages in conversation`"
+              >
+                {{ getThreadCount(email) }}
+              </span>
+              <span 
                 v-if="getSnippet(email.body)" 
                 class="font-normal ml-1.5"
                 style="color: var(--fg-dim) !important;"
@@ -823,6 +830,27 @@ const handleRowClick = (email: Email, idx: number) => {
 	}
 
 	activeEmailId.value = email.id;
+};
+
+const threadCountMap = computed(() => {
+	const map = new Map<string, number>();
+	for (const e of emails.value) {
+		const key =
+			e.thread_id ||
+			(e.subject ? e.subject.replace(/^(Re|Fwd):\s*/i, "").trim().toLowerCase() : e.id);
+		map.set(key, (map.get(key) || 0) + 1);
+	}
+	return map;
+});
+
+const getThreadCount = (email: Email): number => {
+	if (email.reply_count && email.reply_count > 1) return email.reply_count;
+	const key =
+		email.thread_id ||
+		(email.subject
+			? email.subject.replace(/^(Re|Fwd):\s*/i, "").trim().toLowerCase()
+			: email.id);
+	return threadCountMap.value.get(key) || 1;
 };
 
 const openDraftInComposer = (draftEmail: Email) => {

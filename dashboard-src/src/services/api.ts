@@ -79,8 +79,12 @@ export default {
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}/emails`, { params }),
 	sendEmail: (mailboxId: string, email: any) =>
 		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, email),
+	saveDraft: (mailboxId: string, email: any) =>
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, { ...email, is_draft: true }),
 	getEmail: (mailboxId: string, id: string) =>
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}/emails/${id}`),
+	getThread: (mailboxId: string, threadId: string) =>
+		apiClient.get(`/api/v1/mailboxes/${mailboxId}/threads/${threadId}`),
 	updateEmail: (mailboxId: string, id: string, data: any) =>
 		apiClient.put(`/api/v1/mailboxes/${mailboxId}/emails/${id}`, data),
 	deleteEmail: (mailboxId: string, id: string) =>

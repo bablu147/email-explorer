@@ -253,110 +253,14 @@
       </div>
     </div>
 
-    <!-- Email Body Iframe -->
-    <div class="flex-grow min-h-[350px]">
-      <EmailIframe :body="emailBodyWithInlineImages" />
-    </div>
-
-    <!-- Attachments Section (if present) -->
-    <div v-if="email.attachments && email.attachments.length > 0" class="p-5 sm:p-7 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50/70 dark:bg-gray-900/30">
-      <h2 class="text-sm font-bold text-gray-900 dark:text-white mb-3.5 flex items-center gap-2">
-        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-        </svg>
-        <span>Attachments ({{ email.attachments.length }})</span>
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        <div v-for="attachment in email.attachments" :key="attachment.id" class="group bg-white dark:bg-gray-800 rounded-xl p-3 flex items-center justify-between border border-gray-200 dark:border-gray-700 hover:border-emerald-500 dark:hover:border-emerald-400 hover:shadow-sm transition-all duration-200">
-          <div class="w-0 flex-grow mr-3 min-w-0">
-            <p class="text-xs font-semibold text-gray-900 dark:text-white truncate">{{ attachment.filename }}</p>
-            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{{ formatBytes(attachment.size) }}</p>
-          </div>
-          <a :href="getAttachmentUrl(attachment.id)" target="_blank" class="flex-shrink-0 p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" title="Download">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
-            </svg>
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- ⚡ Inline Quick Reply Card: Docked at bottom of Email Detail View -->
-    <div class="p-5 sm:p-7 border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40 flex-shrink-0">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-        <!-- Reply Card Header -->
-        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between bg-gray-50/40 dark:bg-gray-800/40">
-          <div class="flex items-center gap-2.5 min-w-0">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="text-xs font-bold text-gray-800 dark:text-gray-200">
-              Reply to <span class="text-emerald-600 dark:text-emerald-400 font-extrabold">{{ isSentEmail ? email.recipient : email.sender }}</span>
-            </span>
-          </div>
-
-          <div class="flex items-center gap-1.5">
-            <!-- Pop out to full ComposeEmail modal button -->
-            <button
-              type="button"
-              @click="popOutToFullCompose"
-              class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer flex items-center gap-1 text-xs font-semibold"
-              title="Pop out to full compose window"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              <span class="hidden sm:inline">Pop out</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Reply Text Area -->
-        <div class="p-4">
-          <textarea
-            v-model="quickReplyText"
-            @keydown="handleQuickReplyKeyDown"
-            placeholder="Write a quick reply... (Press ⌘ + Enter or Ctrl + Enter to send)"
-            rows="3"
-            class="w-full bg-transparent border-0 focus:ring-0 p-0 text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-y min-h-[75px] focus:outline-none"
-          ></textarea>
-        </div>
-
-        <!-- Reply Card Footer Toolbar -->
-        <div class="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/80 flex items-center justify-between">
-          <div class="flex items-center gap-1.5 text-[11px] text-gray-400">
-            <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded font-mono text-[10px]">⌘</kbd>
-            <span>+</span>
-            <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded font-mono text-[10px]">Enter</kbd>
-            <span class="hidden sm:inline">to send</span>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <button
-              v-if="quickReplyText.trim()"
-              type="button"
-              @click="quickReplyText = ''"
-              class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-            >
-              Clear
-            </button>
-
-            <button
-              type="button"
-              @click="sendQuickReply"
-              :disabled="isSendingQuickReply || !quickReplyText.trim()"
-              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <svg v-if="!isSendingQuickReply" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-              <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>{{ isSendingQuickReply ? 'Sending...' : 'Send Reply' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
+    <!-- Thread View in Full Screen Detail -->
+    <div class="flex-grow p-5 sm:p-7">
+      <ThreadView 
+        :mailbox-id="mailboxId" 
+        :root-email="email" 
+        :from-folder="fromFolder" 
+        @thread-updated="handleThreadUpdated" 
+      />
     </div>
   </div>
 
@@ -390,7 +294,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import EmailIframe from "@/components/EmailIframe.vue";
+import ThreadView from "@/components/ThreadView.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import { useToast } from "@/composables/useToast";
@@ -412,12 +316,18 @@ const route = useRoute();
 const router = useRouter();
 const { success: showSuccessToast, error: showErrorToast } = useToast();
 
+const mailboxId = computed(() => (route.params.mailboxId as string) || mailboxStore.currentMailbox?.id || "");
+
 const loading = ref(true);
 const isMoveMenuOpen = ref(false);
 const moveMenu = ref<HTMLElement | null>(null);
 
-const quickReplyText = ref("");
-const isSendingQuickReply = ref(false);
+const handleThreadUpdated = () => {
+	const mbId = route.params.mailboxId as string;
+	if (mbId) {
+		folderStore.fetchFolders(mbId);
+	}
+};
 
 const handleClickOutside = (event: MouseEvent) => {
 	if (moveMenu.value && !moveMenu.value.contains(event.target as Node)) {
@@ -482,8 +392,7 @@ onBeforeUnmount(() => {
 });
 
 const moveToFolders = computed(() => {
-	const fromFolder = route.query.fromFolder as string;
-	return folders.value.filter((folder) => folder.id !== fromFolder);
+	return folders.value.filter((folder) => folder.id !== fromFolder.value);
 });
 
 const emailBodyWithInlineImages = computed(() => {
@@ -682,62 +591,6 @@ const handleReplyAll = () => {
 const handleForward = () => {
 	if (email.value) {
 		uiStore.openComposeModal({ mode: "forward", originalEmail: email.value });
-	}
-};
-
-// ⚡ Quick Reply Actions
-const handleQuickReplyKeyDown = (e: KeyboardEvent) => {
-	if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-		e.preventDefault();
-		sendQuickReply();
-	}
-};
-
-const popOutToFullCompose = () => {
-	if (email.value) {
-		uiStore.openComposeModal({
-			mode: "reply",
-			originalEmail: email.value,
-			initialBody: quickReplyText.value.trim(),
-		});
-		quickReplyText.value = "";
-	}
-};
-
-const sendQuickReply = async () => {
-	if (!email.value || !quickReplyText.value.trim() || isSendingQuickReply.value) return;
-
-	isSendingQuickReply.value = true;
-	const mailboxId = route.params.mailboxId as string;
-	const rawTarget = isSentEmail.value ? email.value.recipient : email.value.sender;
-	const cleanTo = extractCleanEmail(rawTarget) || rawTarget;
-	const cleanFrom = currentMailbox.value?.email || extractCleanEmail(email.value.recipient);
-	const textContent = quickReplyText.value.trim();
-	const htmlContent = `<p>${textContent.replace(/\n/g, "<br>")}</p>`;
-	const replySubject = email.value.subject.startsWith("Re: ")
-		? email.value.subject
-		: `Re: ${email.value.subject}`;
-
-	try {
-		const replyPayload = {
-			to: cleanTo,
-			from: cleanFrom,
-			subject: replySubject,
-			text: textContent,
-			html: htmlContent,
-			is_draft: false,
-		};
-
-		await api.replyToEmail(mailboxId, email.value.id, replyPayload);
-		quickReplyText.value = "";
-		showSuccessToast("Reply sent successfully!");
-		await emailStore.fetchEmail(mailboxId, email.value.id);
-		folderStore.fetchFolders(mailboxId);
-	} catch (err: any) {
-		const msg = err.response?.data?.error || "Failed to send reply";
-		showErrorToast(msg);
-	} finally {
-		isSendingQuickReply.value = false;
 	}
 };
 </script>
