@@ -59,9 +59,10 @@
           <button 
             v-if="searchQuery"
             @click="searchQuery = ''"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 text-xs"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
+            title="Clear search"
           >
-            ✕
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
@@ -123,10 +124,11 @@
             type="button"
             @click="filterMode = 'clicked'"
             :class="filterMode === 'clicked' ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
             title="Emails where recipient clicked a link"
           >
-            🔗 Clicked ({{ sentStats.clicked }})
+            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span>Clicked ({{ sentStats.clicked }})</span>
           </button>
 
           <!-- Non-sent folders: Unread -->
@@ -145,10 +147,11 @@
           <button
             type="button"
             @click="filterMode = 'starred'"
-            :class="filterMode === 'starred' ? 'bg-white dark:bg-gray-800 text-yellow-500 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1"
+            :class="filterMode === 'starred' ? 'bg-white dark:bg-gray-800 text-amber-500 font-bold shadow-sm' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
+            class="px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
           >
-            ★ Starred
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            <span>Starred</span>
           </button>
         </div>
 
@@ -256,7 +259,10 @@
             <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             <span class="truncate">Delivered</span>
           </span>
-          <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap">SPF/DKIM ✓</span>
+          <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            <span>SPF/DKIM</span>
+          </span>
         </div>
         <div class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white flex items-baseline gap-1.5 flex-wrap">
           {{ sentStats.inboxRate }}%
@@ -483,7 +489,8 @@
                 class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
                 :title="email.clicked_at ? 'Links clicked ' + email.clicked_count + 'x (last: ' + formatTooltipDate(email.clicked_at) + ')' : 'Links clicked'"
               >
-                🔗 {{ email.clicked_count }} click{{ email.clicked_count > 1 ? 's' : '' }}
+                <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                <span>{{ email.clicked_count }} click{{ email.clicked_count > 1 ? 's' : '' }}</span>
               </span>
             </div>
 
@@ -504,10 +511,11 @@
               </p>
               <p 
                 v-if="folderId === 'sent' && email.opened_at" 
-                class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap mt-0.5"
+                class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap mt-0.5 flex items-center gap-1"
                 :title="'First viewed: ' + formatTooltipDate(email.opened_at)"
               >
-                👁 {{ formatShortTime(email.opened_at) }}
+                <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span>{{ formatShortTime(email.opened_at) }}</span>
               </p>
             </div>
 
@@ -606,7 +614,9 @@
         class="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center shadow-xs"
         :class="folderId === 'inbox' && !searchQuery ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500'"
       >
-        <span v-if="folderId === 'inbox' && !searchQuery" class="text-3xl">✨</span>
+        <svg v-if="folderId === 'inbox' && !searchQuery" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
         <svg v-else-if="filterMode === 'viewed'" class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -649,7 +659,8 @@
           @click="uiStore.openComposeModal()"
           class="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
         >
-          <span>✍️ Compose New Message</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>Compose New Message</span>
         </button>
       </div>
     </div>
@@ -763,11 +774,11 @@
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60">
           <div class="flex items-center gap-2">
-            <span class="text-emerald-500 font-bold">⚡</span>
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             <h3 class="text-sm font-bold text-gray-900 dark:text-white">Keyboard Shortcuts</h3>
           </div>
           <button @click="showShortcutsModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-white p-1 cursor-pointer">
-            ✕
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 

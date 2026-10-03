@@ -145,8 +145,9 @@
             @click="clearSearch"
             type="button"
             class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer"
+            title="Clear search"
           >
-            ✕
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
 
@@ -168,18 +169,20 @@
               @click="setPlatform('playstore')"
               :disabled="loading"
               :class="filters.platform === 'playstore' ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-70"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-70"
             >
-              <span>🤖 Google Play</span>
+              <svg class="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.793 12 3.61 22.186a1.94 1.94 0 01-.21-.864V2.678c0-.317.075-.615.21-.864zm11.603 11.604l2.45-2.45-12.05-6.95 9.6 9.4zm0-2.836l-9.6 9.4 12.05-6.95-2.45-2.45zm1.414-1.414l3.197 1.846c.868.502.868 1.314 0 1.816l-3.197 1.846-2.121-2.12 2.121-1.888z"/></svg>
+              <span>Google Play</span>
             </button>
             <button
               type="button"
               @click="setPlatform('appstore')"
               :disabled="loading"
               :class="filters.platform === 'appstore' ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-xs font-bold' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
-              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-70"
+              class="px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-70"
             >
-              <span>🍏 App Store</span>
+              <svg class="w-3.5 h-3.5 text-gray-800 dark:text-gray-200" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.66-.82 1.11-1.96.99-3.1-.97.04-2.14.65-2.83 1.46-.61.71-1.15 1.88-1.01 2.99 1.08.08 2.19-.53 2.85-1.35z"/></svg>
+              <span>App Store</span>
             </button>
           </div>
 
@@ -190,17 +193,17 @@
             :disabled="loading"
             class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
-            <option value="US">🇺🇸 United States</option>
-            <option value="GB">🇬🇧 United Kingdom</option>
-            <option value="DE">🇩🇪 Germany</option>
-            <option value="JP">🇯🇵 Japan</option>
-            <option value="KR">🇰🇷 South Korea</option>
-            <option value="IN">🇮🇳 India</option>
-            <option value="BR">🇧🇷 Brazil</option>
-            <option value="CA">🇨🇦 Canada</option>
-            <option value="FR">🇫🇷 France</option>
-            <option value="AU">🇦🇺 Australia</option>
-            <option value="GLOBAL">🌐 Global (Worldwide)</option>
+            <option value="US">United States (US)</option>
+            <option value="GB">United Kingdom (GB)</option>
+            <option value="DE">Germany (DE)</option>
+            <option value="JP">Japan (JP)</option>
+            <option value="KR">South Korea (KR)</option>
+            <option value="IN">India (IN)</option>
+            <option value="BR">Brazil (BR)</option>
+            <option value="CA">Canada (CA)</option>
+            <option value="FR">France (FR)</option>
+            <option value="AU">Australia (AU)</option>
+            <option value="GLOBAL">Global (Worldwide)</option>
           </select>
 
           <!-- Category / Genre Dropdown -->
@@ -210,15 +213,15 @@
             :disabled="loading"
             class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
-            <option value="all">📁 All Categories</option>
-            <option value="Games">🎮 All Games</option>
-            <option value="Action">⚔️ Action Games</option>
-            <option value="Casual">🧩 Casual Games</option>
-            <option value="RPG">🧙‍♂️ RPG Games</option>
-            <option value="Strategy">🏰 Strategy Games</option>
-            <option value="Finance">💳 Finance & Fintech</option>
-            <option value="Social">💬 Social & Chat</option>
-            <option value="Tools">🛠️ Tools & Utilities</option>
+            <option value="all">All Categories</option>
+            <option value="Games">All Games</option>
+            <option value="Action">Action Games</option>
+            <option value="Casual">Casual Games</option>
+            <option value="RPG">RPG Games</option>
+            <option value="Strategy">Strategy Games</option>
+            <option value="Finance">Finance & Fintech</option>
+            <option value="Social">Social & Chat</option>
+            <option value="Tools">Tools & Utilities</option>
           </select>
 
           <!-- Chart Type Selector -->
@@ -228,10 +231,10 @@
             :disabled="loading"
             class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-70"
           >
-            <option value="topgrossing">💎 Top Grossing (Monetizers)</option>
-            <option value="topfree">📈 Top Free (UA Spenders)</option>
-            <option value="newfree">🚀 New Soft Launches</option>
-            <option value="trending">🔥 Trending Breakouts</option>
+            <option value="topgrossing">Top Grossing (Monetizers)</option>
+            <option value="topfree">Top Free (UA Spenders)</option>
+            <option value="newfree">New Soft Launches</option>
+            <option value="trending">Trending Breakouts</option>
           </select>
 
           <!-- Live Updating Indicator Badge -->
@@ -406,13 +409,15 @@
               </span>
 
               <!-- Installs Tag -->
-              <span v-if="app.installs_bracket" class="px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 font-bold border border-teal-500/20">
-                ⬇ {{ app.installs_bracket }}
+              <span v-if="app.installs_bracket" class="px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 font-bold border border-teal-500/20 flex items-center gap-1">
+                <svg class="w-3 h-3 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                <span>{{ app.installs_bracket }}</span>
               </span>
 
               <!-- Star Rating -->
-              <span v-if="app.rating" class="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-0.5 border border-amber-500/20">
-                ★ {{ app.rating }}
+              <span v-if="app.rating" class="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1 border border-amber-500/20">
+                <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                <span>{{ app.rating }}</span>
                 <span v-if="app.reviews_count" class="text-[10px] font-normal opacity-70">
                   ({{ formatCompactNumber(app.reviews_count) }})
                 </span>
@@ -451,7 +456,8 @@
                 class="px-2 py-1 text-[11px] font-semibold rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all flex items-center gap-1 cursor-pointer flex-shrink-0"
                 :title="`Copy ${app.developer_email}`"
               >
-                <span>{{ copiedEmail === app.developer_email ? '✓ Copied' : 'Copy' }}</span>
+                <svg v-if="copiedEmail === app.developer_email" class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <span>{{ copiedEmail === app.developer_email ? 'Copied' : 'Copy' }}</span>
               </button>
             </div>
           </div>
@@ -629,7 +635,7 @@
                         class="text-[10px] font-semibold text-gray-400 hover:text-emerald-600 transition-colors cursor-pointer"
                         title="Copy email"
                       >
-                        {{ copiedEmail === app.developer_email ? '✓' : 'Copy' }}
+                        {{ copiedEmail === app.developer_email ? 'Copied' : 'Copy' }}
                       </button>
                     </div>
                     <span v-else class="text-[11px] text-gray-400 italic">No email</span>
@@ -639,11 +645,13 @@
                 <!-- Traction & Stats -->
                 <td class="py-3 px-3 whitespace-nowrap">
                   <div class="flex flex-col gap-0.5">
-                    <span v-if="app.installs_bracket" class="font-bold text-teal-600 dark:text-teal-400">
-                      ⬇ {{ app.installs_bracket }}
+                    <span v-if="app.installs_bracket" class="font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                      <svg class="w-3 h-3 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                      <span>{{ app.installs_bracket }}</span>
                     </span>
-                    <span v-if="app.rating" class="text-amber-500 font-semibold text-[11px]">
-                      ★ {{ app.rating }}
+                    <span v-if="app.rating" class="text-amber-500 font-semibold text-[11px] flex items-center gap-1">
+                      <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                      <span>{{ app.rating }}</span>
                       <span v-if="app.reviews_count" class="text-gray-400 font-normal">
                         ({{ formatCompactNumber(app.reviews_count) }})
                       </span>
@@ -796,7 +804,8 @@
           v-else-if="!hasMore && apps.length > 0"
           class="py-3 px-5 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 text-xs font-semibold flex items-center gap-2 border border-gray-200/60 dark:border-gray-700/60"
         >
-          <span>✨ You've explored all {{ apps.length }} apps for this filter. Switch country, platform, or category to uncover more targets!</span>
+          <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span>All {{ apps.length }} apps loaded for this filter. Switch country, platform, or category to uncover more targets.</span>
         </div>
       </div>
 
@@ -935,7 +944,7 @@ const toggleSaveLead = async (app: DiscoveredApp) => {
 	try {
 		const isNowSaved = await discoverStore.toggleSaveLead(app);
 		if (isNowSaved) {
-			showSuccessToast(`Saved "${app.app_name}" to target leads ⭐`);
+			showSuccessToast(`Saved "${app.app_name}" to target leads`);
 		} else {
 			showSuccessToast(`Removed "${app.app_name}" from saved leads`);
 		}

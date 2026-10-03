@@ -65,7 +65,7 @@
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  <span>{{ toAppBinding ? '📱 ' + toAppBinding.app_name : '📱 Link App' }}</span>
+                  <span>{{ toAppBinding ? toAppBinding.app_name : 'Link App' }}</span>
                 </button>
                 <span class="text-gray-300 dark:text-gray-600">·</span>
                 <button
@@ -227,7 +227,7 @@
                   class="text-gray-400 hover:text-red-500 p-1 rounded transition-colors cursor-pointer"
                   title="Remove attachment"
                 >
-                  ✕
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             </div>
@@ -337,8 +337,8 @@
                 </button>
               </div>
             </div>
-            <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-white p-1 cursor-pointer">
-              ✕
+            <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-white p-1 cursor-pointer" title="Close preview">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 

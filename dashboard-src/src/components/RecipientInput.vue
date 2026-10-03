@@ -33,13 +33,13 @@
         <!-- Linked App Pill (if recognized) -->
         <span 
           v-if="getLinkedApp(email)" 
-          class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold"
+          class="inline-flex items-center text-emerald-600 dark:text-emerald-400"
           :title="`Linked: ${getLinkedApp(email)?.app_name}`"
         >
-          📱
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
         </span>
 
-        <!-- Remove '✕' button -->
+        <!-- Remove button -->
         <button
           type="button"
           @click.stop="removeChip(idx)"
@@ -100,9 +100,10 @@
         <!-- Source / App Badge -->
         <span 
           v-if="item.appName" 
-          class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 truncate max-w-[120px]"
+          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 truncate max-w-[120px]"
         >
-          📱 {{ item.appName }}
+          <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span class="truncate">{{ item.appName }}</span>
         </span>
         <span 
           v-else-if="item.source" 

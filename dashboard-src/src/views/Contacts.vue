@@ -12,8 +12,9 @@
             <span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
               {{ contacts.length }} {{ contacts.length === 1 ? 'Contact' : 'Contacts' }}
             </span>
-            <span v-if="boundContactsCount > 0" class="hidden sm:inline-flex px-2 py-0.5 text-xs font-bold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
-              📱 {{ boundContactsCount }} App Bound
+            <span v-if="boundContactsCount > 0" class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
+              <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              <span>{{ boundContactsCount }} App Bound</span>
             </span>
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -39,8 +40,9 @@
               type="button"
               @click="searchQuery = ''"
               class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 cursor-pointer"
+              title="Clear search"
             >
-              ✕
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
 
@@ -181,7 +183,7 @@
         class="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl max-w-md mx-auto mt-8"
       >
         <div class="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 flex items-center justify-center mb-3">
-          🔍
+          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
         <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-1">
           No matching contacts found
@@ -466,8 +468,9 @@
               type="button"
               @click="isContactModalOpen = false"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-lg"
+              title="Close modal"
             >
-              ✕
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </div>
 

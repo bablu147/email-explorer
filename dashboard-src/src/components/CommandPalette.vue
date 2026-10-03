@@ -49,7 +49,32 @@
                 :class="activeId === item.id ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'"
               >
                 <div class="flex items-center gap-2.5 min-w-0">
-                  <span class="text-sm flex-shrink-0">{{ item.icon }}</span>
+                  <span class="w-4 h-4 flex-shrink-0 flex items-center justify-center text-gray-500 dark:text-gray-400" :class="activeId === item.id ? 'text-emerald-600 dark:text-emerald-400' : ''">
+                    <!-- compose -->
+                    <svg v-if="item.icon === 'compose'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    <!-- inbox -->
+                    <svg v-else-if="item.icon === 'inbox'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                    <!-- starred -->
+                    <svg v-else-if="item.icon === 'starred'" class="w-4 h-4 text-amber-500 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                    <!-- sent -->
+                    <svg v-else-if="item.icon === 'sent'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    <!-- drafts -->
+                    <svg v-else-if="item.icon === 'drafts'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <!-- discover -->
+                    <svg v-else-if="item.icon === 'discover'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+                    <!-- contacts -->
+                    <svg v-else-if="item.icon === 'contacts'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    <!-- settings -->
+                    <svg v-else-if="item.icon === 'settings'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <!-- theme -->
+                    <svg v-else-if="item.icon === 'theme'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                    <!-- split -->
+                    <svg v-else-if="item.icon === 'split'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                    <!-- sidebar -->
+                    <svg v-else-if="item.icon === 'sidebar'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
+                    <!-- refresh -->
+                    <svg v-else-if="item.icon === 'refresh'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  </span>
                   <span class="truncate">{{ item.label }}</span>
                 </div>
                 <kbd v-if="item.shortcut" class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
@@ -130,7 +155,9 @@
               :class="activeId === 'email-search-cta' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'"
             >
               <div class="flex items-center gap-2.5">
-                <span class="text-emerald-500">🔍</span>
+                <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
                 <span>Search all emails matching <span class="font-bold underline">"{{ query.trim() }}"</span></span>
               </div>
               <span class="text-gray-400">&crarr; Enter</span>
@@ -202,7 +229,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "action-compose",
 		label: "Compose New Email",
-		icon: "✍️",
+		icon: "compose",
 		shortcut: "c",
 		category: "action",
 		execute: () => {
@@ -212,7 +239,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-inbox",
 		label: "Go to Inbox",
-		icon: "📥",
+		icon: "inbox",
 		shortcut: "g i",
 		category: "navigation",
 		execute: () => {
@@ -222,7 +249,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-starred",
 		label: "Go to Starred",
-		icon: "⭐",
+		icon: "starred",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "EmailList", params: { mailboxId: mailboxId.value, folder: "starred" } });
@@ -231,7 +258,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-sent",
 		label: "Go to Sent",
-		icon: "📤",
+		icon: "sent",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "EmailList", params: { mailboxId: mailboxId.value, folder: "sent" } });
@@ -240,7 +267,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-drafts",
 		label: "Go to Drafts",
-		icon: "📝",
+		icon: "drafts",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "EmailList", params: { mailboxId: mailboxId.value, folder: "drafts" } });
@@ -249,7 +276,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-discover",
 		label: "Discover Apps & MMP Outreach",
-		icon: "🎯",
+		icon: "discover",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "DiscoverApps", params: { mailboxId: mailboxId.value } });
@@ -258,7 +285,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-contacts",
 		label: "Contacts Directory",
-		icon: "👥",
+		icon: "contacts",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "Contacts", params: { mailboxId: mailboxId.value } });
@@ -267,7 +294,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "nav-settings",
 		label: "Mailbox Settings",
-		icon: "⚙️",
+		icon: "settings",
 		category: "navigation",
 		execute: () => {
 			router.push({ name: "Settings", params: { mailboxId: mailboxId.value } });
@@ -276,7 +303,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "action-toggle-theme",
 		label: "Toggle Dark / Light Mode",
-		icon: "🌓",
+		icon: "theme",
 		shortcut: "t",
 		category: "action",
 		execute: () => {
@@ -294,7 +321,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "action-toggle-split",
 		label: "Toggle Reading Pane (Split / Full Width)",
-		icon: "⚡",
+		icon: "split",
 		category: "action",
 		execute: () => {
 			uiStore.toggleSplitViewMode();
@@ -304,7 +331,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "action-toggle-sidebar",
 		label: "Toggle Sidebar Collapse",
-		icon: "📂",
+		icon: "sidebar",
 		category: "action",
 		execute: () => {
 			uiStore.toggleSidebarCollapsed();
@@ -313,7 +340,7 @@ const baseActions: PaletteItem[] = [
 	{
 		id: "action-refresh",
 		label: "Refresh Mailbox & Folders",
-		icon: "🔄",
+		icon: "refresh",
 		category: "action",
 		execute: () => {
 			if (mailboxId.value) {

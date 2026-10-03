@@ -337,10 +337,10 @@ export const useDiscoverStore = defineStore("discover", {
 <p>I'm reaching out from <strong>Reflect</strong> (<a href="https://reflect.cloud" target="_blank">reflect.cloud</a>). We built Reflect as a next-generation Mobile Measurement Partner (MMP) designed specifically for performance-driven mobile studios looking to maximize ROAS without the exorbitant MAU taxes and data lock-in of legacy MMPs like AppsFlyer or Adjust.</p>
 <p><strong>Why top studios are switching to Reflect:</strong></p>
 <ul>
-  <li><strong>⚡ 100% Deterministic & SKAdNetwork Attribution:</strong> Real-time ad spend attribution, sub-millisecond fraud verification, and multi-touch postbacks without sampling.</li>
-  <li><strong>💸 Predictable, Transparent Pricing:</strong> Zero per-MAU penalties when your game goes viral. Save 60%+ compared to standard enterprise MMP tiers.</li>
-  <li><strong>🔒 Zero Data Leakage:</strong> Your install cohort analytics, conversion rates, and revenue postbacks remain strictly private to your team.</li>
-  <li><strong>🚀 Ultra-Lightweight SDKs:</strong> Drop-in Unity, iOS, Android, Flutter, and React Native SDKs that take less than 30 minutes to integrate with zero ANR overhead.</li>
+  <li><strong>Deterministic & SKAdNetwork Attribution:</strong> Real-time ad spend attribution, sub-millisecond fraud verification, and multi-touch postbacks without sampling.</li>
+  <li><strong>Predictable, Transparent Pricing:</strong> Zero per-MAU penalties when your game goes viral. Save 60%+ compared to standard enterprise MMP tiers.</li>
+  <li><strong>Zero Data Leakage:</strong> Your install cohort analytics, conversion rates, and revenue postbacks remain strictly private to your team.</li>
+  <li><strong>Ultra-Lightweight SDKs:</strong> Drop-in Unity, iOS, Android, Flutter, and React Native SDKs that take less than 30 minutes to integrate with zero ANR overhead.</li>
 </ul>
 <p>We'd love to set your team up with an enterprise sandbox test app so your growth marketers and UA managers can benchmark our attribution accuracy side-by-side with your existing stack.</p>
 <p>Would you be open to a quick 10-minute demo or sandbox walkthrough next Tuesday or Thursday?</p>

@@ -156,7 +156,7 @@
             class="mt-2 p-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/25 flex flex-wrap items-center justify-between gap-2 text-xs animate-in fade-in duration-200"
           >
             <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
-              <span class="text-base">🏢</span>
+              <svg class="w-4 h-4 flex-shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
               <span>Organization domain detected: <strong class="font-mono text-emerald-900 dark:text-emerald-200">{{ targetEmailDomain }}</strong></span>
             </div>
 
@@ -164,16 +164,18 @@
               <button
                 type="button"
                 @click="linkDomainAsWebsite"
-                class="px-2.5 py-1 rounded-lg bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                class="px-2.5 py-1 rounded-lg bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>🌐 Link Official Website</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                <span>Link Official Website</span>
               </button>
               <button
                 type="button"
                 @click="searchDomainApps"
-                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>🔍 Search App Stores</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <span>Search App Stores</span>
               </button>
             </div>
           </div>
@@ -290,12 +292,13 @@
                 </span>
                 <button
                   type="button"
-                  class="px-3 py-1 text-xs font-semibold rounded-lg transition-all shadow-xs"
+                  class="px-3 py-1 text-xs font-semibold rounded-lg transition-all shadow-xs flex items-center gap-1"
                   :class="selectedItem?.app_url === item.app_url 
                     ? 'bg-emerald-600 text-white font-bold' 
                     : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-emerald-600 group-hover:text-white text-gray-700 dark:text-gray-300'"
                 >
-                  {{ selectedItem?.app_url === item.app_url ? 'Selected ✓' : 'Select' }}
+                  <svg v-if="selectedItem?.app_url === item.app_url" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  <span>{{ selectedItem?.app_url === item.app_url ? 'Selected' : 'Select' }}</span>
                 </button>
               </div>
             </div>
@@ -469,14 +472,16 @@
                 @click="createFallbackWebsite"
                 class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>🌐 Link as Website</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                <span>Link as Website</span>
               </button>
               <button
                 type="button"
                 @click="createFallbackCustomApp"
                 class="px-3.5 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-semibold border border-gray-200 dark:border-gray-700 transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>📱 Link as Custom App</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                <span>Link as Custom App</span>
               </button>
             </div>
           </div>
@@ -518,7 +523,7 @@
 
             <!-- Helpful Guidance Note -->
             <div class="p-3.5 rounded-xl bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2.5">
-              <span class="text-base flex-shrink-0">💡</span>
+              <svg class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <p class="leading-relaxed">
                 <strong>Fast lookup:</strong> Enter an app title, Android package ID (e.g. <code class="font-mono text-[11px] text-emerald-600 dark:text-emerald-400">com.example.app</code>), or paste any direct Google Play (<code class="font-mono text-[11px]">play.google.com/...</code>) or Apple App Store (<code class="font-mono text-[11px]">apps.apple.com/...</code>) link.
               </p>
@@ -547,29 +552,31 @@
           </button>
           <div v-else class="flex items-center gap-2 text-xs">
             <span
-              class="flex items-center gap-1 font-semibold transition-colors"
+              class="flex items-center gap-1.5 font-semibold transition-colors"
               :class="isValidEmail ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'"
             >
               <span
                 class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors"
                 :class="isValidEmail ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-gray-300 dark:border-gray-600 text-gray-400'"
               >
-                1
+                <svg v-if="isValidEmail" class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                <span v-else>1</span>
               </span>
-              <span>Email {{ isValidEmail ? '✓' : '' }}</span>
+              <span>Email</span>
             </span>
             <span class="text-gray-300 dark:text-gray-600">→</span>
             <span
-              class="flex items-center gap-1 font-semibold transition-colors"
+              class="flex items-center gap-1.5 font-semibold transition-colors"
               :class="selectedItem ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'"
             >
               <span
                 class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold border transition-colors"
                 :class="selectedItem ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-gray-300 dark:border-gray-600 text-gray-400'"
               >
-                2
+                <svg v-if="selectedItem" class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                <span v-else>2</span>
               </span>
-              <span>App {{ selectedItem ? '✓' : '' }}</span>
+              <span>App</span>
             </span>
           </div>
         </div>
