@@ -1,7 +1,7 @@
 <template>
   <header class="h-14 flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 transition-colors">
-    <!-- Left: Mobile Menu Toggle, Mailbox Switcher Dropdown & Live Search -->
-    <div class="flex items-center gap-2 sm:gap-3 flex-1 max-w-2xl min-w-0">
+    <!-- Left: Mobile Menu Toggle & Omni-Search Bar -->
+    <div class="flex items-center gap-2 sm:gap-3 flex-1 max-w-xl min-w-0">
       <!-- Mobile Drawer Hamburger Button -->
       <button
         type="button"
@@ -14,102 +14,11 @@
         </svg>
       </button>
 
-      <!-- Quick Mailbox Switcher Dropdown -->
-      <div v-if="currentMailboxId" class="relative flex-shrink-0" ref="mailboxDropdownRef">
-        <button
-          type="button"
-          @click.stop="toggleMailboxMenu"
-          class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100/80 hover:bg-gray-200/80 dark:bg-gray-800 dark:hover:bg-gray-750 text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-gray-700/80 transition-all cursor-pointer shadow-xs group"
-          :title="'Current mailbox: ' + (activeMailbox?.email || 'Select Mailbox')"
-        >
-          <div class="w-5 h-5 rounded-md bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-[11px] border border-emerald-500/30">
-            {{ (activeMailbox?.name || 'M').charAt(0).toUpperCase() }}
-          </div>
-          <div class="flex flex-col text-left max-w-[120px] sm:max-w-[160px] truncate">
-            <span class="truncate leading-tight font-bold text-gray-900 dark:text-white">{{ activeMailbox?.name || 'Mailbox' }}</span>
-            <span class="truncate text-[10px] text-gray-500 dark:text-gray-400 font-normal leading-none mt-0.5">{{ activeMailbox?.email || '' }}</span>
-          </div>
-          <svg 
-            class="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-transform duration-200"
-            :class="{ 'rotate-180': isMailboxMenuOpen }"
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        <!-- Dropdown Menu -->
-        <div 
-          v-if="isMailboxMenuOpen"
-          class="absolute left-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden"
-        >
-          <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Switch Mailbox</span>
-            <router-link 
-              to="/" 
-              @click="isMailboxMenuOpen = false"
-              class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-            >
-              View All
-            </router-link>
-          </div>
-
-          <div class="max-h-64 overflow-y-auto py-1">
-            <div v-if="mailboxes.length === 0" class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 italic text-center">
-              Loading mailboxes...
-            </div>
-            <button
-              v-for="mb in mailboxes"
-              :key="mb.id"
-              type="button"
-              @click="switchMailbox(mb.id)"
-              class="w-full px-3.5 py-2.5 flex items-center gap-3 text-left hover:bg-emerald-50/70 dark:hover:bg-emerald-950/25 transition-colors cursor-pointer"
-              :class="mb.id === currentMailboxId ? 'bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
-            >
-              <div 
-                class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0"
-                :class="mb.id === currentMailboxId ? 'bg-emerald-500 text-white shadow-xs' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
-              >
-                {{ mb.name.charAt(0).toUpperCase() }}
-              </div>
-              <div class="flex-grow min-w-0">
-                <p class="text-xs font-bold truncate text-gray-900 dark:text-white">{{ mb.name }}</p>
-                <p class="text-[11px] text-gray-500 dark:text-gray-400 truncate">{{ mb.email }}</p>
-              </div>
-              <svg 
-                v-if="mb.id === currentMailboxId" 
-                class="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="p-2 border-t border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-800/50">
-            <router-link
-              to="/"
-              @click="isMailboxMenuOpen = false"
-              class="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Manage Mailboxes</span>
-            </router-link>
-          </div>
-        </div>
-      </div>
-
       <!-- Omni-Search Bar & Command Palette Launcher -->
       <button 
         type="button"
         @click="uiStore.openCommandPalette"
-        class="relative flex-1 min-w-[160px] sm:min-w-[220px] max-w-sm flex items-center justify-between pl-9 pr-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-xl text-gray-400 dark:text-gray-400 text-left transition-all cursor-pointer group shadow-2xs"
+        class="relative flex-1 min-w-[200px] max-w-md flex items-center justify-between pl-9 pr-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-xl text-gray-400 dark:text-gray-400 text-left transition-all cursor-pointer group shadow-2xs"
         title="Open Command Palette (⌘K)"
       >
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -236,6 +145,46 @@
             </div>
           </div>
 
+          <!-- Quick Mailbox Switcher Section -->
+          <div v-if="mailboxes.length > 0" class="py-1 border-b border-gray-100 dark:border-gray-700/60">
+            <div class="px-4 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              <span>Switch Mailbox</span>
+              <router-link to="/" @click="isUserMenuOpen = false" class="text-emerald-600 dark:text-emerald-400 hover:underline capitalize font-semibold">
+                Hub
+              </router-link>
+            </div>
+            <div class="max-h-48 overflow-y-auto">
+              <button
+                v-for="mb in mailboxes"
+                :key="mb.id"
+                type="button"
+                @click="switchMailbox(mb.id)"
+                class="w-full px-4 py-2 flex items-center gap-2.5 text-left hover:bg-emerald-50/60 dark:hover:bg-emerald-950/25 transition-colors cursor-pointer group"
+                :class="mb.id === currentMailboxId ? 'bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-gray-700 dark:text-gray-300'"
+              >
+                <div 
+                  class="w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px] flex-shrink-0"
+                  :class="mb.id === currentMailboxId ? 'bg-emerald-500 text-white shadow-xs' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
+                >
+                  {{ mb.name.charAt(0).toUpperCase() }}
+                </div>
+                <div class="flex-grow min-w-0">
+                  <p class="text-xs truncate font-medium group-hover:text-gray-900 dark:group-hover:text-white">{{ mb.name }}</p>
+                  <p class="text-[10px] text-gray-400 truncate">{{ mb.email }}</p>
+                </div>
+                <svg 
+                  v-if="mb.id === currentMailboxId" 
+                  class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <div class="py-1">
             <!-- Mailboxes Link -->
             <router-link
@@ -289,12 +238,9 @@ import { useRoute, useRouter } from "vue-router";
 import { useTheme } from "@/composables/useTheme";
 import { useAuthStore } from "@/stores/auth";
 import { useMailboxStore } from "@/stores/mailboxes";
-import { useSearchStore } from "@/stores/search";
 import { useUIStore } from "@/stores/ui";
 
 const uiStore = useUIStore();
-const searchQuery = ref("");
-const searchStore = useSearchStore();
 const mailboxStore = useMailboxStore();
 const authStore = useAuthStore();
 const { mailboxes } = storeToRefs(mailboxStore);
@@ -303,42 +249,25 @@ const router = useRouter();
 
 const { isDark, toggleTheme } = useTheme();
 
-const isMailboxMenuOpen = ref(false);
 const isUserMenuOpen = ref(false);
-const mailboxDropdownRef = ref<HTMLElement | null>(null);
 const userMenuRef = ref<HTMLElement | null>(null);
 
 const currentMailboxId = computed(() => (route.params.mailboxId as string) || "");
-
-const activeMailbox = computed(() => {
-	if (!currentMailboxId.value) return null;
-	return mailboxes.value.find((m) => m.id === currentMailboxId.value) || mailboxStore.currentMailbox;
-});
 
 const userInitial = computed(() => {
 	const email = authStore.currentUser?.email || "U";
 	return email.charAt(0).toUpperCase();
 });
 
-const toggleMailboxMenu = () => {
-	isMailboxMenuOpen.value = !isMailboxMenuOpen.value;
-	if (isMailboxMenuOpen.value) {
-		isUserMenuOpen.value = false;
-		if (mailboxes.value.length === 0) {
-			mailboxStore.fetchMailboxes();
-		}
-	}
-};
-
 const toggleUserMenu = () => {
 	isUserMenuOpen.value = !isUserMenuOpen.value;
-	if (isUserMenuOpen.value) {
-		isMailboxMenuOpen.value = false;
+	if (isUserMenuOpen.value && mailboxes.value.length === 0) {
+		mailboxStore.fetchMailboxes();
 	}
 };
 
 const switchMailbox = (targetId: string) => {
-	isMailboxMenuOpen.value = false;
+	isUserMenuOpen.value = false;
 	if (targetId === currentMailboxId.value) return;
 	mailboxStore.fetchMailbox(targetId);
 	const standardFolders = ["inbox", "sent", "drafts", "draft", "archive", "trash", "spam"];
@@ -348,13 +277,6 @@ const switchMailbox = (targetId: string) => {
 		name: "EmailList",
 		params: { mailboxId: targetId, folder },
 	});
-};
-
-const performSearch = () => {
-	const mailboxId = currentMailboxId.value;
-	if (!mailboxId) return;
-	searchStore.searchEmails(mailboxId, searchQuery.value);
-	router.push({ name: "SearchResults", params: { mailboxId } });
 };
 
 const handleSettingsClick = () => {
@@ -385,9 +307,6 @@ const handleLogout = async () => {
 
 const handleClickOutside = (event: MouseEvent) => {
 	const target = event.target as Node;
-	if (mailboxDropdownRef.value && !mailboxDropdownRef.value.contains(target)) {
-		isMailboxMenuOpen.value = false;
-	}
 	if (userMenuRef.value && !userMenuRef.value.contains(target)) {
 		isUserMenuOpen.value = false;
 	}
@@ -395,7 +314,6 @@ const handleClickOutside = (event: MouseEvent) => {
 
 const handleKeydown = (event: KeyboardEvent) => {
 	if (event.key === "Escape") {
-		isMailboxMenuOpen.value = false;
 		isUserMenuOpen.value = false;
 	}
 };
