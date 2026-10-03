@@ -97,6 +97,32 @@
             </svg>
           </button>
 
+          <!-- Snooze / Unsnooze -->
+          <button
+            v-if="fromFolder !== 'snoozed' && fromFolder !== 'scheduled' && fromFolder !== 'trash'"
+            type="button"
+            @click="showSnoozeModal = true"
+            class="p-2 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-all cursor-pointer"
+            title="Snooze (h)"
+            aria-label="Snooze"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+          <button
+            v-else-if="fromFolder === 'snoozed'"
+            type="button"
+            @click="handleUnsnooze"
+            class="p-2 text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-all cursor-pointer"
+            title="Move to Inbox"
+            aria-label="Move to Inbox"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          </button>
+
           <!-- Move to folder -->
           <div class="relative" ref="moveMenu">
             <button 
@@ -363,6 +389,14 @@
     </button>
   </div>
 
+  <!-- Snooze Modal -->
+  <SnoozeModal
+    :show="showSnoozeModal"
+    :email-subject="email?.subject"
+    @close="showSnoozeModal = false"
+    @snooze="handleSnoozeConfirm"
+  />
+
   <!-- Custom Delete Confirmation Modal (Eliminating native confirm) -->
   <ConfirmModal
     :is-open="isDeleteConfirmOpen"
@@ -384,6 +418,7 @@ import ThreadView from "@/components/ThreadView.vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import SnoozeModal from "@/components/SnoozeModal.vue";
 import { useMailActions } from "@/composables/useMailActions";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
@@ -406,6 +441,21 @@ const { error: showErrorToast } = useToast();
 const mail = useMailActions();
 
 const isDeleteConfirmOpen = ref(false);
+const showSnoozeModal = ref(false);
+
+const handleSnoozeConfirm = async (isoString: string) => {
+	showSnoozeModal.value = false;
+	if (!email.value) return;
+	await mail.snoozeEmails(mailboxId.value, [email.value], isoString);
+	router.push({ name: "EmailList", params: { mailboxId: mailboxId.value, folder: fromFolder.value } });
+};
+
+const handleUnsnooze = async () => {
+	if (!email.value) return;
+	await mail.unsnoozeEmails(mailboxId.value, [email.value]);
+	router.push({ name: "EmailList", params: { mailboxId: mailboxId.value, folder: "inbox" } });
+};
+
 const isDeleting = ref(false);
 
 const mailboxId = computed(() => (route.params.mailboxId as string) || mailboxStore.currentMailbox?.id || "");

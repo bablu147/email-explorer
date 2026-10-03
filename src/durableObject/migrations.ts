@@ -120,6 +120,17 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_followups_recipient ON followups(recipient);
         `,
 	},
+	{
+		// Snooze (hide an email until a time) and scheduled send (a draft that sends itself).
+		name: "11_snooze_and_scheduled_send",
+		sql: `
+            ALTER TABLE emails ADD COLUMN snoozed_until TEXT;
+            ALTER TABLE emails ADD COLUMN scheduled_at TEXT;
+            ALTER TABLE emails ADD COLUMN send_error TEXT;
+            CREATE INDEX IF NOT EXISTS idx_emails_snoozed ON emails(snoozed_until) WHERE snoozed_until IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_emails_scheduled ON emails(scheduled_at) WHERE scheduled_at IS NOT NULL;
+        `,
+	},
 ];
 
 export const authMigrations: Migration[] = [

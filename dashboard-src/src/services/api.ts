@@ -108,6 +108,14 @@ export default {
 			`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/forward`,
 			email,
 		),
+	snoozeEmail: (mailboxId: string, id: string, until: string | null) =>
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/snooze`, { until }),
+	scheduleEmail: (mailboxId: string, id: string, sendAt: string | null) =>
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/schedule`, { send_at: sendAt }),
+	sendScheduledNow: (mailboxId: string, id: string) =>
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/send-now`),
+	getQueueSummary: (mailboxId: string) =>
+		apiClient.get(`/api/v1/mailboxes/${mailboxId}/queue-summary`),
 
 	// Folders
 	listFolders: (mailboxId: string) =>

@@ -35,6 +35,9 @@ export interface Email {
 	clicked_count?: number;
 	delivery_status?: string | null;
 	spam_score?: number | null;
+	snoozed_until?: string | null;
+	scheduled_at?: string | null;
+	send_error?: string | null;
 	attachments?: Attachment[];
 	in_reply_to?: string | null;
 	thread_id?: string | null;

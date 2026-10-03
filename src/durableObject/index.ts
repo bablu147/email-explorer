@@ -7,9 +7,14 @@ import {
 	TEMPLATE_LIMITS,
 } from "../templates";
 import { DOQB } from "workers-qb";
+import { deliverMessage } from "../delivery";
 import { generateVapidKeys, sendWebPush, type VapidKeys } from "../push-crypto";
+import { earliest, htmlToText, parseEmailList } from "../scheduling";
 import type { AppBinding, DiscoverLead, Env, PushSubscriptionRecord, Session, User } from "../types";
 import { authMigrations, mailboxMigrations } from "./migrations";
+
+/** A scheduled message still marked "sending" after this long was interrupted (it must not be re-sent blindly). */
+const STALE_SENDING_MS = 10 * 60_000;
 
 const ALLOWED_SORT_COLUMNS = [
 	"id",
@@ -61,6 +66,9 @@ interface EmailData {
 	clicked_count?: number;
 	delivery_status?: string | null;
 	spam_score?: number | null;
+	snoozed_until?: string | null;
+	scheduled_at?: string | null;
+	send_error?: string | null;
 }
 
 interface AttachmentData {
@@ -530,14 +538,23 @@ export class MailboxDO extends DurableObject<Env> {
 				"clicked_count",
 				"delivery_status",
 				"spam_score",
+				"snoozed_until",
+				"scheduled_at",
+				"send_error",
 				"body",
 			]);
 
 		if (folder) {
-			if (folder.toLowerCase() === "starred") {
+			if (folder.toLowerCase() === "snoozed") {
+				// Virtual "Snoozed" view: inbox mail hidden until its wake-up time.
+				query = query.where("snoozed_until IS NOT NULL AND folder_id = 'inbox'");
+			} else if (folder.toLowerCase() === "scheduled") {
+				// Virtual "Scheduled" view: drafts waiting for their send time.
+				query = query.where("scheduled_at IS NOT NULL AND folder_id = 'drafts'");
+			} else if (folder.toLowerCase() === "starred") {
 				// Virtual "Starred" view: don't resurface messages the user has trashed or that are spam.
 				query = query.where(
-					"starred = 1 AND (folder_id IS NULL OR folder_id NOT IN ('trash', 'spam'))",
+					"starred = 1 AND (folder_id IS NULL OR folder_id NOT IN ('trash', 'spam')) AND snoozed_until IS NULL AND scheduled_at IS NULL",
 				);
 			} else {
 				const folderIdSubquery = this.#qb
@@ -546,6 +563,8 @@ export class MailboxDO extends DurableObject<Env> {
 					.where("name = ? OR id = ?", [folder, folder])
 					.limit(1);
 				query = query.where("folder_id = ?", folderIdSubquery as any);
+				// Snoozed mail is out of the way until it wakes; scheduled drafts live in "Scheduled".
+				query = query.where("snoozed_until IS NULL AND scheduled_at IS NULL");
 			}
 		}
 
@@ -712,15 +731,26 @@ export class MailboxDO extends DurableObject<Env> {
 			.exec(
 				`SELECT f.id, f.name, COUNT(CASE WHEN e.read = 0 THEN 1 END) as unreadCount
 				 FROM folders f
-				 LEFT JOIN emails e ON f.id = e.folder_id
+				 LEFT JOIN emails e ON f.id = e.folder_id AND e.snoozed_until IS NULL AND e.scheduled_at IS NULL
 				 GROUP BY f.id, f.name`,
 			)
 			.toArray();
-		return rows.map((r: any) => ({
+		const list = rows.map((r: any) => ({
 			id: String(r.id),
 			name: String(r.name),
 			unreadCount: Number(r.unreadCount || 0),
 		}));
+		const snoozedCount = (this.ctx.storage.sql
+			.exec("SELECT COUNT(*) AS c FROM emails WHERE snoozed_until IS NOT NULL AND folder_id = 'inbox'")
+			.toArray()[0] as any)?.c || 0;
+		const scheduledCount = (this.ctx.storage.sql
+			.exec("SELECT COUNT(*) AS c FROM emails WHERE scheduled_at IS NOT NULL AND folder_id = 'drafts'")
+			.toArray()[0] as any)?.c || 0;
+		list.push(
+			{ id: "snoozed", name: "Snoozed", unreadCount: Number(snoozedCount) },
+			{ id: "scheduled", name: "Scheduled", unreadCount: Number(scheduledCount) },
+		);
+		return list;
 	}
 
 	async createFolder(
@@ -763,7 +793,7 @@ export class MailboxDO extends DurableObject<Env> {
 			.exec(
 				`SELECT f.id, f.name, COUNT(CASE WHEN e.read = 0 THEN 1 END) as unreadCount
 				 FROM folders f
-				 LEFT JOIN emails e ON f.id = e.folder_id
+				 LEFT JOIN emails e ON f.id = e.folder_id AND e.snoozed_until IS NULL AND e.scheduled_at IS NULL
 				 WHERE f.id = ?
 				 GROUP BY f.id, f.name`,
 				id,
@@ -875,6 +905,15 @@ export class MailboxDO extends DurableObject<Env> {
 			})
 			.execute();
 
+		// Moving a message by hand ends any snooze, and takes a scheduled draft out of the send queue.
+		this.ctx.storage.sql.exec(
+			`UPDATE emails SET snoozed_until = NULL,
+			   delivery_status = CASE WHEN scheduled_at IS NOT NULL AND delivery_status = 'scheduled' THEN 'draft' ELSE delivery_status END,
+			   scheduled_at = NULL
+			 WHERE id = ?`,
+			id,
+		);
+
 		return true;
 	}
 
@@ -908,6 +947,9 @@ export class MailboxDO extends DurableObject<Env> {
 				"clicked_count",
 				"delivery_status",
 				"spam_score",
+				"snoozed_until",
+				"scheduled_at",
+				"send_error",
 				"body",
 			]);
 
@@ -1007,6 +1049,9 @@ export class MailboxDO extends DurableObject<Env> {
 						thread_id: email.thread_id,
 						delivery_status: "draft",
 						folder_id: "drafts",
+						// Editing a draft takes it out of the send queue.
+						scheduled_at: null,
+						send_error: null,
 					},
 					where: {
 						conditions: "id = ?",
@@ -2148,4 +2193,305 @@ export class MailboxDO extends DurableObject<Env> {
 			console.error("Follow-up notification failed:", err);
 		}
 	}
+
+	// ---------------------------------------------------------------------------------------------
+	// Snooze and scheduled send (mailbox DO). One alarm per mailbox, always set to the earliest
+	// pending wake-up or send time, so nothing needs to poll.
+	// ---------------------------------------------------------------------------------------------
+
+	/** Hides an inbox message until `untilIso`; `null` brings it back now. Returns false if it can't be snoozed. */
+	async snoozeEmail(id: string, untilIso: string | null, mailboxId: string): Promise<boolean> {
+		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
+		const sql = this.ctx.storage.sql;
+		const row = sql.exec("SELECT folder_id, snoozed_until FROM emails WHERE id = ?", id).toArray()[0] as any;
+		if (!row) return false;
+		if (untilIso === null) {
+			sql.exec("UPDATE emails SET snoozed_until = NULL WHERE id = ?", id);
+		} else {
+			if (row.folder_id !== "inbox") return false;
+			sql.exec("UPDATE emails SET snoozed_until = ? WHERE id = ?", untilIso, id);
+		}
+		await this.ctx.storage.put("mailbox_id", mailboxId);
+		await this.#rescheduleAlarm();
+		return true;
+	}
+
+	/** Puts a draft in the send queue for `sendAtIso`; `null` cancels the schedule (it stays a draft). */
+	async scheduleDraft(id: string, sendAtIso: string | null, mailboxId: string): Promise<boolean> {
+		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
+		const sql = this.ctx.storage.sql;
+		const row = sql.exec("SELECT folder_id, delivery_status FROM emails WHERE id = ?", id).toArray()[0] as any;
+		if (!row || row.folder_id !== "drafts") return false;
+		if (sendAtIso === null) {
+			if (row.delivery_status === "sending") return false;
+			sql.exec(
+				"UPDATE emails SET scheduled_at = NULL, send_error = NULL, delivery_status = 'draft' WHERE id = ?",
+				id,
+			);
+		} else {
+			if (row.delivery_status === "sending") return false;
+			sql.exec(
+				"UPDATE emails SET scheduled_at = ?, send_error = NULL, delivery_status = 'scheduled' WHERE id = ?",
+				sendAtIso,
+				id,
+			);
+		}
+		await this.ctx.storage.put("mailbox_id", mailboxId);
+		await this.#rescheduleAlarm();
+		return true;
+	}
+
+	/** Counts for the Snoozed and Scheduled views, and when the next snoozed message returns. */
+	async getQueueSummary(): Promise<{ snoozed: number; scheduled: number; next_wake: string | null }> {
+		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
+		const sql = this.ctx.storage.sql;
+		const snoozed = sql
+			.exec("SELECT COUNT(*) AS n, MIN(snoozed_until) AS next FROM emails WHERE snoozed_until IS NOT NULL AND folder_id = 'inbox'")
+			.toArray()[0] as any;
+		const scheduled = sql
+			.exec("SELECT COUNT(*) AS n FROM emails WHERE scheduled_at IS NOT NULL AND folder_id = 'drafts'")
+			.toArray()[0] as any;
+		return {
+			snoozed: Number(snoozed?.n || 0),
+			scheduled: Number(scheduled?.n || 0),
+			next_wake: snoozed?.next ? String(snoozed.next) : null,
+		};
+	}
+
+	/** Sends a scheduled draft right now, waiting for the result. */
+	async sendScheduledNow(id: string, mailboxId: string): Promise<{ ok: boolean; error?: string }> {
+		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
+		const sql = this.ctx.storage.sql;
+		const row = sql.exec("SELECT folder_id, delivery_status FROM emails WHERE id = ?", id).toArray()[0] as any;
+		if (!row || row.folder_id !== "drafts") return { ok: false, error: "Not found" };
+		if (row.delivery_status === "sending") return { ok: false, error: "Already sending" };
+		await this.ctx.storage.put("mailbox_id", mailboxId);
+		return this.#sendScheduled(id, mailboxId);
+	}
+
+	/** Durable Object alarm: wake snoozed mail and send due scheduled drafts. Must never throw (retries would duplicate sends). */
+	async alarm(): Promise<void> {
+		try {
+			await this.runDue();
+		} catch (err) {
+			console.error("Mailbox alarm failed:", err);
+			try {
+				await this.#rescheduleAlarm();
+			} catch {
+				// nothing more to do
+			}
+		}
+	}
+
+	/** Does everything that is due now. Exposed for the alarm and for tests. */
+	async runDue(): Promise<{ woke: number; sent: number; failed: number }> {
+		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
+		const sql = this.ctx.storage.sql;
+		const now = Date.now();
+		const nowIso = new Date(now).toISOString();
+		const mailboxId = ((await this.ctx.storage.get("mailbox_id")) as string | undefined) || "";
+
+		// 1. Snoozed messages whose time has come return to the inbox as unread.
+		const woken = sql
+			.exec(
+				"SELECT id, subject, sender FROM emails WHERE snoozed_until IS NOT NULL AND snoozed_until <= ? ORDER BY snoozed_until ASC LIMIT 200",
+				nowIso,
+			)
+			.toArray() as any[];
+		if (woken.length > 0) {
+			sql.exec("UPDATE emails SET snoozed_until = NULL, read = 0 WHERE snoozed_until IS NOT NULL AND snoozed_until <= ?", nowIso);
+			if (mailboxId) {
+				const first = woken[0];
+				this.ctx.waitUntil(
+					this.#notifyMembers(mailboxId, {
+						title: woken.length === 1 ? "Snoozed message is back" : `${woken.length} snoozed messages are back`,
+						body: woken.length === 1 ? `${first.subject || "(No Subject)"} from ${first.sender}` : `${first.subject || "(No Subject)"} and ${woken.length - 1} more`,
+						tag: `snooze-${mailboxId}`,
+						url: `/mailbox/${encodeURIComponent(mailboxId)}/emails/inbox`,
+					}),
+				);
+			}
+		}
+
+		// 2. A "sending" message left behind by an interrupted run is not retried automatically (it may
+		//    have gone out); it goes back to Drafts with a note.
+		const staleBefore = new Date(now - STALE_SENDING_MS).toISOString();
+		sql.exec(
+			`UPDATE emails SET delivery_status = 'draft', scheduled_at = NULL,
+			   send_error = 'Sending was interrupted. Check Sent before sending again.'
+			 WHERE delivery_status = 'sending' AND folder_id = 'drafts' AND scheduled_at <= ?`,
+			staleBefore,
+		);
+
+		// 3. Due scheduled drafts, oldest first.
+		const due = sql
+			.exec(
+				"SELECT id FROM emails WHERE scheduled_at IS NOT NULL AND scheduled_at <= ? AND folder_id = 'drafts' AND delivery_status = 'scheduled' ORDER BY scheduled_at ASC LIMIT 20",
+				nowIso,
+			)
+			.toArray() as any[];
+		let sent = 0;
+		let failed = 0;
+		for (const d of due) {
+			const result = await this.#sendScheduled(String(d.id), mailboxId);
+			if (result.ok) sent++;
+			else failed++;
+		}
+
+		await this.#rescheduleAlarm();
+		return { woke: woken.length, sent, failed };
+	}
+
+	async #sendScheduled(id: string, mailboxIdHint: string): Promise<{ ok: boolean; error?: string }> {
+		const sql = this.ctx.storage.sql;
+		// Claim it. Everything up to the first await is synchronous, so two callers can't both claim it.
+		const row = sql.exec("SELECT * FROM emails WHERE id = ?", id).toArray()[0] as any;
+		if (!row || row.folder_id !== "drafts" || (row.delivery_status !== "scheduled" && row.delivery_status !== "draft")) {
+			return { ok: false, error: "Not available to send" };
+		}
+		sql.exec(
+			"UPDATE emails SET delivery_status = 'sending', scheduled_at = ?, send_error = NULL WHERE id = ?",
+			new Date().toISOString(),
+			id,
+		);
+		const mailboxId = mailboxIdHint || String(row.sender || "");
+
+		const fail = async (message: string) => {
+			sql.exec(
+				"UPDATE emails SET delivery_status = 'draft', scheduled_at = NULL, send_error = ? WHERE id = ?",
+				message,
+				id,
+			);
+			if (mailboxId) {
+				this.ctx.waitUntil(
+					this.#notifyMembers(mailboxId, {
+						title: "Scheduled email was not sent",
+						body: `${row.subject || "(No Subject)"}: ${message}`,
+						tag: `scheduled-failed-${id}`,
+						url: `/mailbox/${encodeURIComponent(mailboxId)}/emails/drafts`,
+					}),
+				);
+			}
+			return { ok: false, error: message };
+		};
+
+		try {
+			const to = parseEmailList(row.recipient);
+			if (to.length === 0 && parseEmailList(row.cc).length === 0 && parseEmailList(row.bcc).length === 0) {
+				return await fail("This draft has no recipients.");
+			}
+			const atts = sql.exec("SELECT * FROM attachments WHERE email_id = ?", id).toArray() as any[];
+			const attachments = [];
+			for (const a of atts) {
+				const obj = await this.env.BUCKET.get(`attachments/${id}/${a.id}/${a.filename}`);
+				if (!obj) return await fail(`Attachment "${a.filename}" is missing.`);
+				attachments.push({
+					filename: String(a.filename),
+					content: bytesToBase64(new Uint8Array(await obj.arrayBuffer())),
+					type: String(a.mimetype),
+					disposition: (a.disposition === "inline" ? "inline" : "attachment") as "inline" | "attachment",
+					contentId: a.content_id ? String(a.content_id) : undefined,
+				});
+			}
+			const body = String(row.body || "");
+			const looksLikeHtml = /<[a-z][\s\S]*>/i.test(body);
+			let references: string[] | undefined;
+			try {
+				const parsed = row.email_references ? JSON.parse(row.email_references) : null;
+				if (Array.isArray(parsed)) references = parsed.map(String);
+			} catch {
+				references = undefined;
+			}
+			await deliverMessage(this.env, {
+				mailboxId,
+				messageId: id,
+				from: String(row.sender),
+				to,
+				cc: parseEmailList(row.cc),
+				bcc: parseEmailList(row.bcc),
+				subject: String(row.subject || "(No Subject)"),
+				html: looksLikeHtml ? body : undefined,
+				text: looksLikeHtml ? htmlToText(body) : body,
+				attachments,
+				inReplyTo: row.in_reply_to ? String(row.in_reply_to) : undefined,
+				references,
+			});
+		} catch (err) {
+			return await fail(err instanceof Error ? err.message : "Sending failed");
+		}
+
+		sql.exec(
+			"UPDATE emails SET folder_id = 'sent', date = ?, delivery_status = 'inbox', scheduled_at = NULL, send_error = NULL WHERE id = ?",
+			new Date().toISOString(),
+			id,
+		);
+		return { ok: true };
+	}
+
+	async #rescheduleAlarm(): Promise<void> {
+		const sql = this.ctx.storage.sql;
+		const snooze = sql
+			.exec("SELECT MIN(snoozed_until) AS t FROM emails WHERE snoozed_until IS NOT NULL")
+			.toArray()[0] as any;
+		const scheduled = sql
+			.exec("SELECT MIN(scheduled_at) AS t FROM emails WHERE scheduled_at IS NOT NULL AND delivery_status = 'scheduled' AND folder_id = 'drafts'")
+			.toArray()[0] as any;
+		const stuck = sql
+			.exec("SELECT COUNT(*) AS n FROM emails WHERE delivery_status = 'sending' AND folder_id = 'drafts'")
+			.toArray()[0] as any;
+		const staleCheck = Number(stuck?.n || 0) > 0 ? new Date(Date.now() + STALE_SENDING_MS).toISOString() : null;
+		const next = earliest(snooze?.t ? String(snooze.t) : null, scheduled?.t ? String(scheduled.t) : null, staleCheck);
+		if (!next) {
+			await this.ctx.storage.deleteAlarm();
+			return;
+		}
+		await this.ctx.storage.setAlarm(Math.max(Date.parse(next), Date.now() + 1000));
+	}
+
+	/** Web Push to everyone with access to `mailboxId`. Never throws. */
+	async #notifyMembers(
+		mailboxId: string,
+		n: { title: string; body: string; tag: string; url: string },
+	): Promise<void> {
+		try {
+			const authDO = this.env.MAILBOX.get(this.env.MAILBOX.idFromName("AUTH"));
+			const targets = await authDO.getPushTargetsForMailbox(mailboxId);
+			if (targets.length === 0) return;
+			const vapidKeys = await this.getVapidKeys();
+			const subjectContact = this.env.VAPID_SUBJECT || "support@reflect.cloud";
+			const payload = {
+				title: n.title,
+				body: n.body,
+				icon: "/icons/icon-192.png",
+				badge: "/icons/badge-72.png",
+				tag: n.tag,
+				data: { mailboxId, url: n.url },
+				actions: [{ action: "open", title: "Open" }],
+			};
+			await Promise.allSettled(
+				targets.map(async (sub) => {
+					const result = await sendWebPush(
+						{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+						payload,
+						vapidKeys,
+						subjectContact,
+					);
+					if (!result.success && (result.statusCode === 404 || result.statusCode === 410)) {
+						await authDO.purgePushEndpoint(sub.endpoint).catch(() => {});
+					}
+				}),
+			);
+		} catch (err) {
+			console.error("Notification failed:", err);
+		}
+	}
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+	let bin = "";
+	const chunk = 0x8000;
+	for (let i = 0; i < bytes.length; i += chunk) {
+		bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+	}
+	return btoa(bin);
 }

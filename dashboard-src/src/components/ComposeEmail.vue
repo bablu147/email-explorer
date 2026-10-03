@@ -292,21 +292,35 @@
               >
                 Cancel
               </button>
-              <button 
-                type="button"
-                @click="triggerSendFlow(false)"
-                :disabled="isLoading || totalAttachmentSize > 25 * 1024 * 1024"
-                class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <svg v-if="!isLoading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Send Message</span>
-              </button>
+              <div class="flex items-center shadow-md hover:shadow-lg transition-all rounded-xl overflow-hidden">
+                <button 
+                  type="button"
+                  @click="triggerSendFlow(false)"
+                  :disabled="isLoading || totalAttachmentSize > 25 * 1024 * 1024"
+                  class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <svg v-if="!isLoading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Send</span>
+                </button>
+                <button
+                  type="button"
+                  @click="showScheduleModal = true"
+                  :disabled="isLoading"
+                  class="px-2 py-2 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold border-l border-emerald-500/40 transition-all flex items-center disabled:opacity-50 cursor-pointer"
+                  title="Schedule send…"
+                  aria-label="Schedule send"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </form>
@@ -576,6 +590,7 @@ const currentDraftId = ref<string | null>(null);
 const error = ref<string | null>(null);
 const isLoading = ref(false);
 const showPreviewModal = ref(false);
+const showScheduleModal = ref(false);
 const previewDevice = ref<"desktop" | "mobile">("desktop");
 const fileInputRef = ref<HTMLInputElement | null>(null);
 

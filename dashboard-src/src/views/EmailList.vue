@@ -347,6 +347,29 @@
                     Bounced
                   </span>
                   <span
+                    v-if="email.snoozed_until"
+                    class="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 whitespace-nowrap font-medium"
+                    :title="'Snoozed until ' + formatTooltipDate(email.snoozed_until)"
+                  >
+                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Snoozed · {{ formatFriendlyDate(email.snoozed_until) }}
+                  </span>
+                  <span
+                    v-else-if="email.scheduled_at"
+                    class="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 whitespace-nowrap font-medium"
+                    :title="'Scheduled for ' + formatTooltipDate(email.scheduled_at)"
+                  >
+                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Scheduled · {{ formatFriendlyDate(email.scheduled_at) }}
+                  </span>
+                  <span
+                    v-else-if="email.send_error"
+                    class="inline-flex items-center gap-1 text-red-600 dark:text-red-400 whitespace-nowrap font-medium"
+                    :title="email.send_error"
+                  >
+                    Send failed
+                  </span>
+                  <span
                     v-else-if="email.delivery_status === 'spam'"
                     class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"
                     title="Delivered to the recipient's spam folder"
@@ -439,6 +462,43 @@
                 </svg>
                 <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+              </button>
+              <!-- Snooze / Unsnooze / Send Now -->
+              <button
+                v-if="folderId !== 'snoozed' && folderId !== 'scheduled' && folderId !== 'trash'"
+                type="button"
+                @click.stop.prevent="openSnooze(email)"
+                class="p-1.5 rounded-md text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                title="Snooze (h)"
+                aria-label="Snooze"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+              <button
+                v-else-if="folderId === 'snoozed'"
+                type="button"
+                @click.stop.prevent="mail.unsnoozeEmails(mailboxId, [email])"
+                class="p-1.5 rounded-md text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer"
+                title="Move to Inbox"
+                aria-label="Move to Inbox"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </button>
+              <button
+                v-else-if="folderId === 'scheduled'"
+                type="button"
+                @click.stop.prevent="handleSendScheduledNow(email)"
+                class="p-1.5 rounded-md text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors cursor-pointer"
+                title="Send now"
+                aria-label="Send now"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
               <button
@@ -589,6 +649,8 @@
         @next="handleReadingPaneNext"
         @archive="onReadingPaneArchive"
         @trash="onReadingPaneTrash"
+        @snooze="openSnooze"
+        @unsnooze="(e) => mail.unsnoozeEmails(mailboxId, [e])"
       />
     </div>
 
@@ -620,6 +682,14 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           <span class="hidden sm:inline">{{ allSelectedRead ? 'Unread' : 'Read' }}</span>
         </button>
+        <button v-if="folderId !== 'snoozed' && folderId !== 'scheduled' && folderId !== 'trash'" type="button" @click="openSnoozeSelected" class="bulk-btn" title="Snooze (h)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="hidden sm:inline">Snooze</span>
+        </button>
+        <button v-else-if="folderId === 'snoozed'" type="button" @click="unsnoozeSelected" class="bulk-btn" title="Move to Inbox">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+          <span class="hidden sm:inline">Inbox</span>
+        </button>
         <div class="h-4 w-px bg-white/15 mx-1"></div>
         <button type="button" @click="selectedEmailIds = []" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Clear selection (Esc)" aria-label="Clear selection">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -637,6 +707,14 @@
       :loading="isExecutingDelete"
       @close="isDeleteConfirmOpen = false"
       @confirm="executePendingDelete"
+    />
+
+    <!-- Snooze Modal -->
+    <SnoozeModal
+      :show="showSnoozeModal"
+      :email-subject="emailToSnooze?.subject"
+      @close="showSnoozeModal = false"
+      @snooze="handleSnoozeConfirm"
     />
 
     <!-- Keyboard shortcuts -->
@@ -684,9 +762,11 @@ import { useRoute, useRouter } from "vue-router";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import ConfirmModal from "@/components/ConfirmModal.vue";
+import SnoozeModal from "@/components/SnoozeModal.vue";
 import ReadingPane from "@/components/ReadingPane.vue";
 import { useMailActions } from "@/composables/useMailActions";
-import { visibleToastRows } from "@/composables/useToast";
+import { useToast, visibleToastRows } from "@/composables/useToast";
+import api from "@/services/api";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
@@ -704,6 +784,7 @@ const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
 const uiStore = useUIStore();
 const mail = useMailActions();
+const toast = useToast();
 
 const filterMode = ref<FilterMode>("all");
 const searchQuery = ref("");
@@ -955,6 +1036,8 @@ const emptyTitle = computed(() => {
 	if (folderId.value === "archive") return "Nothing archived yet";
 	if (folderId.value === "drafts" || folderId.value === "draft") return "No drafts";
 	if (folderId.value === "starred") return "No starred messages";
+	if (folderId.value === "snoozed") return "No snoozed messages";
+	if (folderId.value === "scheduled") return "No scheduled emails";
 	return `No messages in ${folderName.value}`;
 });
 const emptyHint = computed(() => {
@@ -966,6 +1049,8 @@ const emptyHint = computed(() => {
 	if (filterMode.value === "viewed") return "When recipients open your emails, they'll show up here.";
 	if (folderId.value === "trash") return "Deleted messages land here and can be restored until you delete them forever.";
 	if (folderId.value === "starred") return "Press s on any message to star it.";
+	if (folderId.value === "snoozed") return "Snooze messages from your inbox to review them when you're ready.";
+	if (folderId.value === "scheduled") return "Emails you schedule will wait here until their delivery time.";
 	return "Messages will appear here as they arrive.";
 });
 
@@ -1227,6 +1312,51 @@ const markSelectedRead = (read: boolean) => mail.setRead(mailboxId.value, select
 const toggleReadStatus = (email: Email) => mail.setRead(mailboxId.value, [email], !email.read);
 const toggleStarStatus = (email: Email) => mail.setStarred(mailboxId.value, [email], !email.starred);
 
+// ── Snooze & Schedule ────────────────────────────────────────────────────────
+const showSnoozeModal = ref(false);
+const emailToSnooze = ref<Email | null>(null);
+
+const openSnooze = (email: Email) => {
+	emailToSnooze.value = email;
+	showSnoozeModal.value = true;
+};
+
+const openSnoozeSelected = () => {
+	if (selectedEmails.value.length === 0) return;
+	emailToSnooze.value = selectedEmails.value[0];
+	showSnoozeModal.value = true;
+};
+
+const handleSnoozeConfirm = async (isoString: string) => {
+	showSnoozeModal.value = false;
+	const targets = selectedEmailIds.value.length > 0 && emailToSnooze.value && selectedEmailIds.value.includes(emailToSnooze.value.id)
+		? selectedEmails.value
+		: (emailToSnooze.value ? [emailToSnooze.value] : []);
+	emailToSnooze.value = null;
+	if (targets.length === 0) return;
+	selectedEmailIds.value = [];
+	await mail.snoozeEmails(mailboxId.value, targets, isoString);
+};
+
+const unsnoozeSelected = async () => {
+	if (selectedEmails.value.length === 0) return;
+	const targets = [...selectedEmails.value];
+	selectedEmailIds.value = [];
+	await mail.unsnoozeEmails(mailboxId.value, targets);
+};
+
+const handleSendScheduledNow = async (email: Email) => {
+	try {
+		await api.sendScheduledNow(mailboxId.value, email.id);
+		toast.success("Scheduled email sent now!");
+		emailStore.removeLocal([email.id], { settled: true });
+		folderStore.fetchFolders(mailboxId.value);
+	} catch (err: any) {
+		toast.error(err.response?.data?.error || "Failed to send scheduled email");
+	}
+};
+
+
 const findInList = (id: string, fallback: Email) => emails.value.find((e) => e.id === id) || fallback;
 const onReadingPaneArchive = (email: Email) => handleArchive(findInList(email.id, email));
 const onReadingPaneTrash = (email: Email) => handleDelete(findInList(email.id, email));
@@ -1448,6 +1578,16 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		case "U":
 			e.preventDefault();
 			toggleReadStatus(active);
+			return;
+		case "h":
+		case "H":
+			if (isRestoreFolder.value || isOutgoingFolder.value) return;
+			e.preventDefault();
+			if (folderId.value === "snoozed") {
+				mail.unsnoozeEmails(mailboxId.value, [active]);
+			} else {
+				openSnooze(active);
+			}
 			return;
 		case "e":
 		case "E":

@@ -6,7 +6,7 @@ import type { Email } from "@/types";
 import { settleAll } from "@/utils/concurrency";
 
 /** Folders that are "virtual" views rather than a real folder_id an email can live in. */
-const VIRTUAL_FOLDERS = new Set(["starred"]);
+const VIRTUAL_FOLDERS = new Set(["starred", "snoozed", "scheduled"]);
 
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
@@ -158,5 +158,61 @@ export function useMailActions() {
 		}
 	};
 
-	return { moveEmails, trashEmails, deleteForever, setRead, setStarred, folderLabel };
+	/**
+	 * Snooze emails until a given ISO time with optimistic removal and Undo.
+	 */
+	const snoozeEmails = async (
+		mailboxId: string,
+		emails: Email[],
+		untilIso: string,
+	): Promise<string[]> => {
+		const rows = emails.filter(Boolean);
+		if (!mailboxId || rows.length === 0) return [];
+
+		const listKeyAtAction = emailStore.listKey;
+		const removal = emailStore.removeLocal(rows.map((e) => e.id));
+
+		const results = await settleAll(rows, (e) => api.snoozeEmail(mailboxId, e.id, untilIso));
+		removal?.settle();
+		const snoozed = rows.filter((_, i) => results[i].status === "fulfilled");
+		const failed = rows.filter((_, i) => results[i].status === "rejected");
+
+		if (failed.length > 0) {
+			if (emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(failed, { settled: true });
+			toast.error(`Couldn't snooze ${failed.length === 1 ? "conversation" : "conversations"}`);
+		}
+
+		if (snoozed.length > 0) {
+			toast.undoable(`${snoozed.length === 1 ? "Conversation" : `${snoozed.length} conversations`} snoozed`, async () => {
+				const restore = emailStore.listKey === listKeyAtAction ? emailStore.restoreLocal(snoozed) : null;
+				await settleAll(snoozed, (e) => api.snoozeEmail(mailboxId, e.id, null));
+				restore?.settle();
+				toast.info("Snooze cancelled", 2000);
+				folderStore.fetchFolders(mailboxId);
+			});
+		}
+
+		folderStore.fetchFolders(mailboxId);
+		return snoozed.map((e) => e.id);
+	};
+
+	/**
+	 * Unsnooze emails (bring back to inbox immediately).
+	 */
+	const unsnoozeEmails = async (
+		mailboxId: string,
+		emails: Email[],
+	): Promise<string[]> => {
+		const rows = emails.filter(Boolean);
+		if (!mailboxId || rows.length === 0) return [];
+		const listKeyAtAction = emailStore.listKey;
+		const removal = emailStore.removeLocal(rows.map((e) => e.id));
+		await settleAll(rows, (e) => api.snoozeEmail(mailboxId, e.id, null));
+		removal?.settle();
+		toast.info(`${rows.length === 1 ? "Conversation" : `${rows.length} conversations`} moved to Inbox`, 2000);
+		folderStore.fetchFolders(mailboxId);
+		return rows.map((e) => e.id);
+	};
+
+	return { moveEmails, trashEmails, deleteForever, snoozeEmails, unsnoozeEmails, setRead, setStarred, folderLabel };
 }

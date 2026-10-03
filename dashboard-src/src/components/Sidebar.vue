@@ -145,6 +145,32 @@
               </div>
             </router-link>
           </li>
+          <!-- Snoozed -->
+          <li>
+            <router-link 
+              :to="{ name: 'EmailList', params: { mailboxId: route.params.mailboxId, folder: 'snoozed' } }" 
+              class="flex items-center justify-between rounded-xl text-gray-700 dark:text-gray-300 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/20 transition-all text-xs sm:text-sm font-medium group"
+              :class="[
+                uiStore.sidebarCollapsed ? 'p-2.5 justify-center' : 'py-2 px-3',
+                isFolderActive('snoozed') ? 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 font-semibold border-r-2 border-indigo-500' : ''
+              ]"
+              :title="uiStore.sidebarCollapsed ? `Snoozed (${getFolderUnread('snoozed')})` : ''"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span v-if="!uiStore.sidebarCollapsed" class="truncate">Snoozed</span>
+              </div>
+              <span 
+                v-if="!uiStore.sidebarCollapsed && getFolderUnread('snoozed') > 0" 
+                class="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 ml-2 flex-shrink-0"
+              >
+                {{ getFolderUnread('snoozed') }}
+              </span>
+            </router-link>
+          </li>
+
 
           <!-- Sent -->
           <li>
@@ -165,6 +191,32 @@
               </div>
             </router-link>
           </li>
+          <!-- Scheduled -->
+          <li>
+            <router-link 
+              :to="{ name: 'EmailList', params: { mailboxId: route.params.mailboxId, folder: 'scheduled' } }" 
+              class="flex items-center justify-between rounded-xl text-gray-700 dark:text-gray-300 hover:bg-purple-50/70 dark:hover:bg-purple-950/20 transition-all text-xs sm:text-sm font-medium group"
+              :class="[
+                uiStore.sidebarCollapsed ? 'p-2.5 justify-center' : 'py-2 px-3',
+                isFolderActive('scheduled') ? 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 font-semibold border-r-2 border-purple-500' : ''
+              ]"
+              :title="uiStore.sidebarCollapsed ? `Scheduled (${getFolderUnread('scheduled')})` : ''"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span v-if="!uiStore.sidebarCollapsed" class="truncate">Scheduled</span>
+              </div>
+              <span 
+                v-if="!uiStore.sidebarCollapsed && getFolderUnread('scheduled') > 0" 
+                class="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 ml-2 flex-shrink-0"
+              >
+                {{ getFolderUnread('scheduled') }}
+              </span>
+            </router-link>
+          </li>
+
 
           <!-- Drafts -->
           <li>
@@ -431,7 +483,7 @@ const uiStore = useUIStore();
 const route = useRoute();
 const router = useRouter();
 
-const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft", "drafts", "starred"];
+const defaultFolderIds = ["archive", "inbox", "sent", "spam", "trash", "draft", "drafts", "starred", "snoozed", "scheduled"];
 
 // Folder Modal state
 const isFolderModalOpen = ref(false);

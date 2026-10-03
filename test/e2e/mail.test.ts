@@ -537,3 +537,73 @@ describe("security regressions", () => {
 		assert.equal((await api.get(`/api/v1/mailboxes/${enc(BOX)}/pipeline`, member)).status, 200);
 	});
 });
+
+describe("snooze and scheduled send", () => {
+	test("snoozing hides an inbox email until woken or unsnoozed", async () => {
+		await api.deliver(rawEmail({ from: "snoozer@sender.io", to: BOX, subject: "Snooze me please" }), "snoozer@sender.io", BOX);
+		const inbox1 = await list("inbox");
+		const msg = inbox1.find((e) => e.subject === "Snooze me please")!;
+		assert.ok(msg, "delivered into inbox");
+
+		// Validation errors
+		const bad = await api.post(`/api/v1/mailboxes/${enc(BOX)}/emails/${msg.id}/snooze`, { until: "not-a-date" }, admin);
+		assert.equal(bad.status, 400);
+
+		// Snooze for 2 hours
+		const twoHoursLater = new Date(Date.now() + 7_200_000).toISOString();
+		const snoozedRes = await api.post(`/api/v1/mailboxes/${enc(BOX)}/emails/${msg.id}/snooze`, { until: twoHoursLater }, admin);
+		assert.equal(snoozedRes.status, 200);
+
+		// Disappears from inbox
+		const inbox2 = await list("inbox");
+		assert.ok(!inbox2.some((e) => e.id === msg.id), "hidden from inbox");
+
+		// Appears in snoozed folder
+		const snoozedList = await list("snoozed");
+		assert.ok(snoozedList.some((e) => e.id === msg.id), "present in snoozed view");
+
+		// Unsnooze
+		const unsnoozeRes = await api.post(`/api/v1/mailboxes/${enc(BOX)}/emails/${msg.id}/snooze`, { until: null }, admin);
+		assert.equal(unsnoozeRes.status, 200);
+
+		const inbox3 = await list("inbox");
+		assert.ok(inbox3.some((e) => e.id === msg.id), "back in inbox after unsnoozing");
+	});
+
+	test("scheduled sends stay in scheduled queue until sent or cancelled", async () => {
+		const before = new Set(sentFiles());
+		const twoHoursLater = new Date(Date.now() + 7_200_000).toISOString();
+
+		// Create scheduled email via send endpoint
+		const res = await send({
+			to: "scheduled.rcpt@client.io",
+			subject: "Scheduled Delivery Test",
+			text: "Hello in the future",
+			send_at: twoHoursLater,
+		});
+		assert.equal(res.status, 201);
+		assert.equal(res.body.status, "scheduled");
+		const id = res.body.id;
+
+		// Not in regular drafts
+		const drafts = await list("drafts");
+		assert.ok(!drafts.some((e) => e.id === id), "excluded from regular drafts");
+
+		// Present in scheduled view
+		const scheduled = await list("scheduled");
+		assert.ok(scheduled.some((e) => e.id === id), "present in scheduled view");
+
+		// Nothing actually sent yet
+		assert.equal(sentFiles().filter((f) => !before.has(f)).length, 0);
+
+		// Send now
+		const sendNowRes = await api.post(`/api/v1/mailboxes/${enc(BOX)}/emails/${id}/send-now`, {}, admin);
+		assert.equal(sendNowRes.status, 200);
+
+		// Now sent
+		const [mime] = await waitForNewMessages(before, 1);
+		assert.ok(mime.includes("Scheduled Delivery Test"));
+		const sent = await list("sent");
+		assert.ok(sent.some((e) => e.id === id), "moved to sent folder");
+	});
+});

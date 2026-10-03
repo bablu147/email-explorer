@@ -6,17 +6,15 @@ import PostalMime from "postal-mime";
 import { z } from "zod";
 import { buildMimeMessage } from "./mime-builder";
 import { registerFollowUpRoutes, runFollowUps } from "./routes/followups";
+import { registerSchedulingRoutes, runDueAcrossMailboxes } from "./routes/scheduling";
 import { registerSuppressionRoutes } from "./routes/suppression";
 import { registerTemplateRoutes } from "./routes/templates";
-import {
-	appendUnsubscribeFooter,
-	parseBounce,
-	renderLeavingPage,
-	isHttpUrl,
-	signClickLink,
-	signUnsubscribeToken,
-	verifyClickLink,
-} from "./suppression";
+import { deliverMessage, type OutboundAttachment } from "./delivery";
+import { checkSendAt, parseEmailList } from "./scheduling";
+import { parseBounce, renderLeavingPage, isHttpUrl, verifyClickLink } from "./suppression";
+import { injectEmailTracking } from "./tracking";
+
+export { injectEmailTracking };
 import {
 	GetMe,
 	GetUsers,
@@ -114,6 +112,14 @@ const EmailMetadataSchema = z.object({
 	in_reply_to: z.string().nullable().optional(),
 	email_references: z.string().nullable().optional(),
 	thread_id: z.string().nullable().optional(),
+	opened_at: z.string().nullable().optional(),
+	opened_count: z.number().optional(),
+	clicked_at: z.string().nullable().optional(),
+	clicked_count: z.number().optional(),
+	delivery_status: z.string().nullable().optional(),
+	snoozed_until: z.string().nullable().optional(),
+	scheduled_at: z.string().nullable().optional(),
+	send_error: z.string().nullable().optional(),
 });
 
 const AttachmentSchema = z.object({
@@ -141,6 +147,8 @@ const SendEmailRequestSchema = z
 		text: z.string().optional(),
 		is_draft: z.boolean().optional(),
 		draft_id: z.string().optional(),
+		/** ISO time to send at. The message is stored as a scheduled draft and sent by an alarm. */
+		send_at: z.string().optional(),
 		attachments: z
 			.array(
 				z.object({
@@ -536,60 +544,6 @@ export function base64ToBytes(b64: string): Uint8Array {
 	return out;
 }
 
-// An href holds HTML, so "&amp;" means "&". Decode it so the tracked link points at the real URL.
-function decodeHrefEntities(url: string): string {
-	return url.replace(/&amp;/gi, "&");
-}
-
-export async function injectEmailTracking(
-	htmlContent: string | undefined,
-	mailboxId: string,
-	messageId: string,
-	clickSecret: string,
-): Promise<string | undefined> {
-	if (!htmlContent) return htmlContent;
-	const trackingBase = "https://mail.reflect.cloud";
-	// Gmail & webmail clients skip fetching images with display:none!
-	// Using standard 1x1 inline pixel with opacity:0.01 guarantees GoogleImageProxy loads it upon open.
-	const openPixel = `<img src="${trackingBase}/api/v1/track/open/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}" width="1" height="1" alt="" border="0" style="width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;max-width:1px!important;max-height:1px!important;opacity:0.01;pointer-events:none;border:none!important;display:inline!important;margin:0!important;padding:0!important;" />`;
-
-	// Signing is async, so collect the links first, then substitute.
-	const linkPattern = /<a\s+([^>]*?)href=(["'])(https?:\/\/[^"'\s>]+)\2([^>]*)>/gi;
-	const signatures = new Map<string, string>();
-	for (const m of htmlContent.matchAll(linkPattern)) {
-		const originalUrl = decodeHrefEntities(m[3]);
-		if (!signatures.has(originalUrl)) {
-			signatures.set(
-				originalUrl,
-				await signClickLink(clickSecret, mailboxId, messageId, originalUrl),
-			);
-		}
-	}
-	let trackedHtml = htmlContent.replace(
-		linkPattern,
-		(match, prefix, _quote, rawUrl, suffix) => {
-			const originalUrl = decodeHrefEntities(rawUrl);
-			if (
-				originalUrl.includes("/api/v1/track/") ||
-				originalUrl.includes("/api/v1/unsubscribe/")
-			)
-				return match;
-			const sig = signatures.get(originalUrl) ?? "";
-			const trackedUrl = `${trackingBase}/api/v1/track/click/${encodeURIComponent(mailboxId)}/${encodeURIComponent(messageId)}?url=${encodeURIComponent(originalUrl)}&s=${encodeURIComponent(sig)}`;
-			return `<a ${prefix}href="${trackedUrl}"${suffix}>`;
-		},
-	);
-
-	if (trackedHtml.includes("</body>")) {
-		trackedHtml = trackedHtml.replace("</body>", `${openPixel}</body>`);
-	} else if (trackedHtml.includes("</html>")) {
-		trackedHtml = trackedHtml.replace("</html>", `${openPixel}</html>`);
-	} else {
-		trackedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;">${trackedHtml}${openPixel}</body></html>`;
-	}
-	return trackedHtml;
-}
-
 class PostEmail extends OpenAPIRoute {
 	schema = {
 		summary: "Send an email",
@@ -630,6 +584,7 @@ class PostEmail extends OpenAPIRoute {
 			thread_id,
 			is_draft,
 			draft_id,
+			send_at,
 		} = data.body;
 
 		const key = `mailboxes/${mailboxId}.json`;
@@ -638,21 +593,6 @@ class PostEmail extends OpenAPIRoute {
 			return c.json({ error: "Not found" }, 404);
 		}
 
-		// Helper to extract clean email addresses
-		const parseEmailList = (input?: string | string[]): string[] => {
-			if (!input) return [];
-			const rawList = Array.isArray(input) ? input : input.split(/[,;\n]+/);
-			const results: string[] = [];
-			for (const item of rawList) {
-				const match = item.match(/<([^>]+)>/) || [null, item];
-				const email = (match[1] || item).trim();
-				if (email && email.includes("@")) {
-					results.push(email);
-				}
-			}
-			return results;
-		};
-
 		const toList = parseEmailList(to);
 		const ccList = parseEmailList(cc);
 		const bccList = parseEmailList(bcc);
@@ -660,67 +600,41 @@ class PostEmail extends OpenAPIRoute {
 			new Set([...toList, ...ccList, ...bccList]),
 		);
 
-		const messageId = is_draft && draft_id ? draft_id : crypto.randomUUID();
+		// A scheduled send is saved as a draft that carries its send time; an alarm sends it later.
+		let scheduledAt: string | null = null;
+		if (send_at && !is_draft) {
+			const check = checkSendAt(send_at);
+			if (!check.ok) return c.json({ error: check.error }, 400);
+			if (allEnvelopeRecipients.length === 0) {
+				return c.json({ error: "No valid recipient email provided" }, 400);
+			}
+			scheduledAt = check.iso ?? null;
+		}
+		const savesAsDraft = !!is_draft || scheduledAt !== null;
+
+		const messageId = savesAsDraft && draft_id ? draft_id : crypto.randomUUID();
 
 		// If not a draft, send email via Cloudflare Email Sending
-		if (!is_draft) {
+		if (!savesAsDraft) {
 			if (allEnvelopeRecipients.length === 0) {
 				return c.json({ error: "No valid recipient email provided" }, 400);
 			}
 
-			// One signing secret serves unsubscribe tokens and click-tracking link signatures.
-			const signingSecret = await c.env.MAILBOX.get(
-				c.env.MAILBOX.idFromName("AUTH"),
-			).getUnsubscribeSecret();
-			const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, signingSecret);
-
-			// Outreach = a brand-new message (not a reply or forward). Only outreach carries an
-			// unsubscribe link and the List-Unsubscribe headers, signed per recipient.
-			const isOutreach = !in_reply_to;
-			const unsubscribeSecret = isOutreach ? signingSecret : null;
-
-			const buildMimeFor = async (recipient: string) => {
-				let bodyHtml = outboundHtml;
-				let bodyText = text;
-				let extraHeaders: Record<string, string> | undefined;
-				if (unsubscribeSecret) {
-					const token = await signUnsubscribeToken(unsubscribeSecret, recipient, mailboxId);
-					const unsubscribeUrl = `https://mail.reflect.cloud/api/v1/unsubscribe/${token}`;
-					const withFooter = appendUnsubscribeFooter(outboundHtml, text, unsubscribeUrl);
-					bodyHtml = withFooter.html;
-					bodyText = withFooter.text;
-					extraHeaders = {
-						"List-Unsubscribe": `<${unsubscribeUrl}>`,
-						"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-					};
-				}
-				// Build MIME message using RFC 5322 builder
-				return buildMimeMessage({
+			try {
+				await deliverMessage(c.env, {
+					mailboxId,
+					messageId,
 					from,
 					to: toList,
-					cc: ccList.length > 0 ? ccList : undefined,
-					bcc: bccList.length > 0 ? bccList : undefined,
+					cc: ccList,
+					bcc: bccList,
 					subject,
-					text: bodyText,
-					html: bodyHtml,
-					attachments: attachments?.map((att) => ({
-						filename: att.filename,
-						content: att.content,
-						type: att.type,
-						disposition: att.disposition || "attachment",
-						contentId: att.contentId,
-					})),
+					html,
+					text,
+					attachments: attachments as OutboundAttachment[] | undefined,
 					inReplyTo: in_reply_to,
-					references: references,
-					headers: extraHeaders,
+					references,
 				});
-			};
-
-			try {
-				for (const recipient of allEnvelopeRecipients) {
-					const message = new EmailMessage(from, recipient, await buildMimeFor(recipient));
-					await c.env.SEND_EMAIL.send(message);
-				}
 			} catch (e) {
 				return c.json({ error: (e as Error).message }, 500);
 			}
@@ -749,7 +663,7 @@ class PostEmail extends OpenAPIRoute {
 			}
 		}
 
-		if (is_draft) {
+		if (savesAsDraft) {
 			await stub.upsertDraft(
 				messageId,
 				{
@@ -769,6 +683,11 @@ class PostEmail extends OpenAPIRoute {
 				},
 				attachmentData,
 			);
+
+			if (scheduledAt) {
+				await stub.scheduleDraft(messageId, scheduledAt, mailboxId);
+				return c.json({ id: messageId, status: "scheduled", scheduled_at: scheduledAt }, 201);
+			}
 
 			return c.json({ id: messageId, status: "draft_saved" }, 201);
 		}
@@ -1934,6 +1853,7 @@ app.get("/api/v1/track/click/:mailboxId/:emailId", async (c) => {
 registerSuppressionRoutes(app);
 registerTemplateRoutes(app);
 registerFollowUpRoutes(app);
+registerSchedulingRoutes(app);
 
 const openapi = fromHono(app);
 
@@ -2194,10 +2114,13 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 		) {
 			await receiveEmail(event, env, context);
 		},
-		/** Cron: prepares follow-up drafts (never sends). */
+		/** Cron: prepares follow-up drafts and runs due queue items across mailboxes. */
 		async scheduled(_event: unknown, env: Env, context: ExecutionContext) {
 			context.waitUntil(
-				runFollowUps(env).catch((err) => console.error("Scheduled follow-ups failed:", err)),
+				Promise.allSettled([
+					runFollowUps(env).catch((err) => console.error("Scheduled follow-ups failed:", err)),
+					runDueAcrossMailboxes(env).catch((err) => console.error("Scheduled mail queue check failed:", err)),
+				]),
 			);
 		},
 		async fetch(request: Request, env: Env, context: ExecutionContext) {
