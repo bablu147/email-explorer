@@ -21,7 +21,7 @@
             v-model="query"
             type="text"
             placeholder="Type a command, search contacts, apps, or folders..."
-            class="flex-1 bg-transparent border-none text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none"
+            class="flex-1 bg-transparent border-none text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none"
             @keydown.down.prevent="navigateDown"
             @keydown.up.prevent="navigateUp"
             @keydown.enter.prevent="executeActiveItem"

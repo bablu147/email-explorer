@@ -4,24 +4,26 @@
     <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
       <Header />
       <main
-        class="flex-1 min-h-0 overflow-y-auto bg-white dark:bg-gray-900 flex flex-col sm:!pb-0"
+        class="flex-1 min-h-0 bg-white dark:bg-gray-900 flex flex-col lg:!pb-0"
         :style="{ paddingBottom: 'calc(4.25rem + env(safe-area-inset-bottom, 0px))' }"
       >
         <router-view />
       </main>
     </div>
-    <ComposeEmail />
+    <ComposeEmail v-if="uiStore.isComposeModalOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { defineAsyncComponent, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
-import ComposeEmail from "@/components/ComposeEmail.vue";
 import Header from "@/components/Header.vue";
 import Sidebar from "@/components/Sidebar.vue";
 import { useMailboxStore } from "@/stores/mailboxes";
+import { useUIStore } from "@/stores/ui";
 
+const ComposeEmail = defineAsyncComponent(() => import("@/components/ComposeEmail.vue"));
+const uiStore = useUIStore();
 const mailboxStore = useMailboxStore();
 const route = useRoute();
 

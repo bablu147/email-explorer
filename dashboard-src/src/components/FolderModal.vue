@@ -2,12 +2,12 @@
   <Teleport to="body">
     <div 
       v-if="isOpen" 
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
       @click.self="handleClose"
       @keydown.esc="handleClose"
     >
       <div 
-        class="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden p-6 transition-colors"
+        class="w-full max-w-md bg-white dark:bg-gray-900 border-t sm:border border-gray-200 dark:border-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:pb-6 transition-colors animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
       >
@@ -62,7 +62,7 @@
               type="text"
               maxlength="50"
               placeholder="e.g. VIP Partners, Q4 Outreach, Bug Reports"
-              class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+              class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border rounded-xl text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
               :class="validationError ? 'border-red-500 dark:border-red-500' : 'border-gray-200 dark:border-gray-700'"
             />
             <p v-if="validationError" class="text-xs text-red-500 mt-1 font-medium">

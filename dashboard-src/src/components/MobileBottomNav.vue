@@ -1,7 +1,7 @@
 <template>
   <nav
     v-if="shouldShow"
-    class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 transition-colors"
+    class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 transition-colors"
     :style="{ paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))', paddingTop: '0.5rem' }"
   >
     <div class="grid grid-cols-5 items-center justify-around px-1">

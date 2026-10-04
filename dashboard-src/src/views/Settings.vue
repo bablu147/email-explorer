@@ -21,7 +21,7 @@
             type="text" 
             id="name" 
             v-model="mailbox.name" 
-            class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-gray-100 p-3 text-sm transition-all" 
+            class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-gray-100 p-3 text-base sm:text-sm transition-all" 
           />
         </div>
         <div>
@@ -30,7 +30,7 @@
             type="email" 
             id="email" 
             v-model="mailbox.email" 
-            class="block w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs text-gray-500 dark:text-gray-400 p-3 text-sm cursor-not-allowed" 
+            class="block w-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xs text-gray-500 dark:text-gray-400 p-3 text-base sm:text-sm cursor-not-allowed" 
             disabled 
           />
         </div>
@@ -137,7 +137,7 @@
               type="email"
               placeholder="Add an address to never contact"
               @keydown.enter.prevent="addSuppressionEntry"
-              class="flex-1 min-w-0 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              class="flex-1 min-w-0 px-3 py-2 text-base sm:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             />
             <button
               type="button"

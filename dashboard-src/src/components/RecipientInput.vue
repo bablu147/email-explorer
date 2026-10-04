@@ -43,7 +43,7 @@
         <button
           type="button"
           @click.stop="removeChip(idx)"
-          class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded p-0.5 transition-colors cursor-pointer"
+          class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded p-1 sm:p-0.5 transition-colors cursor-pointer relative before:content-[''] before:absolute before:-inset-2 before:min-w-[44px] before:min-h-[44px] before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2"
           title="Remove recipient"
         >
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,7 +63,7 @@
           @blur="handleBlur"
           @keydown="handleKeyDown"
           @paste="handlePaste"
-          class="w-full bg-transparent text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none border-none py-1 px-1"
+          class="w-full bg-transparent text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none border-none py-1 px-1"
         />
       </div>
     </div>

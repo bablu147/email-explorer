@@ -29,6 +29,10 @@ export function useTheme() {
 		} else {
 			document.documentElement.classList.remove("dark");
 		}
+		const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+		if (metaThemeColor) {
+			metaThemeColor.setAttribute("content", dark ? "#0E1117" : "#F6F8FA");
+		}
 	}
 
 	function toggleTheme() {

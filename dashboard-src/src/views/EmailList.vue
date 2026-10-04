@@ -3,7 +3,7 @@
     <!-- Left Pane: Email Stream List -->
     <div
       ref="listScrollEl"
-      class="flex flex-col min-h-0 h-full overflow-y-auto overscroll-contain"
+      class="flex flex-col min-h-0 h-full overflow-y-auto overscroll-contain touch-pan-y"
       :class="[
         uiStore.splitViewMode === 'split'
           ? 'w-full md:w-auto shrink-0'
@@ -99,7 +99,7 @@
               :key="opt.id"
               type="button"
               @click="filterMode = opt.id"
-              class="px-2.5 py-1 rounded-md whitespace-nowrap transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              class="px-2.5 py-1.5 sm:py-1 rounded-md whitespace-nowrap transition-colors cursor-pointer inline-flex items-center gap-1.5 min-h-[36px] sm:min-h-0 relative before:content-[''] before:absolute before:-inset-1 before:min-w-[44px] before:min-h-[44px] before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 sm:before:hidden"
               :class="filterMode === opt.id
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
@@ -225,7 +225,7 @@
             @touchend="cancelLongPress"
             @touchcancel="cancelLongPress"
             @contextmenu="onRowContextMenu"
-            class="touch-row group relative cursor-pointer border-b border-gray-100 dark:border-gray-800/80 transition-colors duration-100"
+            class="touch-row group relative cursor-pointer border-b border-gray-100 dark:border-gray-800/80 transition-colors duration-100 min-h-[72px] flex flex-col justify-center"
             :class="rowClass(email, idx)"
             role="option"
             :aria-selected="activeEmailId === email.id || selectedEmailIds.includes(email.id)"
@@ -237,7 +237,7 @@
               :class="activeEmailId === email.id ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-500'"
             ></span>
 
-            <div class="flex items-start gap-3 pl-4 pr-3 sm:pr-4 py-2.5">
+            <div class="flex items-start gap-3 pl-4 pr-3 sm:pr-4 py-2.5 min-h-[72px] w-full">
               <!-- Selection checkbox: reveals on hover (desktop) or when selecting -->
               <div
                 class="pt-2.5 -ml-1 shrink-0"
@@ -293,7 +293,7 @@
                   <span
                     v-else
                     class="text-sm truncate"
-                    :class="!email.read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'"
+                    :class="!email.read ? 'font-bold md:font-semibold text-gray-900 dark:text-white' : 'font-semibold md:font-medium text-gray-700 dark:text-gray-300'"
                   >
                     {{ getDisplayName(email.sender) }}
                   </span>
@@ -326,14 +326,30 @@
                   </div>
                 </div>
 
-                <!-- Line 2: subject — snippet -->
-                <p class="text-[13px] truncate leading-snug mt-0.5">
+                <!-- Desktop (>= md): subject — snippet -->
+                <p class="hidden md:block text-[13px] truncate leading-snug mt-0.5">
                   <span :class="!email.read && !isOutgoingFolder ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-800 dark:text-gray-200'">
                     {{ email.subject || "(No subject)" }}
                   </span>
                   <span v-if="getSnippet(email.body)" class="text-gray-500 dark:text-gray-400">
                     &nbsp;— {{ getSnippet(email.body) }}
                   </span>
+                </p>
+
+                <!-- Mobile (< md): Line 2 Bold Subject -->
+                <p
+                  class="md:hidden text-sm font-semibold truncate leading-snug mt-0.5"
+                  :class="!email.read && !isOutgoingFolder ? 'text-gray-900 dark:text-white font-bold' : 'text-gray-800 dark:text-gray-200'"
+                >
+                  {{ email.subject || "(No subject)" }}
+                </p>
+
+                <!-- Mobile (< md): Line 3 Clamped Preview Snippet (2-line clamped) -->
+                <p
+                  v-if="getSnippet(email.body)"
+                  class="md:hidden text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed mt-0.5"
+                >
+                  {{ getSnippet(email.body) }}
                 </p>
 
                 <!-- Line 3 (Sent): delivery & engagement -->
@@ -1762,7 +1778,7 @@ watch(
   transition-property: opacity, transform, translate, bottom;
   transition-duration: 0.18s;
 }
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .bulk-bar {
     bottom: 1.5rem;
   }

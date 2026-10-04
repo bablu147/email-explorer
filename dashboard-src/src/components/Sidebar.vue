@@ -8,7 +8,7 @@
     ></div>
 
     <aside 
-      class="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 h-full p-4 select-none transition-all duration-200 fixed lg:static inset-y-0 left-0 z-50 overflow-hidden"
+      class="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 h-full p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] lg:pt-4 lg:pb-4 select-none transition-all duration-200 fixed lg:static inset-y-0 left-0 z-50 overflow-hidden"
       :class="[
         uiStore.isMobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0',
         uiStore.sidebarCollapsed ? 'lg:w-20 lg:p-3' : 'w-72 lg:w-64 xl:w-68 sm:p-5'

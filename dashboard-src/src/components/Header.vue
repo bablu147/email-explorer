@@ -1,5 +1,5 @@
 <template>
-  <header class="h-14 flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 transition-colors">
+  <header class="h-[calc(3.5rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 transition-colors">
     <!-- Left: Mobile Menu Toggle & Omni-Search Bar -->
     <div class="flex items-center gap-2 sm:gap-3 flex-1 max-w-xl min-w-0">
       <!-- Mobile Drawer Hamburger Button -->
@@ -18,7 +18,7 @@
       <button 
         type="button"
         @click="uiStore.openCommandPalette"
-        class="relative flex-1 min-w-[200px] max-w-md flex items-center justify-between pl-9 pr-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-xl text-gray-400 dark:text-gray-400 text-left transition-all cursor-pointer group shadow-2xs"
+        class="relative flex-1 min-w-0 sm:min-w-[200px] max-w-md flex items-center justify-between pl-9 pr-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-xl text-gray-400 dark:text-gray-400 text-left transition-all cursor-pointer group shadow-2xs"
         title="Open Command Palette (⌘K)"
       >
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -92,7 +92,7 @@
       <button 
         type="button" 
         @click="handleSettingsClick" 
-        class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
+        class="hidden sm:flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
         title="Mailbox Settings"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

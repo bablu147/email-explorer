@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#059669">
+    <meta name="theme-color" content="#0E1117">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Reflect Mail">
@@ -19,22 +19,23 @@
       (function() {
         try {
           var t = localStorage.getItem('reflect_theme') || (document.cookie.match(/reflect_theme=(dark|light)/) || [])[1];
+          var isDark = true;
           if (t === 'light') {
-            document.documentElement.setAttribute('data-theme', 'light');
-            document.documentElement.classList.remove('dark');
+            isDark = false;
           } else if (t === 'dark') {
+            isDark = true;
+          } else {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (isDark) {
             document.documentElement.setAttribute('data-theme', 'dark');
             document.documentElement.classList.add('dark');
           } else {
-            var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (prefersDark) {
-              document.documentElement.setAttribute('data-theme', 'dark');
-              document.documentElement.classList.add('dark');
-            } else {
-              document.documentElement.setAttribute('data-theme', 'light');
-              document.documentElement.classList.remove('dark');
-            }
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.documentElement.classList.remove('dark');
           }
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0E1117' : '#F6F8FA');
         } catch(e) {}
       })();
     </script>
@@ -193,9 +194,9 @@
         pointer-events: none;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-D7ycf6_I.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/tiptap-CXznhGxX.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-QKaOLoZF.css">
+    <script type="module" crossorigin src="/assets/index-CCCVRAPd.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/tiptap-CrTO-qLb.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BBPGD5Hw.css">
   </head>
   <body>
     <div id="app"></div>

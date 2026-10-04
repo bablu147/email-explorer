@@ -251,7 +251,7 @@
           placeholder="Write a quick reply... (Cmd+Enter to send)"
           @keydown.meta.enter="dispatchQuickReply"
           @keydown.ctrl.enter="dispatchQuickReply"
-          class="w-full bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none leading-relaxed"
+          class="w-full bg-transparent text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none resize-none leading-relaxed"
         ></textarea>
 
         <div class="flex items-center justify-between pt-2 border-t border-gray-200/60 dark:border-gray-700/40 mt-1">

@@ -70,11 +70,11 @@ const updateIframeContent = () => {
 		const doc = iframe.value.contentDocument;
 		if (doc) {
 			const isDark = isDarkTheme.value;
-			const bgColor = isDark ? "#0f172a" : "#ffffff";
-			const textColor = isDark ? "#e2e8f0" : "#1e293b";
-			const linkColor = isDark ? "#38bdf8" : "#0284c7";
-			const quoteBorder = isDark ? "#334155" : "#cbd5e1";
-			const quoteColor = isDark ? "#94a3b8" : "#64748b";
+			const bgColor = isDark ? "#0E1117" : "#ffffff";
+			const textColor = isDark ? "#E6E8EC" : "#1e293b";
+			const linkColor = isDark ? "#4ED49B" : "#0284c7";
+			const quoteBorder = isDark ? "#252B36" : "#cbd5e1";
+			const quoteColor = isDark ? "#8A92A0" : "#64748b";
 
 			doc.open();
 			doc.write(`
@@ -117,7 +117,7 @@ const updateIframeContent = () => {
               pre, code {
                 font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                 font-size: 12px;
-                background: ${isDark ? "#1e293b" : "#f1f5f9"};
+                background: ${isDark ? "#161A22" : "#f1f5f9"};
                 border-radius: 4px;
                 padding: 2px 4px;
               }

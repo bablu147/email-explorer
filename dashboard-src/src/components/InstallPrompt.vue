@@ -3,7 +3,7 @@
     <!-- Floating Install Prompt Banner -->
     <div
       v-if="showBanner && !isInstalled"
-      class="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-md z-40 bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-2xl border border-gray-700/80 flex items-start gap-3.5 animate-in fade-in slide-in-from-bottom-4 duration-300"
+      class="fixed top-[calc(4rem+env(safe-area-inset-top,0px))] left-3 right-3 lg:top-auto lg:bottom-6 lg:left-auto lg:right-6 lg:max-w-md z-40 bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-2xl border border-gray-700/80 flex items-start gap-3.5 animate-in fade-in slide-in-from-top-4 lg:slide-in-from-bottom-4 duration-300"
     >
       <!-- App Icon -->
       <img

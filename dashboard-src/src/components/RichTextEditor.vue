@@ -1,10 +1,10 @@
 <template>
   <div class="rich-text-editor border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900/50 flex flex-col">
     <!-- Toolbar -->
-    <div v-if="editor" class="toolbar bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 p-2 flex flex-wrap items-center justify-between gap-1">
-      <div class="flex flex-wrap items-center gap-1">
+    <div v-if="editor" class="toolbar bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 px-2 py-1.5 flex items-center justify-between gap-1 overflow-x-auto touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div class="flex items-center gap-1 shrink-0 flex-nowrap sm:flex-wrap">
         <!-- Text Formatting (Enabled in Visual mode) -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().toggleBold().run()"
@@ -53,7 +53,7 @@
         </div>
 
         <!-- Headings -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().toggleHeading({ level: 1 }).run()"
@@ -84,7 +84,7 @@
         </div>
 
         <!-- Lists -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().toggleBulletList().run()"
@@ -110,7 +110,7 @@
         </div>
 
         <!-- Alignment -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().setTextAlign('left').run()"
@@ -147,7 +147,7 @@
         </div>
 
         <!-- Quote, Code, Link -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().toggleBlockquote().run()"
@@ -184,7 +184,7 @@
         </div>
 
         <!-- Image Insertion (Upload from PC, Paste, or URL) -->
-        <div v-if="viewMode === 'visual'" class="relative flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-2">
+        <div v-if="viewMode === 'visual'" class="relative flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
           <input
             type="file"
             ref="fileInput"
@@ -233,7 +233,7 @@
         </div>
 
         <!-- Text Colors & Utilities -->
-        <div v-if="viewMode === 'visual'" class="flex gap-1">
+        <div v-if="viewMode === 'visual'" class="flex gap-1 shrink-0">
           <button
             type="button"
             @click="editor.chain().focus().undo().run()"
@@ -260,7 +260,7 @@
       </div>
 
       <!-- View Mode Switcher: Visual · HTML Source · Live Split Preview -->
-      <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
+      <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-lg border border-gray-200 dark:border-gray-600 shrink-0 ml-2">
         <button
           type="button"
           @click="setViewMode('visual')"
@@ -795,10 +795,24 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .toolbar-btn {
+  min-width: 40px;
+  min-height: 40px;
   padding: 0.4rem 0.5rem;
   border-radius: 0.375rem;
   color: rgb(75 85 99);
   transition: all 120ms;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .toolbar-btn {
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0.35rem 0.5rem;
+  }
 }
 
 .toolbar-btn:hover {
@@ -811,18 +825,21 @@ onBeforeUnmount(() => {
   color: #0F8C5E;
 }
 
-@media (prefers-color-scheme: dark) {
-  .toolbar-btn {
-    color: rgb(156 163 175);
-  }
-  .toolbar-btn:hover {
-    background-color: rgb(31 41 55);
-    color: rgb(243 244 246);
-  }
-  .toolbar-btn.is-active {
-    background-color: rgba(78, 212, 155, 0.2);
-    color: #4ED49B;
-  }
+:global([data-theme="dark"]) .toolbar-btn,
+:global(.dark) .toolbar-btn {
+  color: rgb(156 163 175);
+}
+
+:global([data-theme="dark"]) .toolbar-btn:hover,
+:global(.dark) .toolbar-btn:hover {
+  background-color: rgb(31 41 55);
+  color: rgb(243 244 246);
+}
+
+:global([data-theme="dark"]) .toolbar-btn.is-active,
+:global(.dark) .toolbar-btn.is-active {
+  background-color: rgba(78, 212, 155, 0.2);
+  color: #4ED49B;
 }
 
 :deep(.ProseMirror) {

@@ -100,11 +100,11 @@ const submitCustom = () => {
 <template>
   <div 
     v-if="show" 
-    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[70] p-4"
+    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4"
     @click.self="emit('close')"
   >
     <div 
-      class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150 select-none"
+      class="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-sm w-full p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-5 border-t sm:border border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 select-none"
     >
       <div class="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700/60">
         <div class="flex items-center gap-2">
