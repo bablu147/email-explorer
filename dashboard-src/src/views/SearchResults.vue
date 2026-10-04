@@ -25,13 +25,13 @@
           v-model="inputValue"
           type="text"
           placeholder="Search emails or use filters like from:alice is:unread has:attachment folder:inbox..."
-          class="w-full pl-10 pr-10 py-2.5 text-sm bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all shadow-xs"
+          class="w-full pl-10 pr-10 py-2.5 text-base sm:text-sm bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all shadow-xs"
           @keydown.enter="handleSearch"
         />
         <button
           v-if="inputValue"
           @click="clearSearch"
-          class="absolute right-3 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md transition-colors"
+          class="absolute right-3 p-1.5 sm:p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md transition-colors cursor-pointer relative before:content-[''] before:absolute before:-inset-2 before:min-w-[44px] before:min-h-[44px] before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2"
           title="Clear search"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +52,7 @@
           <span>{{ chip.value }}</span>
           <button
             @click="removeFilterToken(chip.raw)"
-            class="ml-1 hover:text-emerald-900 dark:hover:text-emerald-100 p-0.5 rounded-full"
+            class="ml-1 hover:text-emerald-900 dark:hover:text-emerald-100 p-1 sm:p-0.5 rounded-full cursor-pointer relative before:content-[''] before:absolute before:-inset-2 before:min-w-[44px] before:min-h-[44px] before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2"
             title="Remove filter"
           >
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,7 +69,7 @@
           v-for="preset in quickFilters"
           :key="preset.token"
           @click="addFilterToken(preset.token)"
-          class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors border border-gray-200/60 dark:border-gray-700/60"
+          class="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-0.5 min-h-[32px] sm:min-h-0 rounded-md text-xs sm:text-[11px] font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors border border-gray-200/60 dark:border-gray-700/60 cursor-pointer"
         >
           <svg class="w-2.5 h-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

@@ -1,12 +1,12 @@
 <template>
   <div
     v-if="isModalOpen"
-    class="fixed inset-0 bg-slate-950/65 backdrop-blur-md flex items-center justify-center z-[80] p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
+    class="fixed inset-0 bg-slate-950/65 backdrop-blur-md flex items-end sm:items-center justify-center z-[80] p-0 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
     @click.self="closeModal"
     @keydown.esc="closeModal"
   >
     <div
-      class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 overflow-hidden transform transition-all flex flex-col max-h-[92vh]"
+      class="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl text-gray-900 dark:text-gray-100 border-t sm:border border-gray-200 dark:border-gray-800 overflow-hidden transform transition-all flex flex-col max-h-[92vh] pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-0"
     >
       <!-- Modal Header -->
       <div
@@ -105,7 +105,7 @@
               @input="onEmailInput"
               type="text"
               placeholder="e.g. contact@gamestudio.com or publisher@studio.io"
-              class="block w-full bg-gray-50 dark:bg-gray-900/60 border rounded-xl pl-10 pr-10 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 transition-all font-mono"
+              class="block w-full bg-gray-50 dark:bg-gray-900/60 border rounded-xl pl-10 pr-10 py-2.5 text-base sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 transition-all font-mono"
               :class="isValidEmail 
                 ? 'border-emerald-500/60 focus:ring-emerald-500/30 focus:border-emerald-500' 
                 : targetEmail.trim() 
@@ -224,7 +224,7 @@
               @keydown.enter.prevent="executeLookup"
               type="text"
               placeholder="e.g. Clash of Clans, Slack, play.google.com/..., apps.apple.com/..., or domain.com"
-              class="w-full pl-10 pr-24 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:focus:ring-emerald-400 placeholder-gray-400 text-gray-900 dark:text-gray-100 transition-all"
+              class="w-full pl-10 pr-24 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-base sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:focus:ring-emerald-400 placeholder-gray-400 text-gray-900 dark:text-gray-100 transition-all"
             />
 
             <div class="absolute inset-y-0 right-1.5 flex items-center gap-1">

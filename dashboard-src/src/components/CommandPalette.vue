@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       v-if="uiStore.isCommandPaletteOpen"
-      class="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
+      class="fixed inset-0 z-50 flex items-start justify-center pt-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:pt-24 px-3 sm:px-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-150"
       @click.self="closePalette"
       @keydown.esc="closePalette"
     >
