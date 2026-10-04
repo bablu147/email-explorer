@@ -1,2 +1,10 @@
 /*
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
+  # script-src is enforced (no inline script may be added to index.html); the full policy is report-only until observed clean.
+  Content-Security-Policy: script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self'; frame-src 'self' blob: data:; worker-src 'self'; manifest-src 'self'; form-action 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'

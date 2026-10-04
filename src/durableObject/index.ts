@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { DOQB } from "workers-qb";
 import type { AppBinding, DiscoverLead, Env, PushSubscriptionRecord, Session, User } from "../types";
 import type { Chain } from "../outreach";
+import type { SendBlock } from "../delivery";
 import { authMigrations, mailboxMigrations } from "./migrations";
 
 import { AuthHandler } from "./auth";
@@ -148,7 +149,9 @@ export class MailboxDO extends DurableObject<Env> {
 			this.ctx.storage,
 			this.env,
 			this.#isAuthDO,
-			(draftId, email, atts) => this.#emails.upsertDraft(draftId, email, atts),
+			async (draftId, email, atts) => {
+				await this.#emails.upsertDraft(draftId, email, atts);
+			},
 		);
 	}
 
@@ -251,8 +254,16 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.#emails.createEmail(folder, email, attachments, mailboxId);
 	}
 
-	async upsertDraft(draftId: string, email: EmailData, attachments: any[]) {
-		return this.#emails.upsertDraft(draftId, email, attachments);
+	async upsertDraft(draftId: string, email: EmailData, attachments: any[], reschedules = false) {
+		return this.#emails.upsertDraft(draftId, email, attachments, reschedules);
+	}
+
+	async getDraftState(id: string) {
+		return this.#emails.getDraftState(id);
+	}
+
+	async deleteDraft(id: string) {
+		return this.#emails.deleteDraft(id);
 	}
 
 	async getThreadEmails(threadId: string) {
@@ -460,7 +471,10 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.#scheduling.getQueueSummary();
 	}
 
-	async sendScheduledNow(id: string, mailboxId: string): Promise<{ ok: boolean; error?: string }> {
+	async sendScheduledNow(
+		id: string,
+		mailboxId: string,
+	): Promise<{ ok: boolean; error?: string; blocked?: SendBlock }> {
 		return this.#scheduling.sendScheduledNow(id, mailboxId);
 	}
 

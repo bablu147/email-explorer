@@ -4,11 +4,13 @@
  * Web Push events, and interactive notification actions.
  */
 
-const CACHE_NAME = "reflect-mail-v1";
+// Bump when the app shell changes shape: activate deletes every cache with another name.
+const CACHE_NAME = "reflect-mail-v2";
 
 const PRECACHE_ASSETS = [
 	"/",
 	"/index.html",
+	"/theme-boot.js",
 	"/favicon.svg",
 	"/manifest.webmanifest",
 	"/icons/icon-192.png",

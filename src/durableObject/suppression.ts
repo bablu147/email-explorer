@@ -1,3 +1,4 @@
+import { SUPPRESSION_CHECK_BATCH } from "../suppression";
 import type { Env } from "../types";
 
 export class SuppressionHandler {
@@ -89,7 +90,7 @@ export class SuppressionHandler {
 	): Promise<Array<{ email: string; reason: string; created_at: string }>> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
 		const out: Array<{ email: string; reason: string; created_at: string }> = [];
-		const unique = Array.from(new Set(emails.map((e) => e.toLowerCase()))).slice(0, 200);
+		const unique = Array.from(new Set(emails.map((e) => e.toLowerCase()))).slice(0, SUPPRESSION_CHECK_BATCH);
 		for (const email of unique) {
 			const row = this.#sql
 				.exec("SELECT email, reason, created_at FROM suppressions WHERE email = ?", email)

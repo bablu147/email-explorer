@@ -287,7 +287,7 @@ import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
 import EmailIframe from "@/components/EmailIframe.vue";
 import { useToast } from "@/composables/useToast";
-import api from "@/services/api";
+import api, { apiErrorMessage } from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
 import { firstNameFromSender, renderTemplate, useTemplatesStore } from "@/stores/templates";
 import { useUIStore } from "@/stores/ui";
@@ -326,12 +326,22 @@ templatesStore.load().catch(() => {
   /* the dropdown simply stays empty if templates can't be loaded */
 });
 
+/** Bare, lower-cased address of `Name <a@b>` or `a@b`, for exact comparison. */
+const addressOf = (value?: string | null): string =>
+  ((value || "").match(/<([^>]+)>/)?.[1] || value || "").trim().toLowerCase();
+
+// Per message, by its own folder first. The folder the thread was opened from can't decide it: a
+// thread opened from Sent also holds the replies we received, and answering one of those must not
+// address our own mailbox. In Inbox and Spam the From header is whatever the outside sender wrote,
+// so spam that names our own address is not ours: it must not be labelled "You", and a reply must
+// not go to the To header it chose. The sender's exact address (a mailbox's id is its address) is
+// only used where the folder says nothing: Archive, Trash, custom folders, rows without a folder.
 const isSentMessage = (msg: Email): boolean => {
-  return (
-    props.fromFolder === "sent" ||
-    (msg.opened_count !== undefined && msg.opened_count !== null && msg.opened_count > 0) ||
-    msg.folder_id === "sent"
-  );
+  const folder = msg.folder_id || "";
+  if (["sent", "drafts", "scheduled"].includes(folder)) return true;
+  if (folder === "inbox" || folder === "spam") return false;
+  const own = addressOf(props.mailboxId);
+  return !!own && addressOf(msg.sender) === own;
 };
 
 const isExpanded = (id: string): boolean => {
@@ -388,11 +398,25 @@ const latestMessage = computed(() => {
     : props.rootEmail;
 });
 
-const replyTargetEmail = computed(() => {
-  const latest = latestMessage.value;
-  if (!latest) return "";
-  return isSentMessage(latest) ? latest.recipient : latest.sender;
+// The message the reply box answers: the latest one we received, so a second reply in a row still
+// answers the correspondent (and still threads with their message) instead of our own last message.
+// A conversation with nothing received yet falls back to its latest message.
+const replyOriginal = computed(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    if (!isSentMessage(messages.value[i])) return messages.value[i];
+  }
+  return latestMessage.value;
 });
+
+const replyTargetEmail = computed(() => {
+  const original = replyOriginal.value;
+  if (!original) return "";
+  return isSentMessage(original) ? original.recipient : original.sender;
+});
+
+/** The reply box holds plain text; this is its HTML form (escaped, line breaks kept). */
+const quickReplyHtml = (text: string): string =>
+  `<p>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`;
 
 const loadThread = async () => {
   if (!props.mailboxId || !props.rootEmail) {
@@ -405,7 +429,10 @@ const loadThread = async () => {
     const threadTargetId = props.rootEmail.thread_id || props.rootEmail.id;
     const res = await api.getThread(props.mailboxId, threadTargetId);
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-      messages.value = res.data;
+      // Drafts and scheduled messages (both live in Drafts) are not part of the conversation yet.
+      // Listed here they looked sent, and the reply box answered them instead of the last real message.
+      const delivered = res.data.filter((m: Email) => m.folder_id !== "drafts" || m.id === props.rootEmail.id);
+      messages.value = delivered.length > 0 ? delivered : [props.rootEmail];
     } else {
       messages.value = [props.rootEmail];
     }
@@ -519,32 +546,42 @@ const handleStarSingle = async (msg: Email) => {
 };
 
 const openFullComposer = () => {
-  const latest = latestMessage.value;
+  const original = replyOriginal.value;
+  const typed = quickReplyText.value.trim();
   uiStore.openComposeModal({
-    mode: isSentMessage(latest) ? "new" : "reply",
-    originalEmail: latest,
+    mode: isSentMessage(original) ? "new" : "reply",
+    originalEmail: original,
     initialTo: replyTargetEmail.value,
-    initialSubject: latest.subject.startsWith("Re:") ? latest.subject : `Re: ${latest.subject}`,
-    initialBody: quickReplyText.value,
+    initialSubject: original.subject.startsWith("Re:") ? original.subject : `Re: ${original.subject}`,
+    // The composer takes HTML. Handed the raw text, "<john@x.com>" vanished as an unknown tag and
+    // line breaks collapsed.
+    initialBody: typed ? quickReplyHtml(quickReplyText.value) : "",
+    initialBodyUnsaved: !!typed,
   });
+  // The text now lives in the composer. Left here too, with Send Reply enabled, the same reply
+  // could be sent a second time from this box.
+  quickReplyText.value = "";
+  selectedCannedSnippet.value = "";
 };
 
 const dispatchQuickReply = async () => {
   if (!quickReplyText.value.trim() || sendingReply.value) return;
 
-  const latest = latestMessage.value;
+  const original = replyOriginal.value;
   sendingReply.value = true;
   try {
-    const replySubject = latest.subject.startsWith("Re:")
-      ? latest.subject
-      : `Re: ${latest.subject}`;
+    const replySubject = original.subject.startsWith("Re:")
+      ? original.subject
+      : `Re: ${original.subject}`;
 
-    await api.sendEmail(props.mailboxId, {
+    // Through the reply endpoint, which derives In-Reply-To, References and the thread from the
+    // message being answered. The box holds plain text, so it is escaped before it becomes HTML.
+    const text = quickReplyText.value;
+    await api.replyToEmail(props.mailboxId, original.id, {
       to: replyTargetEmail.value,
       subject: replySubject,
-      body: `<p>${quickReplyText.value.replace(/\n/g, "<br>")}</p>`,
-      inReplyTo: latest.id,
-      thread_id: latest.thread_id || latest.id,
+      html: quickReplyHtml(text),
+      text,
     });
 
     toast.success("Reply dispatched to conversation");
@@ -555,7 +592,7 @@ const dispatchQuickReply = async () => {
     await loadThread();
     emit("thread-updated");
   } catch (err: any) {
-    toast.error(err.response?.data?.error || "Failed to dispatch reply");
+    toast.error(apiErrorMessage(err, "Failed to dispatch reply"));
   } finally {
     sendingReply.value = false;
   }

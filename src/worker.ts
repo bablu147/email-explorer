@@ -1,13 +1,12 @@
 import { fromHono } from "chanfana";
 import { type Context, Hono } from "hono";
-import { cors } from "hono/cors";
 import { registerFollowUpRoutes, runFollowUps } from "./routes/followups";
 import { registerSchedulingRoutes, runDueAcrossMailboxes } from "./routes/scheduling";
 import { registerSuppressionRoutes } from "./routes/suppression";
 import { registerTemplateRoutes } from "./routes/templates";
 import { isHttpUrl, renderLeavingPage, verifyClickLink } from "./suppression";
 import { injectEmailTracking } from "./tracking";
-import { receiveEmail } from "./inbound";
+import { type InboundEmailEvent, receiveEmail } from "./inbound";
 
 import {
 	GetMe,
@@ -58,7 +57,6 @@ import {
 	PutMailbox,
 	DeleteMailbox,
 	PostMailbox,
-	CreateDummyMailbox,
 	PostForgotPassword,
 	PostResetPassword,
 	GetAppSettings,
@@ -145,7 +143,6 @@ function requiresSession(pathname: string): boolean {
 }
 
 const app = new Hono<{ Bindings: Env; Variables: { session?: Session } }>();
-app.use("/api/*", cors());
 
 // Transparent 1x1 GIF for open tracking
 const TRANSPARENT_GIF_BYTES = Uint8Array.from(
@@ -270,7 +267,6 @@ openapi.post("/api/push/unsubscribe", PostUnsubscribePush);
 openapi.post("/api/push/test", PostTestPush);
 
 // Mailbox & Email endpoints
-openapi.post("/api/v1/debug/create-mailbox", CreateDummyMailbox);
 openapi.get("/api/v1/mailboxes", GetMailboxes);
 openapi.post("/api/v1/mailboxes", PostMailbox);
 openapi.get("/api/v1/mailboxes/:mailboxId", GetMailbox);
@@ -321,7 +317,7 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 
 	return {
 		async email(
-			event: { raw: ReadableStream; rawSize: number },
+			event: InboundEmailEvent,
 			env: Env,
 			context: ExecutionContext,
 		) {
@@ -384,7 +380,10 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 					const authId = env.MAILBOX.idFromName("AUTH");
 					const authDO = env.MAILBOX.get(authId);
 					const userMailboxes = await authDO.getUserMailboxes(session.userId);
-					if (!userMailboxes.some((m: any) => m.mailboxId === mailboxId)) {
+					// Compared without regard to letter case: mailbox ids are lower-case, but a grant is
+					// stored as the admin typed it ("Support@Reflect.cloud") and used to match nothing.
+					const wanted = mailboxId.toLowerCase();
+					if (!userMailboxes.some((m: any) => String(m.mailboxId).toLowerCase() === wanted)) {
 						return c.json(
 							{ error: "You don't have access to this mailbox" },
 							403,

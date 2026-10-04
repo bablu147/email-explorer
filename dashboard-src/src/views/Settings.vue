@@ -127,7 +127,7 @@
               </span>
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Addresses that bounced, unsubscribed, or were added by hand. Composing to one of them shows a warning; you can still send.
+              Addresses that bounced, unsubscribed, or were added by hand. New messages, forwards and follow-ups to them are not sent; a reply to mail they sent you still is. Only an admin can remove an address.
             </p>
           </div>
 
@@ -357,11 +357,10 @@ onMounted(() => {
 	}
 });
 
-const stripHtml = (html: string): string => {
-	const div = document.createElement("div");
-	div.innerHTML = html;
-	return div.textContent || div.innerText || "";
-};
+// Parsed in an inert document: innerHTML on an element of the app document would run any event
+// handler in the markup (`<img onerror=…>`), even on a detached element.
+const stripHtml = (html: string): string =>
+	new DOMParser().parseFromString(html, "text/html").body.textContent || "";
 
 const updateSettings = async () => {
 	if (mailbox.value) {

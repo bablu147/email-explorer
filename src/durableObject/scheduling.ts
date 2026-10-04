@@ -1,6 +1,7 @@
-import { deliverMessage } from "../delivery";
+import { checkDoNotContact, deliverMessage, type SendBlock } from "../delivery";
 import { sendWebPush } from "../push-crypto";
-import { earliest, htmlToText, parseEmailList } from "../scheduling";
+import { describeInvalidRecipients, earliest, htmlToText, parseRecipients } from "../scheduling";
+import { answeredSender } from "../suppression";
 import type { Env } from "../types";
 
 const STALE_SENDING_MS = 10 * 60_000;
@@ -91,7 +92,10 @@ export class SchedulingHandler {
 		};
 	}
 
-	async sendScheduledNow(id: string, mailboxId: string): Promise<{ ok: boolean; error?: string }> {
+	async sendScheduledNow(
+		id: string,
+		mailboxId: string,
+	): Promise<{ ok: boolean; error?: string; blocked?: SendBlock }> {
 		if (this.#isAuthDO) throw new Error("Not a mailbox DO");
 		const sql = this.#sql;
 		const row = sql.exec("SELECT folder_id, delivery_status FROM emails WHERE id = ?", id).toArray()[0] as any;
@@ -171,7 +175,10 @@ export class SchedulingHandler {
 		return { woke: woken.length, sent, failed };
 	}
 
-	async sendScheduled(id: string, mailboxIdHint: string): Promise<{ ok: boolean; error?: string }> {
+	async sendScheduled(
+		id: string,
+		mailboxId: string,
+	): Promise<{ ok: boolean; error?: string; blocked?: SendBlock }> {
 		const sql = this.#sql;
 		const row = sql.exec("SELECT * FROM emails WHERE id = ?", id).toArray()[0] as any;
 		if (!row || row.folder_id !== "drafts" || (row.delivery_status !== "scheduled" && row.delivery_status !== "draft")) {
@@ -182,9 +189,8 @@ export class SchedulingHandler {
 			new Date().toISOString(),
 			id,
 		);
-		const mailboxId = mailboxIdHint || String(row.sender || "");
 
-		const fail = async (message: string) => {
+		const fail = async (message: string, blocked?: SendBlock) => {
 			sql.exec(
 				"UPDATE emails SET delivery_status = 'draft', scheduled_at = NULL, send_error = ? WHERE id = ?",
 				message,
@@ -200,12 +206,29 @@ export class SchedulingHandler {
 					}),
 				);
 			}
-			return { ok: false, error: message };
+			return { ok: false, error: message, blocked };
 		};
 
 		try {
-			const to = parseEmailList(row.recipient);
-			if (to.length === 0 && parseEmailList(row.cc).length === 0 && parseEmailList(row.bcc).length === 0) {
+			// The message goes out as this mailbox, never as the stored `sender`: a draft saved before
+			// the sender was pinned to the mailbox may carry a forged one. scheduleDraft and
+			// sendScheduledNow always record the mailbox id, so this only stops a row that has none.
+			if (!mailboxId) {
+				return await fail("Could not tell which mailbox this draft belongs to. Open the draft and send it again.");
+			}
+			// A draft is saved without being validated, so its recipients are checked here: an entry
+			// that is not a valid address stops the send (see parseRecipients).
+			const toParsed = parseRecipients(row.recipient);
+			const ccParsed = parseRecipients(row.cc);
+			const bccParsed = parseRecipients(row.bcc);
+			const invalidRecipients = [...toParsed.invalid, ...ccParsed.invalid, ...bccParsed.invalid];
+			if (invalidRecipients.length > 0) {
+				return await fail(describeInvalidRecipients(invalidRecipients));
+			}
+			const to = toParsed.valid;
+			const cc = ccParsed.valid;
+			const bcc = bccParsed.valid;
+			if (to.length === 0 && cc.length === 0 && bcc.length === 0) {
 				return await fail("This draft has no recipients.");
 			}
 			const atts = sql.exec("SELECT * FROM attachments WHERE email_id = ?", id).toArray() as any[];
@@ -230,13 +253,24 @@ export class SchedulingHandler {
 			} catch {
 				references = undefined;
 			}
+			// The do-not-contact list may have changed since this was scheduled, so it is checked again
+			// right before sending. As in the send route, the only address left out is the sender being
+			// answered (in_reply_to names a message this mailbox received).
+			const original = row.in_reply_to
+				? (sql.exec("SELECT folder_id, sender FROM emails WHERE id = ?", String(row.in_reply_to)).toArray()[0] as any)
+				: null;
+			const answered = answeredSender(original, mailboxId);
+			const block = await checkDoNotContact(
+				this.#env,
+				[...to, ...cc, ...bcc].filter((r) => r !== answered),
+			);
+			if (block) return await fail(block.error, block);
 			await deliverMessage(this.#env, {
 				mailboxId,
 				messageId: id,
-				from: String(row.sender),
 				to,
-				cc: parseEmailList(row.cc),
-				bcc: parseEmailList(row.bcc),
+				cc,
+				bcc,
 				subject: String(row.subject || "(No Subject)"),
 				html: looksLikeHtml ? body : undefined,
 				text: looksLikeHtml ? htmlToText(body) : body,
@@ -249,7 +283,8 @@ export class SchedulingHandler {
 		}
 
 		sql.exec(
-			"UPDATE emails SET folder_id = 'sent', date = ?, delivery_status = 'inbox', scheduled_at = NULL, send_error = NULL WHERE id = ?",
+			"UPDATE emails SET folder_id = 'sent', sender = ?, date = ?, delivery_status = 'inbox', scheduled_at = NULL, send_error = NULL WHERE id = ?",
+			mailboxId,
 			new Date().toISOString(),
 			id,
 		);

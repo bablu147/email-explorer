@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	answeredSender,
 	appendUnsubscribeFooter,
+	describeSuppressed,
 	isHttpUrl,
 	normalizeEmail,
 	renderLeavingPage,
@@ -19,6 +21,39 @@ test("normalizeEmail handles display names, case and junk", () => {
 	assert.equal(normalizeEmail("  a@b.co "), "a@b.co");
 	assert.equal(normalizeEmail("not-an-email"), null);
 	assert.equal(normalizeEmail(""), null);
+});
+
+test("normalizeEmail drops a trailing dot on the domain: it is the same mailbox", () => {
+	assert.equal(normalizeEmail("victim@x.com."), "victim@x.com");
+	assert.equal(normalizeEmail("Victim <Victim@X.com.>"), "victim@x.com");
+	assert.equal(normalizeEmail("victim@x.com.."), "victim@x.com");
+	assert.equal(normalizeEmail("victim@x."), null, "nothing valid is left without the dot");
+});
+
+test("normalizeEmail rejects control and invisible characters", () => {
+	// The header writer strips these, so the address checked would not be the one delivered to.
+	assert.equal(normalizeEmail("a@b.co\u0000"), null);
+	assert.equal(normalizeEmail("a\u200b@b.co"), null);
+	assert.equal(normalizeEmail("a@b\u00ad.co"), null);
+	assert.equal(normalizeEmail("a@b.co"), "a@b.co");
+});
+
+test("normalizeEmail rejects malformed forms instead of passing them through", () => {
+	for (const bad of [
+		"victim@x.com>",
+		"Victim <victim@x.com",
+		"<victim@x.com",
+		"<<victim@x.com>>",
+		"a@x.com, b@y.com",
+		"a@x.com b@y.com",
+		'"victim"@x.com',
+		"victim@@x.com",
+		"victim@x",
+		"@x.com",
+		"victim@",
+	]) {
+		assert.equal(normalizeEmail(bad), null, bad);
+	}
 });
 
 test("unsubscribe token round-trips", async () => {
@@ -122,4 +157,40 @@ test("isHttpUrl accepts only absolute http(s) urls", () => {
 test("the leaving page escapes the destination", () => {
 	const html = renderLeavingPage('https://e.com/"><script>alert(1)</script>');
 	assert.ok(!html.includes("<script>alert(1)"));
+});
+
+test("describeSuppressed names the blocked addresses in one sentence", () => {
+	assert.equal(
+		describeSuppressed(["a@b.io"]),
+		"a@b.io is on the do-not-contact list. Remove this address to send the message.",
+	);
+	assert.equal(
+		describeSuppressed(["a@b.io", "c@d.io"]),
+		"a@b.io, c@d.io are on the do-not-contact list. Remove these addresses to send the message.",
+	);
+	const seven = ["1@x.io", "2@x.io", "3@x.io", "4@x.io", "5@x.io", "6@x.io", "7@x.io"];
+	assert.equal(
+		describeSuppressed(seven),
+		"1@x.io, 2@x.io, 3@x.io, 4@x.io, 5@x.io and 2 more are on the do-not-contact list. Remove these addresses to send the message.",
+	);
+});
+
+test("only the sender of received mail is exempt from the do-not-contact list", () => {
+	const box = "sales@reflect.cloud";
+	// The exemption is one address, normalised so it compares equal to a parsed recipient.
+	assert.equal(answeredSender({ folder_id: "inbox", sender: "dev@studio.io" }, box), "dev@studio.io");
+	assert.equal(answeredSender({ folder_id: "archive", sender: "Dev <Dev@Studio.io>" }, box), "dev@studio.io");
+	assert.equal(answeredSender({ folder_id: "spam", sender: " dev@studio.io. " }, box), "dev@studio.io");
+	// A message this mailbox sent, wherever it is filed now, and its own drafts.
+	assert.equal(answeredSender({ folder_id: "sent", sender: box }, box), null);
+	assert.equal(answeredSender({ folder_id: "sent", sender: "forged@other.io" }, box), null);
+	assert.equal(answeredSender({ folder_id: "drafts", sender: "dev@studio.io" }, box), null);
+	assert.equal(answeredSender({ folder_id: "archive", sender: " Sales@Reflect.Cloud " }, box), null);
+	// A sender that is not an address exempts nobody.
+	assert.equal(answeredSender({ folder_id: "inbox", sender: "" }, box), null);
+	assert.equal(answeredSender({ folder_id: "inbox", sender: "not an address" }, box), null);
+	assert.equal(answeredSender({ folder_id: "inbox" }, box), null);
+	// No such message: in_reply_to named nothing in this mailbox.
+	assert.equal(answeredSender(null, box), null);
+	assert.equal(answeredSender(undefined, box), null);
 });

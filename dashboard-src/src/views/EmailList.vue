@@ -1194,14 +1194,11 @@ const expandToFullView = () => {
 	});
 };
 
+// Draft mode edits the stored draft itself: Cc/Bcc and attachments come back, no second signature
+// is added, and sending or saving names its id, so the draft is replaced. Opened as a new message
+// it lost those and stayed in Drafts next to the copy that was sent.
 const openDraftInComposer = (draftEmail: Email) => {
-	uiStore.openComposeModal({
-		mode: "new",
-		initialTo: draftEmail.recipient,
-		initialSubject: draftEmail.subject,
-		initialBody: draftEmail.body ?? undefined,
-		originalEmail: draftEmail,
-	});
+	uiStore.openComposeModal({ mode: "draft", originalEmail: draftEmail });
 };
 
 const threadCountMap = computed(() => {

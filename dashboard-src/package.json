@@ -11,7 +11,8 @@
 		"build": "run-p type-check \"build-only {@}\" --",
 		"preview": "vite preview",
 		"build-only": "vite build",
-		"type-check": "vue-tsc --build"
+		"type-check": "vue-tsc --build",
+		"test": "node test/run.mjs"
 	},
 	"dependencies": {
 		"@tiptap/extension-color": "^3.11.1",

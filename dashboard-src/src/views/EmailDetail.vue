@@ -570,8 +570,18 @@ onBeforeUnmount(() => {
 	document.removeEventListener("click", handleClickOutside);
 });
 
+// Snoozed and Scheduled are views, not folders a message can be moved into. Drafts takes only an
+// unsent message (a draft, or a scheduled one): the server refuses any other with a 409, because
+// whatever is in Drafts can be edited and sent as this mailbox.
 const moveToFolders = computed(() => {
-	return folders.value.filter((folder) => folder.id !== fromFolder.value);
+	const unsent = ["draft", "scheduled"].includes(email.value?.delivery_status || "");
+	return folders.value.filter(
+		(folder) =>
+			folder.id !== fromFolder.value &&
+			folder.id !== "snoozed" &&
+			folder.id !== "scheduled" &&
+			(folder.id !== "drafts" || unsent),
+	);
 });
 
 const emailBodyWithInlineImages = computed(() => {
@@ -603,11 +613,15 @@ const primaryMoveTarget = computed(() =>
 /**
  * Outgoing message? Inbound rows also carry opened_count = 0, so that column can't be used to decide.
  * Outgoing = lives in Sent, was opened from Sent, or was sent by this mailbox (covers sent mail that was later
- * archived / starred / opened from search or a push link).
+ * archived / starred / opened from search or a push link). The message's own folder decides first: in Inbox and
+ * Spam the From header is whatever the outside sender wrote, so spam that names our own address is not ours.
  */
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	if (email.value.folder_id === "sent" || fromFolder.value === "sent") return true;
+	const folder = email.value.folder_id || "";
+	if (folder === "sent") return true;
+	if (folder === "inbox" || folder === "spam") return false;
+	if (fromFolder.value === "sent") return true;
 	const own = (currentMailbox.value?.email || mailboxId.value || "").toLowerCase();
 	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });

@@ -5,11 +5,51 @@
 export type SuppressionReason = "bounce" | "unsubscribe" | "manual";
 
 const EMAIL_RE = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]+$/;
+// Control and invisible format characters (NUL, soft hyphen, zero-width space, …). The header
+// writer strips them, so "a@b.co\u0000" would be checked as one address and delivered as another.
+const INVISIBLE_RE = /[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/;
 
 export function normalizeEmail(input: string): string | null {
 	const m = String(input || "").match(/<([^>]+)>/);
-	const email = (m ? m[1] : String(input || "")).trim().toLowerCase();
-	return EMAIL_RE.test(email) ? email : null;
+	// A trailing dot on the domain ("a@b.co.") reaches the same mailbox as "a@b.co", so it has to be
+	// the same address here too: left on, it would not match its own do-not-contact entry.
+	const email = (m ? m[1] : String(input || "")).trim().toLowerCase().replace(/\.+$/, "");
+	return EMAIL_RE.test(email) && !INVISIBLE_RE.test(email) ? email : null;
+}
+
+/** Most addresses one checkSuppressions call looks at. Longer lists are checked in batches of this size. */
+export const SUPPRESSION_CHECK_BATCH = 200;
+
+/**
+ * One plain sentence naming the addresses that block a send. It is the API error and, for a
+ * scheduled message, the draft's send error, so it says what to do about it.
+ */
+export function describeSuppressed(emails: string[]): string {
+	const shown = emails.slice(0, 5);
+	const more = emails.length - shown.length;
+	const names = more > 0 ? `${shown.join(", ")} and ${more} more` : shown.join(", ");
+	return emails.length === 1
+		? `${names} is on the do-not-contact list. Remove this address to send the message.`
+		: `${names} are on the do-not-contact list. Remove these addresses to send the message.`;
+}
+
+/**
+ * The one address a message answering `original` may reach even when it is on the do-not-contact
+ * list: the sender of mail this mailbox received, because someone who wrote in must stay reachable
+ * after they unsubscribed. Every other recipient of the answer (a Cc, an address typed into To) is
+ * still held to the list. Null when there is no such address: a "reply" to a message the mailbox
+ * itself sent (or to one of its drafts) is a follow-up on its own outreach, and is checked in full
+ * like a new message.
+ */
+export function answeredSender(
+	original: { folder_id?: unknown; sender?: unknown } | null | undefined,
+	mailboxId: string,
+): string | null {
+	if (!original) return null;
+	const folder = String(original.folder_id ?? "");
+	if (folder === "sent" || folder === "drafts") return null;
+	const sender = normalizeEmail(String(original.sender ?? ""));
+	return sender && sender !== mailboxId.trim().toLowerCase() ? sender : null;
 }
 
 // ---------------------------------------------------------------------------------------------

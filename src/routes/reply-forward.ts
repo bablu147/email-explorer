@@ -2,24 +2,33 @@ import { EmailMessage } from "cloudflare:email";
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
+import { checkDoNotContact } from "../delivery";
 import { buildMimeMessage } from "../mime-builder";
+import { describeInvalidRecipients, parseRecipients } from "../scheduling";
+import { answeredSender } from "../suppression";
 import type { Env, Session } from "../types";
 import { base64ToBytes, injectEmailTracking } from "../worker";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
 
-export function parseEmailList(input?: string | string[]): string[] {
-	if (!input) return [];
-	const rawList = Array.isArray(input) ? input : input.split(/[,;\n]+/);
-	const results: string[] = [];
-	for (const item of rawList) {
-		const match = item.match(/<([^>]+)>/) || [null, item];
-		const email = (match[1] || item).trim();
-		if (email && email.includes("@")) {
-			results.push(email);
+/**
+ * Removes the composer's autosaved copy of a reply or forward that has just gone out. deleteDraft
+ * only deletes a row that really is a draft, so a draft_id naming anything else (the draft was
+ * already sent from another tab and is now the Sent record, say) is left alone. Never throws: the
+ * message is sent, and a failed cleanup must not turn that into an error.
+ */
+async function removeSentDraft(c: AppContext, mailboxId: string, draftId: string): Promise<void> {
+	try {
+		const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(mailboxId));
+		const oldAttachments = await stub.deleteDraft(draftId);
+		if (oldAttachments.length > 0) {
+			await c.env.BUCKET.delete(
+				oldAttachments.map((att: any) => `attachments/${draftId}/${att.id}/${att.filename}`),
+			);
 		}
+	} catch (e) {
+		console.error("Failed to cleanup draft after send:", e);
 	}
-	return results;
 }
 
 export const SendEmailRequestSchema = z
@@ -27,7 +36,8 @@ export const SendEmailRequestSchema = z
 		to: z.union([z.string(), z.array(z.string())]),
 		cc: z.union([z.string(), z.array(z.string())]).optional(),
 		bcc: z.union([z.string(), z.array(z.string())]).optional(),
-		from: z.string().email(),
+		// Optional: the sender is always the mailbox in the URL. If given, it must be that address.
+		from: z.string().email().optional(),
 		subject: z.string(),
 		html: z.string().optional(),
 		text: z.string().optional(),
@@ -45,7 +55,16 @@ export const SendEmailRequestSchema = z
 		in_reply_to: z.string().optional(),
 		references: z.array(z.string()).optional(),
 		thread_id: z.string().optional(),
+		// The composer's autosaved copy of this message. It is removed once the message has gone out.
+		draft_id: z.string().optional(),
+		// Accepted and ignored, only so that a dashboard loaded before this release can still reply
+		// and forward: its composer posts both keys here. `is_draft` must be false, because this
+		// route always sends. Remove both once those tabs are gone.
+		mailboxId: z.string().optional(),
+		is_draft: z.literal(false).optional(),
 	})
+	// An unknown key is a 400 instead of being silently dropped. (Attachment items stay loose.)
+	.strict()
 	.refine((data) => data.html || data.text, {
 		message: "Either 'html' or 'text' must be provided",
 	});
@@ -80,8 +99,20 @@ export class PostReplyEmail extends OpenAPIRoute {
 				description: "Bad request",
 				...contentJson(ErrorResponseSchema),
 			},
+			"403": {
+				description: "`from` is not this mailbox's own address",
+				...contentJson(ErrorResponseSchema),
+			},
 			"404": {
 				description: "Original email not found",
+				...contentJson(ErrorResponseSchema),
+			},
+			"422": {
+				description: "A recipient other than the sender being answered is on the do-not-contact list",
+				...contentJson(ErrorResponseSchema),
+			},
+			"503": {
+				description: "The do-not-contact list could not be checked",
 				...contentJson(ErrorResponseSchema),
 			},
 		},
@@ -90,12 +121,17 @@ export class PostReplyEmail extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId, id } = data.params;
-		const { to, cc, bcc, from, subject, html, text, attachments } = data.body;
+		const { to, cc, bcc, from, subject, html, text, attachments, draft_id } = data.body;
 
 		const key = `mailboxes/${mailboxId}.json`;
 		const obj = await c.env.BUCKET.head(key);
 		if (!obj) {
 			return c.json({ error: "Not found" }, 404);
+		}
+
+		// The sender is the mailbox in the URL, never the request body.
+		if (from && from.trim().toLowerCase() !== mailboxId.trim().toLowerCase()) {
+			return c.json({ error: "The sender must be this mailbox's own address" }, 403);
 		}
 
 		// Get the original email to extract threading info
@@ -118,15 +154,38 @@ export class PostReplyEmail extends OpenAPIRoute {
 			: [originalEmail.id];
 		const thread_id = originalEmail.thread_id || originalEmail.id;
 
-		const toList = parseEmailList(to);
-		const ccList = parseEmailList(cc);
-		const bccList = parseEmailList(bcc);
+		const toParsed = parseRecipients(to);
+		const ccParsed = parseRecipients(cc);
+		const bccParsed = parseRecipients(bcc);
+		const toList = toParsed.valid;
+		const ccList = ccParsed.valid;
+		const bccList = bccParsed.valid;
 		const allEnvelopeRecipients = Array.from(
 			new Set([...toList, ...ccList, ...bccList]),
 		);
 
+		// Only what parseRecipients normalised is checked against the do-not-contact list and
+		// delivered to, so an entry that is not a valid address stops the send.
+		const invalidRecipients = [...toParsed.invalid, ...ccParsed.invalid, ...bccParsed.invalid];
+		if (invalidRecipients.length > 0) {
+			return c.json({ error: describeInvalidRecipients(invalidRecipients) }, 400);
+		}
+
 		if (allEnvelopeRecipients.length === 0) {
 			return c.json({ error: "No valid recipient found" }, 400);
+		}
+
+		// Answering someone who wrote in must stay possible even if they unsubscribed from outreach,
+		// so the sender of the received original is the one address not checked against the
+		// do-not-contact list. Everyone else on the reply (a Cc, another address in To) is checked, and
+		// a "reply" to a message this mailbox sent is a follow-up on its own outreach: checked in full.
+		const answered = answeredSender(originalEmail, mailboxId);
+		const block = await checkDoNotContact(
+			c.env,
+			allEnvelopeRecipients.filter((r) => r !== answered),
+		);
+		if (block) {
+			return c.json({ error: block.error, suppressed: block.suppressed }, block.status);
 		}
 
 		const messageId = crypto.randomUUID();
@@ -137,7 +196,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 
 		// Build MIME message
 		const mimeMessage = buildMimeMessage({
-			from,
+			from: mailboxId,
 			to: toList,
 			cc: ccList.length > 0 ? ccList : undefined,
 			bcc: bccList.length > 0 ? bccList : undefined,
@@ -157,7 +216,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 
 		try {
 			for (const recipient of allEnvelopeRecipients) {
-				const message = new EmailMessage(from, recipient, mimeMessage);
+				const message = new EmailMessage(mailboxId, recipient, mimeMessage);
 				await c.env.SEND_EMAIL.send(message);
 			}
 		} catch (e) {
@@ -188,7 +247,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: from,
+				sender: mailboxId,
 				recipient: toList.join(", "),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,
@@ -200,6 +259,10 @@ export class PostReplyEmail extends OpenAPIRoute {
 			},
 			attachmentData,
 		);
+
+		if (draft_id) {
+			await removeSentDraft(c, mailboxId, draft_id);
+		}
 
 		return c.json({ id: messageId, status: "sent" }, 201);
 	}
@@ -226,8 +289,20 @@ export class PostForwardEmail extends OpenAPIRoute {
 				description: "Bad request",
 				...contentJson(ErrorResponseSchema),
 			},
+			"403": {
+				description: "`from` is not this mailbox's own address",
+				...contentJson(ErrorResponseSchema),
+			},
 			"404": {
 				description: "Original email not found",
+				...contentJson(ErrorResponseSchema),
+			},
+			"422": {
+				description: "A recipient is on the do-not-contact list",
+				...contentJson(ErrorResponseSchema),
+			},
+			"503": {
+				description: "The do-not-contact list could not be checked",
 				...contentJson(ErrorResponseSchema),
 			},
 		},
@@ -236,12 +311,17 @@ export class PostForwardEmail extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId, id } = data.params;
-		const { to, cc, bcc, from, subject, html, text, attachments } = data.body;
+		const { to, cc, bcc, from, subject, html, text, attachments, draft_id } = data.body;
 
 		const key = `mailboxes/${mailboxId}.json`;
 		const obj = await c.env.BUCKET.head(key);
 		if (!obj) {
 			return c.json({ error: "Not found" }, 404);
+		}
+
+		// The sender is the mailbox in the URL, never the request body.
+		if (from && from.trim().toLowerCase() !== mailboxId.trim().toLowerCase()) {
+			return c.json({ error: "The sender must be this mailbox's own address" }, 403);
 		}
 
 		// Get the original email
@@ -254,15 +334,30 @@ export class PostForwardEmail extends OpenAPIRoute {
 			return c.json({ error: "Original email not found" }, 404);
 		}
 
-		const toList = parseEmailList(to);
-		const ccList = parseEmailList(cc);
-		const bccList = parseEmailList(bcc);
+		const toParsed = parseRecipients(to);
+		const ccParsed = parseRecipients(cc);
+		const bccParsed = parseRecipients(bcc);
+		const toList = toParsed.valid;
+		const ccList = ccParsed.valid;
+		const bccList = bccParsed.valid;
 		const allEnvelopeRecipients = Array.from(
 			new Set([...toList, ...ccList, ...bccList]),
 		);
 
+		// As for a reply: an entry that is not a valid address stops the send.
+		const invalidRecipients = [...toParsed.invalid, ...ccParsed.invalid, ...bccParsed.invalid];
+		if (invalidRecipients.length > 0) {
+			return c.json({ error: describeInvalidRecipients(invalidRecipients) }, 400);
+		}
+
 		if (allEnvelopeRecipients.length === 0) {
 			return c.json({ error: "No valid recipient found" }, 400);
+		}
+
+		// A forward is never a reply, so the do-not-contact list applies to every recipient.
+		const block = await checkDoNotContact(c.env, allEnvelopeRecipients);
+		if (block) {
+			return c.json({ error: block.error, suppressed: block.suppressed }, block.status);
 		}
 
 		const messageId = crypto.randomUUID();
@@ -273,7 +368,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 
 		// Forwarded emails don't have threading headers
 		const mimeMessage = buildMimeMessage({
-			from,
+			from: mailboxId,
 			to: toList,
 			cc: ccList.length > 0 ? ccList : undefined,
 			bcc: bccList.length > 0 ? bccList : undefined,
@@ -291,7 +386,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 
 		try {
 			for (const recipient of allEnvelopeRecipients) {
-				const message = new EmailMessage(from, recipient, mimeMessage);
+				const message = new EmailMessage(mailboxId, recipient, mimeMessage);
 				await c.env.SEND_EMAIL.send(message);
 			}
 		} catch (e) {
@@ -322,7 +417,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: from,
+				sender: mailboxId,
 				recipient: toList.join(", "),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,
@@ -334,6 +429,10 @@ export class PostForwardEmail extends OpenAPIRoute {
 			},
 			attachmentData,
 		);
+
+		if (draft_id) {
+			await removeSentDraft(c, mailboxId, draft_id);
+		}
 
 		return c.json({ id: messageId, status: "sent" }, 201);
 	}

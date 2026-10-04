@@ -1,5 +1,6 @@
 import PostalMime from "postal-mime";
-import { parseBounce } from "./suppression";
+// The explicit .ts lets the node unit tests import this file (as in outreach.ts).
+import { parseBounce } from "./suppression.ts";
 import type { Env } from "./types";
 
 async function streamToArrayBuffer(stream: ReadableStream, streamSize: number): Promise<Uint8Array> {
@@ -17,8 +18,51 @@ async function streamToArrayBuffer(stream: ReadableStream, streamSize: number): 
 	return result;
 }
 
+/**
+ * What the email() handler is given. `to` and `from` are the SMTP envelope (who the message was
+ * really delivered to and sent by), not the To/From headers written inside the message.
+ */
+export interface InboundEmailEvent {
+	raw: ReadableStream;
+	rawSize: number;
+	to?: string;
+	from?: string;
+}
+
+const mailboxKey = (mailboxId: string) => `mailboxes/${mailboxId}.json`;
+
+/**
+ * Finds the mailbox a delivered-to address belongs to. Mailbox ids are R2 keys and so
+ * case-sensitive, while senders write addresses in any letter case, so the match ignores case.
+ * An address without a mailbox still gets one, so that no mail is ever dropped.
+ * Exported for the unit test.
+ */
+export async function resolveMailboxId(env: Env, recipient: string): Promise<string> {
+	// The lower-cased id is tried first. Mailbox ids are lower-case now; one with capitals may be a
+	// ghost left by the old filing bug, and trying the exact case first let that ghost keep taking the
+	// real mailbox's mail whenever a sender used the same capitals.
+	const lower = recipient.toLowerCase();
+	if (await env.BUCKET.head(mailboxKey(lower))) return lower;
+
+	if (lower !== recipient && (await env.BUCKET.head(mailboxKey(recipient)))) return recipient;
+
+	// A mailbox whose own id contains capitals can only be found by comparing against every id.
+	let cursor: string | undefined;
+	do {
+		const page = await env.BUCKET.list({ prefix: "mailboxes/", cursor });
+		for (const obj of page.objects) {
+			const id = obj.key.replace("mailboxes/", "").replace(/\.json$/, "");
+			if (id.toLowerCase() === lower) return id;
+		}
+		cursor = page.truncated ? page.cursor : undefined;
+	} while (cursor);
+
+	await env.BUCKET.put(mailboxKey(lower), JSON.stringify({}));
+	return lower;
+}
+
 export async function receiveEmail(
-	event: { raw: ReadableStream; rawSize: number },
+	event: InboundEmailEvent,
 	env: Env,
 	_ctx: ExecutionContext,
 ): Promise<void> {
@@ -26,22 +70,17 @@ export async function receiveEmail(
 	const parser = new PostalMime();
 	const parsedEmail = await parser.parse(rawEmail);
 
-	if (
-		!parsedEmail.to ||
-		parsedEmail.to.length === 0 ||
-		!parsedEmail.to[0].address
-	) {
+	// File by the envelope recipient: the address Cloudflare routed to this Worker. The To header is
+	// written by the sender, and the team address may be in Cc or Bcc, or not first, so filing by it
+	// put mail into mailboxes nobody can see. It is only the fallback when there is no envelope.
+	const deliveredTo =
+		(event.to ?? "").trim() || (parsedEmail.to?.[0]?.address ?? "").trim();
+	if (!deliveredTo) {
 		throw new Error("received email with empty to");
 	}
 
-	const mailboxId = parsedEmail.to[0].address;
+	const mailboxId = await resolveMailboxId(env, deliveredTo);
 	const messageId = crypto.randomUUID();
-
-	const key = `mailboxes/${mailboxId}.json`;
-	const obj = await env.BUCKET.head(key);
-	if (!obj) {
-		await env.BUCKET.put(key, JSON.stringify({}));
-	}
 
 	const ns = env.MAILBOX;
 	const id = ns.idFromName(mailboxId);
@@ -104,7 +143,9 @@ export async function receiveEmail(
 			id: messageId,
 			subject: parsedEmail.subject || "",
 			sender: parsedEmail.from?.address || "",
-			recipient: toAddresses.join(", ") || parsedEmail.to[0].address,
+			// Still the To header, so the UI shows who the message was addressed to. A message with
+			// no To address (delivered as Bcc) shows the address it was delivered to.
+			recipient: toAddresses.join(", ") || deliveredTo,
 			cc: ccAddresses.length > 0 ? ccAddresses.join(", ") : null,
 			date: new Date().toISOString(),
 			body: parsedEmail.html || parsedEmail.text || "",

@@ -28,6 +28,7 @@
           </svg>
         </button>
         <button
+          v-if="authStore.isAdmin"
           @click="openCreateMailboxModal"
           class="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-500 shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
         >
@@ -96,8 +97,11 @@
         </svg>
       </div>
       <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">No mailboxes found</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+      <p v-if="authStore.isAdmin" class="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
         Create your first mailbox or configure Cloudflare Email Routing to receive emails directly.
+      </p>
+      <p v-else class="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+        You don't have access to a mailbox yet. Ask an admin to give you access to one.
       </p>
       <div class="bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl p-6 max-w-2xl mx-auto border border-emerald-500/20 text-left">
         <p class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-3">

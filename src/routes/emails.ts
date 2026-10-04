@@ -1,8 +1,9 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
-import { deliverMessage, type OutboundAttachment } from "../delivery";
-import { checkSendAt, parseEmailList } from "../scheduling";
+import { checkDoNotContact, deliverMessage, type OutboundAttachment } from "../delivery";
+import { checkSendAt, describeInvalidRecipients, parseRecipients, type Recipients } from "../scheduling";
+import { answeredSender } from "../suppression";
 import type { Env, Session } from "../types";
 
 type AppContext = Context<{ Bindings: Env; Variables: { session?: Session } }>;
@@ -49,13 +50,17 @@ export const SendEmailRequestSchema = z
 		to: z.union([z.string(), z.array(z.string())]),
 		cc: z.union([z.string(), z.array(z.string())]).optional(),
 		bcc: z.union([z.string(), z.array(z.string())]).optional(),
-		from: z.string().email(),
+		// Optional: the sender is always the mailbox in the URL. If given, it must be that address.
+		from: z.string().email().optional(),
 		subject: z.string(),
 		html: z.string().optional(),
 		text: z.string().optional(),
 		is_draft: z.boolean().optional(),
 		draft_id: z.string().optional(),
 		send_at: z.string().optional(),
+		// Accepted and ignored (the mailbox is the one in the URL), only so that a dashboard loaded
+		// before this release can still send: its composer posts this key. Remove once those tabs are gone.
+		mailboxId: z.string().optional(),
 		attachments: z
 			.array(
 				z.object({
@@ -71,6 +76,9 @@ export const SendEmailRequestSchema = z
 		references: z.array(z.string()).optional(),
 		thread_id: z.string().optional(),
 	})
+	// An unknown key is a 400, not silently dropped: a client that posted `scheduled_at` instead of
+	// `send_at` used to get an immediate send. (Attachment items stay loose; clients add e.g. `size`.)
+	.strict()
 	.refine((data) => data.is_draft || data.html || data.text, {
 		message: "Either 'html' or 'text' must be provided",
 	});
@@ -96,6 +104,18 @@ export const SuccessResponseSchema = z.object({
 export const ErrorResponseSchema = z.object({
 	error: z.string(),
 });
+
+const SCHEDULED_DRAFT_ERROR = "This message is scheduled to be sent. Cancel the schedule to edit it.";
+
+/**
+ * What a draft keeps in a recipient field: the parsed addresses. A draft is saved without being
+ * validated, so while one of its entries is not a valid address yet it keeps the text as typed:
+ * nothing the user wrote is lost, and the entry is still there to be refused when the draft is sent.
+ */
+function storedRecipients(raw: string | string[] | undefined, parsed: Recipients): string {
+	if (parsed.invalid.length === 0) return parsed.valid.join(", ");
+	return Array.isArray(raw) ? raw.join(", ") : raw || "";
+}
 
 /**
  * Decode base64 attachment content to raw bytes for R2.
@@ -196,6 +216,23 @@ export class PostEmail extends OpenAPIRoute {
 				description: "Bad request",
 				...contentJson(ErrorResponseSchema),
 			},
+			"403": {
+				description: "`from` is not this mailbox's own address",
+				...contentJson(ErrorResponseSchema),
+			},
+			"409": {
+				description:
+					"`draft_id` names a message that is not a draft, or a plain draft save names a scheduled message",
+				...contentJson(ErrorResponseSchema),
+			},
+			"422": {
+				description: "A recipient is on the do-not-contact list",
+				...contentJson(ErrorResponseSchema),
+			},
+			"503": {
+				description: "The do-not-contact list could not be checked",
+				...contentJson(ErrorResponseSchema),
+			},
 		},
 	};
 
@@ -225,12 +262,29 @@ export class PostEmail extends OpenAPIRoute {
 			return c.json({ error: "Not found" }, 404);
 		}
 
-		const toList = parseEmailList(to);
-		const ccList = parseEmailList(cc);
-		const bccList = parseEmailList(bcc);
+		// The sender is the mailbox in the URL (the one the access check covered), never the request
+		// body. Everything below uses mailboxId as the sender.
+		if (from && from.trim().toLowerCase() !== mailboxId.trim().toLowerCase()) {
+			return c.json({ error: "The sender must be this mailbox's own address" }, 403);
+		}
+
+		const toParsed = parseRecipients(to);
+		const ccParsed = parseRecipients(cc);
+		const bccParsed = parseRecipients(bcc);
+		const toList = toParsed.valid;
+		const ccList = ccParsed.valid;
+		const bccList = bccParsed.valid;
 		const allEnvelopeRecipients = Array.from(
 			new Set([...toList, ...ccList, ...bccList]),
 		);
+
+		// An entry that is not a valid address stops a send or a schedule: only what parseRecipients
+		// normalised is checked against the do-not-contact list, and only that is delivered to. A plain
+		// draft may still be saved with it.
+		const invalidRecipients = [...toParsed.invalid, ...ccParsed.invalid, ...bccParsed.invalid];
+		if (!is_draft && invalidRecipients.length > 0) {
+			return c.json({ error: describeInvalidRecipients(invalidRecipients) }, 400);
+		}
 
 		let scheduledAt: string | null = null;
 		if (send_at && !is_draft) {
@@ -243,6 +297,39 @@ export class PostEmail extends OpenAPIRoute {
 		}
 		const savesAsDraft = !!is_draft || scheduledAt !== null;
 
+		const ns = c.env.MAILBOX;
+		const id = ns.idFromName(mailboxId);
+		const stub = ns.get(id);
+
+		// draft_id comes from the client. It may only name a draft: saving overwrites that row and
+		// sending deletes it, so any other message (received, sent, being sent) must be refused.
+		const draftState = draft_id ? await stub.getDraftState(draft_id) : "missing";
+		if (draftState === "other") {
+			return c.json({ error: "draft_id does not refer to a draft" }, 409);
+		}
+		// A plain draft save must not touch a scheduled message: it would turn it back into a plain
+		// draft that never sends (an autosave from a composer left open in another tab did that).
+		// Scheduling it again, or sending it now, is still allowed.
+		if (draftState === "scheduled" && is_draft) {
+			return c.json({ error: SCHEDULED_DRAFT_ERROR }, 409);
+		}
+
+		// Do-not-contact list: checked for a send and for a scheduled send, not for a plain draft.
+		// The one address left out is the sender being answered, and only when in_reply_to names a
+		// message this mailbox received (not one it sent: that is a follow-up on its own outreach).
+		// Everyone else on the reply (a Cc, another address in To) is checked like a new message.
+		if (!is_draft) {
+			const original = in_reply_to ? ((await stub.getEmail(in_reply_to)) as any) : null;
+			const answered = answeredSender(original, mailboxId);
+			const block = await checkDoNotContact(
+				c.env,
+				allEnvelopeRecipients.filter((r) => r !== answered),
+			);
+			if (block) {
+				return c.json({ error: block.error, suppressed: block.suppressed }, block.status);
+			}
+		}
+
 		const messageId = savesAsDraft && draft_id ? draft_id : crypto.randomUUID();
 
 		if (!savesAsDraft) {
@@ -254,7 +341,6 @@ export class PostEmail extends OpenAPIRoute {
 				await deliverMessage(c.env, {
 					mailboxId,
 					messageId,
-					from,
 					to: toList,
 					cc: ccList,
 					bcc: bccList,
@@ -269,10 +355,6 @@ export class PostEmail extends OpenAPIRoute {
 				return c.json({ error: (e as Error).message }, 500);
 			}
 		}
-
-		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
 
 		const attachmentData = [];
 		if (attachments) {
@@ -294,15 +376,15 @@ export class PostEmail extends OpenAPIRoute {
 		}
 
 		if (savesAsDraft) {
-			await stub.upsertDraft(
+			const saved = await stub.upsertDraft(
 				messageId,
 				{
 					id: messageId,
 					subject: subject || "(No Subject)",
-					sender: from,
-					recipient: toList.join(", ") || (Array.isArray(to) ? to.join(", ") : to || ""),
-					cc: ccList.length > 0 ? ccList.join(", ") : null,
-					bcc: bccList.length > 0 ? bccList.join(", ") : null,
+					sender: mailboxId,
+					recipient: storedRecipients(to, toParsed) || (Array.isArray(to) ? to.join(", ") : to || ""),
+					cc: storedRecipients(cc, ccParsed) || null,
+					bcc: storedRecipients(bcc, bccParsed) || null,
 					date: new Date().toISOString(),
 					body: html || text || "",
 					in_reply_to: in_reply_to || null,
@@ -312,7 +394,17 @@ export class PostEmail extends OpenAPIRoute {
 					spam_score: 0.0,
 				},
 				attachmentData,
+				scheduledAt !== null,
 			);
+			// The row stopped being a draft after the check above (e.g. its scheduled send just started,
+			// or it was scheduled meanwhile).
+			if (!saved) {
+				const scheduledMeanwhile = (await stub.getDraftState(messageId)) === "scheduled";
+				return c.json(
+					{ error: scheduledMeanwhile ? SCHEDULED_DRAFT_ERROR : "draft_id does not refer to a draft" },
+					409,
+				);
+			}
 
 			if (scheduledAt) {
 				await stub.scheduleDraft(messageId, scheduledAt, mailboxId);
@@ -327,7 +419,7 @@ export class PostEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: from,
+				sender: mailboxId,
 				recipient: toList.join(", ") || (Array.isArray(to) ? to.join(", ") : to),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,
@@ -344,7 +436,7 @@ export class PostEmail extends OpenAPIRoute {
 
 		if (draft_id) {
 			try {
-				const oldAttachments = await stub.deleteEmail(draft_id);
+				const oldAttachments = await stub.deleteDraft(draft_id);
 				if (oldAttachments && oldAttachments.length > 0) {
 					const keys = oldAttachments.map(
 						(att: any) => `attachments/${draft_id}/${att.id}/${att.filename}`,
@@ -552,6 +644,10 @@ export class PostMoveEmail extends OpenAPIRoute {
 				...contentJson(ErrorResponseSchema),
 			},
 			"404": { description: "Not found", ...contentJson(ErrorResponseSchema) },
+			"409": {
+				description: "The target is Drafts and the message is not an unsent draft",
+				...contentJson(ErrorResponseSchema),
+			},
 		},
 	};
 
@@ -570,10 +666,13 @@ export class PostMoveEmail extends OpenAPIRoute {
 		const doId = ns.idFromName(mailboxId);
 		const stub = ns.get(doId);
 
-		const success = await stub.moveEmail(id, folderId);
+		const result = await stub.moveEmail(id, folderId);
 
-		if (!success) {
+		if (result === "no_folder") {
 			return c.json({ error: "Folder not found" }, 400);
+		}
+		if (result === "not_a_draft") {
+			return c.json({ error: "Only an unsent draft can be moved to Drafts" }, 409);
 		}
 
 		return c.json({ status: "moved" });

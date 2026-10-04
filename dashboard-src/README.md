@@ -31,3 +31,12 @@ npm run dev
 ```sh
 npm run build
 ```
+
+### Run the Tests
+
+```sh
+npm test
+```
+
+Runs the composer (`ComposeEmail.vue`) and `services/api.ts` in Node against stubs: no browser, no
+network, about a second. `test/run.mjs` explains how. The tests are not part of `npm run build`.

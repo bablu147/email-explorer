@@ -14,31 +14,9 @@
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 
-    <!-- Theme Boot: Read preference pre-paint to prevent flash of wrong theme -->
-    <script>
-      (function() {
-        try {
-          var t = localStorage.getItem('reflect_theme') || (document.cookie.match(/reflect_theme=(dark|light)/) || [])[1];
-          var isDark = true;
-          if (t === 'light') {
-            isDark = false;
-          } else if (t === 'dark') {
-            isDark = true;
-          } else {
-            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          }
-          if (isDark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-            document.documentElement.classList.remove('dark');
-          }
-          var metaTheme = document.querySelector('meta[name="theme-color"]');
-          if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0E1117' : '#F6F8FA');
-        } catch(e) {}
-      })();
-    </script>
+    <!-- Theme Boot: Read preference pre-paint to prevent flash of wrong theme.
+         An external file because the CSP (script-src 'self') blocks inline scripts. -->
+    <script src="/theme-boot.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

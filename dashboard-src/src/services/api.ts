@@ -39,6 +39,64 @@ apiClient.interceptors.response.use(
 	},
 );
 
+// The send endpoints reject any key they do not know (400) and take the sender from the mailbox in
+// the URL, so only these are ever posted; in particular there is no `from`.
+const REPLY_KEYS = [
+	"to",
+	"cc",
+	"bcc",
+	"subject",
+	"html",
+	"text",
+	"attachments",
+	"in_reply_to",
+	"references",
+	"thread_id",
+	// The autosaved draft this message replaces; the server removes it once the message is out.
+	"draft_id",
+];
+const SEND_KEYS = [...REPLY_KEYS, "is_draft", "send_at"];
+const ATTACHMENT_KEYS = ["content", "filename", "type", "disposition", "contentId"];
+
+/** Thrown before any request is made: the caller passed a field the endpoint does not take. */
+class UnknownFieldError extends Error {}
+
+const pick = (source: any, keys: string[]) => {
+	const picked: Record<string, any> = {};
+	for (const key of keys) {
+		if (source?.[key] !== undefined) picked[key] = source[key];
+	}
+	return picked;
+};
+
+const outgoing = (email: any, keys: string[]) => {
+	// A key outside the list is an error, not something to drop: dropped here, the server's strict
+	// schema never sees it, and a caller that posted `scheduled_at` instead of `send_at` would get
+	// an immediate send again instead of a failure someone notices.
+	const unknown = Object.keys(email || {}).find((key) => !keys.includes(key));
+	if (unknown) {
+		throw new UnknownFieldError(
+			`Not sent: "${unknown}" is not a field the mail server accepts. This is a bug in the app.`,
+		);
+	}
+	const body = pick(email, keys);
+	// The composer keeps client-only fields on attachments (size, the local preview URL). Those are
+	// left out quietly: the server ignores extra attachment fields anyway.
+	if (Array.isArray(body.attachments)) {
+		body.attachments = body.attachments.map((att: any) => pick(att, ATTACHMENT_KEYS));
+	}
+	return body;
+};
+
+/** The server's own sentence for a failed request: `error` from a route, or the first schema issue. */
+export const apiErrorMessage = (err: any, fallback: string): string => {
+	if (err instanceof UnknownFieldError) return err.message;
+	const data = err?.response?.data;
+	if (typeof data?.error === "string" && data.error) return data.error;
+	const issue = Array.isArray(data?.errors) ? data.errors[0]?.message : null;
+	return typeof issue === "string" && issue ? issue : fallback;
+};
+
 export default {
 	// Settings
 	getAppSettings: () => apiClient.get("/api/v1/settings"),
@@ -78,9 +136,12 @@ export default {
 	listEmails: (mailboxId: string, params: any) =>
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}/emails`, { params }),
 	sendEmail: (mailboxId: string, email: any) =>
-		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, email),
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, outgoing(email, SEND_KEYS)),
 	saveDraft: (mailboxId: string, email: any) =>
-		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, { ...email, is_draft: true }),
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails`, {
+			...outgoing(email, SEND_KEYS),
+			is_draft: true,
+		}),
 	getEmail: (mailboxId: string, id: string) =>
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}/emails/${id}`),
 	getThread: (mailboxId: string, threadId: string) =>
@@ -101,12 +162,12 @@ export default {
 	replyToEmail: (mailboxId: string, emailId: string, email: any) =>
 		apiClient.post(
 			`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/reply`,
-			email,
+			outgoing(email, REPLY_KEYS),
 		),
 	forwardEmail: (mailboxId: string, emailId: string, email: any) =>
 		apiClient.post(
 			`/api/v1/mailboxes/${mailboxId}/emails/${emailId}/forward`,
-			email,
+			outgoing(email, REPLY_KEYS),
 		),
 	snoozeEmail: (mailboxId: string, id: string, until: string | null) =>
 		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/snooze`, { until }),

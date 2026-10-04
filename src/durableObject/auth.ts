@@ -265,11 +265,13 @@ export class AuthHandler {
 	async revokeMailboxAccess(userId: string, mailboxId: string): Promise<void> {
 		if (!this.#isAuthDO) throw new Error("Not an auth DO");
 
+		// Access is checked without regard to letter case, so revoking must remove every spelling of
+		// the id: an exact match would leave "Support@x.io" in place when "support@x.io" is revoked.
 		this.#qb
 			.delete({
 				tableName: "user_mailboxes",
 				where: {
-					conditions: "user_id = ? AND mailbox_id = ?",
+					conditions: "user_id = ? AND LOWER(mailbox_id) = LOWER(?)",
 					params: [userId, mailboxId],
 				},
 			})

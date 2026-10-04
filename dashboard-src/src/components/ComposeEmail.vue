@@ -272,12 +272,13 @@
               </button>
 
               <!-- Autosave Status Badge -->
-              <span v-if="isAutosaving" class="text-xs text-gray-400 flex items-center gap-1.5 ml-1">
+              <span v-if="isAutosaving || isLoadingDraftAttachments" class="text-xs text-gray-400 flex items-center gap-1.5 ml-1">
                 <svg class="animate-spin w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span class="hidden md:inline">Saving draft...</span>
+                <!-- Send is off while a reopened draft's files load, so say why -->
+                <span class="hidden md:inline">{{ isLoadingDraftAttachments ? "Loading draft..." : "Saving draft..." }}</span>
               </span>
               <span v-else-if="draftAutosaveStatus" class="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 ml-1 truncate max-w-[100px] sm:max-w-none">
                 <svg class="w-3.5 h-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -302,7 +303,7 @@
                 <button 
                   type="button"
                   @click="triggerSendFlow(false)"
-                  :disabled="isLoading || totalAttachmentSize > 25 * 1024 * 1024"
+                  :disabled="isLoading || isCheckingSuppression || isLoadingDraftAttachments || totalAttachmentSize > 25 * 1024 * 1024"
                   class="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[40px] sm:min-h-0"
                 >
                   <svg v-if="!isLoading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -317,7 +318,7 @@
                 <button
                   type="button"
                   @click="showScheduleModal = true"
-                  :disabled="isLoading"
+                  :disabled="isLoading || isCheckingSuppression || isLoadingDraftAttachments"
                   class="px-2.5 py-2 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-xs font-bold border-l border-emerald-500/40 transition-all flex items-center disabled:opacity-50 cursor-pointer min-h-[40px] sm:min-h-0"
                   title="Schedule send…"
                   aria-label="Schedule send"
@@ -417,7 +418,7 @@
       </div>
     </div>
 
-    <!-- Do-not-contact warning (advisory) -->
+    <!-- Do-not-contact dialog: blocks the send. Only the person being answered (reply to received mail) gets a warning instead -->
     <div v-if="suppressionWarning" class="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-60 p-4">
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150">
         <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
@@ -425,8 +426,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
           </svg>
         </div>
-        <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1.5">Check these recipients</h3>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+        <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1.5">
+          {{ suppressionBlocksSend ? "Can't send to these recipients" : "Check these recipients" }}
+        </h3>
+        <p v-if="suppressionBlocksSend" class="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+          These addresses are on the do-not-contact list, so this message can't be sent to them.
+          Go back and remove them. An admin can take an address off the list in Settings.
+        </p>
+        <p v-else class="text-xs text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
           Sending to these addresses may hurt deliverability or ignore their request.
         </p>
         <ul class="mb-5 space-y-1.5 max-h-40 overflow-y-auto">
@@ -448,6 +455,7 @@
             Go back
           </button>
           <button
+            v-if="!suppressionBlocksSend"
             type="button"
             @click="sendAnywayDespiteSuppression"
             class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold shadow-sm transition-all cursor-pointer"
@@ -572,11 +580,11 @@ import { storeToRefs } from "pinia";
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useToast } from "@/composables/useToast";
-import api from "@/services/api";
+import api, { apiErrorMessage } from "@/services/api";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useMailboxStore } from "@/stores/mailboxes";
-import { type ComposeMode, type ComposeOptions, useUIStore } from "@/stores/ui";
+import { type ComposeMode, type ComposeOptions, type ComposeSnapshot, useUIStore } from "@/stores/ui";
 import type { AppPlatform, OutgoingAttachment } from "@/types";
 import RecipientInput from "./RecipientInput.vue";
 import RichTextEditor from "./RichTextEditor.vue";
@@ -588,7 +596,13 @@ const emailStore = useEmailStore();
 const mailboxStore = useMailboxStore();
 const { currentMailbox } = storeToRefs(mailboxStore);
 const route = useRoute();
-const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
+const {
+	success: showSuccessToast,
+	error: showErrorToast,
+	info: showInfoToast,
+	addToast,
+	removeToast,
+} = useToast();
 const appBindingsStore = useAppBindingsStore();
 
 const to = ref("");
@@ -651,12 +665,45 @@ const isAutosaving = ref(false);
 const draftAutosaveStatus = ref<string>("");
 const showDirtyModal = ref(false);
 
-// Suppression warning (advisory only: the user can always send anyway)
+/** Bare, lower-cased address of `Name <a@b>` or `a@b`, for exact comparison. */
+const addressOf = (value?: string | null): string =>
+	((value || "").match(/<([^>]+)>/)?.[1] || value || "").trim().toLowerCase();
+
+/** This mailbox's own address: the mailbox the message is sent from (a mailbox's id is its address). */
+const ownAddress = () => addressOf((route.params.mailboxId as string) || currentMailbox.value?.email);
+
+/**
+ * Whether this mailbox sent `email`, in which case a reply goes to its recipients rather than back
+ * to us. The folder decides first. In Inbox and Spam the From header is whatever the outside sender
+ * wrote, and spam that names our own address there must not have its reply sent to the To header it
+ * chose. The sender's exact address is only used where the folder says nothing (Archive, Trash,
+ * custom folders, search rows, which carry no folder). The tracking columns (opened_count,
+ * delivery_status) are set on received mail too, so they say nothing about direction.
+ */
+const wasSentByMailbox = (email: any): boolean => {
+	const folder = email.folder_id || "";
+	if (["sent", "drafts", "scheduled"].includes(folder)) return true;
+	if (folder === "inbox" || folder === "spam") return false;
+	const own = ownAddress();
+	return !!own && addressOf(email.sender) === own;
+};
+
+const splitAddresses = (list?: string | null): string[] =>
+	(list || "")
+		.split(/[,;\n]+/)
+		.map((part) => part.trim())
+		.filter(Boolean);
+
+// Do-not-contact check before sending. The server refuses a message to a listed address (422), so
+// the dialog only says what to do. The one exception is the person whose mail is being answered:
+// they may still be written to.
 interface SuppressedHit {
 	email: string;
 	reason: string;
 }
 const suppressionWarning = ref<SuppressedHit[] | null>(null);
+/** Whether the hits in the dialog stop the send (no "Send anyway"). */
+const suppressionBlocksSend = ref(true);
 const isCheckingSuppression = ref(false);
 let suppressionAcknowledged = false;
 const SUPPRESSION_LABELS: Record<string, string> = {
@@ -665,23 +712,40 @@ const SUPPRESSION_LABELS: Record<string, string> = {
 	manual: "On the do-not-contact list",
 };
 const suppressionLabel = (reason: string) => SUPPRESSION_LABELS[reason] || reason;
+const isReplyMode = (mode: ComposeMode) => mode === "reply" || mode === "reply-all";
+/**
+ * The one address the list does not stop: the sender of the received mail being answered, so that
+ * someone who wrote in stays reachable. Nobody else on that reply is exempt (a listed third party
+ * in Cc), and a "reply" to a message this mailbox sent is a follow-up on our own outreach, held to
+ * the list like a new message. Same rule as the server.
+ */
+const exemptRecipient = (): string => {
+	const { mode, originalEmail } = composeOptions.value;
+	if (!isReplyMode(mode) || !originalEmail || wasSentByMailbox(originalEmail)) return "";
+	const sender = addressOf(originalEmail.sender);
+	return sender === ownAddress() ? "" : sender;
+};
 
-/** New messages warn on any entry; replies and forwards only on bounces (they are not outreach). */
-const findSuppressedRecipients = async (): Promise<SuppressedHit[]> => {
+/**
+ * Listed recipients, and whether they stop the send. Any listed address stops it, except the
+ * person being answered: for them alone a bounce is shown as a warning that can be overridden.
+ */
+const findSuppressedRecipients = async (): Promise<{ hits: SuppressedHit[]; blocks: boolean }> => {
 	const emails = [to.value, cc.value, bcc.value]
 		.join(",")
 		.split(/[,;\n]+/)
 		.map((part) => (part.match(/<([^>]+)>/)?.[1] || part).trim().toLowerCase())
 		.filter((e) => e.includes("@"));
-	if (emails.length === 0) return [];
+	if (emails.length === 0) return { hits: [], blocks: false };
 	try {
 		const res = await api.checkSuppressions(emails);
 		const hits: SuppressedHit[] = res.data?.suppressed || [];
-		const mode = composeOptions.value.mode;
-		const isOutreach = mode === "new" || mode === "draft";
-		return isOutreach ? hits : hits.filter((h) => h.reason === "bounce");
+		const exempt = exemptRecipient();
+		const blocking = hits.filter((h) => !exempt || addressOf(h.email) !== exempt);
+		if (blocking.length > 0) return { hits: blocking, blocks: true };
+		return { hits: hits.filter((h) => h.reason === "bounce"), blocks: false };
 	} catch {
-		return []; // fail open: a failed check must never block sending
+		return { hits: [], blocks: false }; // fail open: this check is a courtesy, the server enforces the list
 	}
 };
 
@@ -691,49 +755,71 @@ const sendAnywayDespiteSuppression = () => {
 	void triggerSendFlow(false);
 };
 let autosaveTimeout: any = null;
+const cancelPendingAutosave = () => {
+	if (autosaveTimeout) clearTimeout(autosaveTimeout);
+	autosaveTimeout = null;
+};
+/** The draft save that is running now, if any: Send and Schedule let it finish first. */
+let autosaveRunning: Promise<void> | null = null;
+/**
+ * True from the moment Send or Schedule is accepted until that attempt is over. No draft is saved
+ * meanwhile: a save names the same draft_id, and one that reaches the server after the schedule
+ * request turns the scheduled message back into a plain draft, which then never sends.
+ */
+let sendInProgress = false;
+/**
+ * Counts up whenever this composer stops showing the message it had: closed, unmounted, or filled
+ * for another one. A handler that awaited something compares it before going on, so it does not
+ * send from, or close, a composer that now holds a different message.
+ */
+let composeEpoch = 0;
+onBeforeUnmount(() => {
+	composeEpoch++;
+});
 
 // Undo Send buffer
 const isUndoPending = ref(false);
 const undoCountdown = ref(5);
 let undoTimer: ReturnType<typeof setInterval> | null = null;
 
-/** Everything needed to put the composer back exactly as it was (Undo, or a failed send). */
-interface ComposeSnapshot {
-	options: ComposeOptions;
-	to: string;
-	cc: string;
-	bcc: string;
-	showCc: boolean;
-	showBcc: boolean;
-	subject: string;
-	body: string;
-	attachments: OutgoingAttachment[];
-	inlineAttachments: any[];
-	currentDraftId: string | null;
-}
 /**
- * The message waiting out its undo window. Mode / original id are captured at send time: the composer
- * closes (and its options reset) as soon as you hit Send, so reading them later sent every reply as a
- * brand-new message without threading headers.
+ * The message waiting out its undo window. Mailbox / mode / original id are captured at send time: the
+ * composer closes (and its options reset) as soon as you hit Send, so reading them later sent every
+ * reply as a brand-new message without threading headers.
  */
 interface PendingSend {
+	mailboxId: string;
 	payload: any;
 	mode: ComposeMode;
 	originalEmailId?: string;
 	recipientLabel: string;
 	snapshot: ComposeSnapshot;
+	/**
+	 * The draft's row, taken off the visible list while its message is on the way out. Left there
+	 * it could be opened and sent a second time before the first send has removed the draft.
+	 */
+	removedDraft?: ReturnType<typeof emailStore.removeLocal>;
 }
 const pendingSend = ref<PendingSend | null>(null);
-/** Set while reopening from Undo / failed send so the open-watcher restores instead of re-initialising. */
-let restoringSnapshot: ComposeSnapshot | null = null;
-/** True while fields are filled programmatically, so that doesn't count as an edit (dirty / autosave). */
-let populating = false;
+/** The send is over: the draft's row stays gone (sent), or comes back (failed, or undone). */
+const settleRemovedDraft = (pending: PendingSend, sent: boolean) => {
+	const removed = pending.removedDraft;
+	if (!removed) return;
+	if (!sent && removed.rows.length > 0) emailStore.restoreLocal(removed.rows, { settled: true });
+	removed.settle();
+};
+/**
+ * Non-zero while fields are filled programmatically, so that doesn't count as an edit (dirty /
+ * autosave). A count, not a flag: a second fill can start before the first one's release runs
+ * (a draft's stored copy arriving right after it opened), and that release must not end it early.
+ */
+let populating = 0;
 const populate = (fn: () => void) => {
-	populating = true;
+	populating++;
 	fn();
 	// Field watchers queued by `fn` run in the current/next flush; release after it.
 	nextTick(() => {
-		populating = false;
+		populating--;
 	});
 };
 
@@ -854,6 +940,61 @@ const removeAttachment = (index: number) => {
 	isDirty.value = true;
 };
 
+/**
+ * 409 from the send endpoint: the draft this composer is editing is no longer a draft (its schedule
+ * sent it, it is being sent right now, or it was moved out of Drafts), or, for a draft save, it was
+ * scheduled from another tab. The composer then drops the id, so the next save or send no longer
+ * names that message.
+ */
+const isStaleDraft = (e: any): boolean => e?.response?.status === 409;
+const STALE_DRAFT_MESSAGE =
+	"This draft is no longer in Drafts: it was already sent, or moved. Check Sent before sending it again.";
+
+/** `email_references` of a stored message (a JSON list of ids) as a list. */
+const referencesOf = (email: any): string[] => {
+	try {
+		const parsed = JSON.parse(email?.email_references || "[]");
+		return Array.isArray(parsed) ? parsed.map(String) : [];
+	} catch {
+		return [];
+	}
+};
+
+/**
+ * Threading for a reply that is scheduled. An immediate reply goes through the reply endpoint,
+ * which derives these from the message being answered; a scheduled one is posted as a message, so
+ * it has to say the same itself, or it goes out later as a new, unthreaded outreach message.
+ */
+const replyThreading = (options: ComposeOptions) => {
+	const original = options.originalEmail;
+	if (!isReplyMode(options.mode) || !original) return {};
+	return {
+		in_reply_to: original.id as string,
+		thread_id: (original.thread_id || original.id) as string,
+		references: [...referencesOf(original), original.id as string],
+	};
+};
+
+/**
+ * What a reopened draft's row already says about its conversation. The server writes these from
+ * every save and send, so they are handed back, or they are reset to "new conversation": a
+ * follow-up draft would leave its thread, and a scheduled reply that failed and is corrected from
+ * Drafts would go out as a new message.
+ */
+const draftThreading = (options: ComposeOptions) => {
+	const draft = options.originalEmail;
+	if (options.mode !== "draft" || !draft) return {};
+	const references = referencesOf(draft);
+	return {
+		in_reply_to: (draft.in_reply_to || undefined) as string | undefined,
+		// A plain draft's thread is its own id, which is gone once it is sent.
+		thread_id: (draft.thread_id && draft.thread_id !== draft.id ? draft.thread_id : undefined) as
+			| string
+			| undefined,
+		references: references.length > 0 ? references : undefined,
+	};
+};
+
 // Autosave debouncing
 const scheduleAutosave = () => {
 	if (!isComposeModalOpen.value || !currentMailbox.value) return;
@@ -868,8 +1009,24 @@ const scheduleAutosave = () => {
 	}, 2000);
 };
 
-const executeAutosave = async () => {
+const executeAutosave = (): Promise<void> => {
+	if (sendInProgress) return Promise.resolve();
+	const run: Promise<void> = saveDraftNow().finally(() => {
+		if (autosaveRunning === run) autosaveRunning = null;
+	});
+	autosaveRunning = run;
+	return run;
+};
+
+const saveDraftNow = async () => {
 	if (!currentMailbox.value) return;
+	// A reopened draft's files are still being fetched (see draftAttachmentsLoad): wait for them. If
+	// the composer was closed meanwhile there is nothing left here to save.
+	if (isLoadingDraftAttachments.value) {
+		const epoch = composeEpoch;
+		await draftAttachmentsLoad;
+		if (epoch !== composeEpoch) return;
+	}
 	isAutosaving.value = true;
 	try {
 		const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
@@ -882,17 +1039,32 @@ const executeAutosave = async () => {
 		}
 
 		const allAttachments = [...attachments.value, ...inlineAttachments.value];
-		const res = await api.saveDraft(mailboxId, {
-			draft_id: currentDraftId.value || undefined,
-			to: to.value,
-			from: currentMailbox.value.email,
-			subject: subject.value || "(No Subject)",
-			html: finalHtml,
-			text: htmlToPlainText(finalHtml),
-			cc: cc.value.trim() || undefined,
-			bcc: bcc.value.trim() || undefined,
-			attachments: allAttachments.length > 0 ? allAttachments : undefined,
-		});
+		const save = (draftId: string | null) =>
+			api.saveDraft(mailboxId, {
+				draft_id: draftId || undefined,
+				to: to.value,
+				subject: subject.value || "(No Subject)",
+				html: finalHtml,
+				text: htmlToPlainText(finalHtml),
+				cc: cc.value.trim() || undefined,
+				bcc: bcc.value.trim() || undefined,
+				attachments: allAttachments.length > 0 ? allAttachments : undefined,
+				...draftThreading(composeOptions.value),
+				// A reply saved as a draft stays a reply: reopened from Drafts and sent, it would
+				// otherwise go out as a new message, unthreaded and with the outreach footer.
+				...replyThreading(composeOptions.value),
+			});
+
+		let res: Awaited<ReturnType<typeof save>>;
+		try {
+			res = await save(currentDraftId.value);
+		} catch (e) {
+			if (!isStaleDraft(e) || !currentDraftId.value) throw e;
+			// The text must not be lost with the draft it belonged to: keep it as a new draft.
+			currentDraftId.value = null;
+			res = await save(null);
+			showInfoToast("This draft was sent, scheduled or moved while you were editing it. Your changes are saved as a new draft.");
+		}
 
 		if (res.data?.id) {
 			currentDraftId.value = res.data.id;
@@ -913,6 +1085,9 @@ const manualSaveDraft = async () => {
 
 // Close & dirty confirmation
 const requestCloseModal = () => {
+	// A schedule request is on its way: its answer closes the composer, or leaves the message here
+	// with the reason. Closing now would lose the message if the request then fails.
+	if (isLoading.value) return;
 	if (isDirty.value) {
 		showDirtyModal.value = true;
 		return;
@@ -921,7 +1096,10 @@ const requestCloseModal = () => {
 };
 
 const saveDraftAndClose = async () => {
+	const epoch = composeEpoch;
 	await executeAutosave();
+	// Discarded while the save was waiting: this composer is already closed.
+	if (epoch !== composeEpoch) return;
 	showDirtyModal.value = false;
 	forceCloseModal();
 	showSuccessToast("Draft saved.");
@@ -933,6 +1111,7 @@ const discardAndClose = () => {
 };
 
 const forceCloseModal = () => {
+	composeEpoch++;
 	resetComposeState();
 	uiStore.closeComposeModal();
 };
@@ -985,10 +1164,12 @@ const applySnapshot = (snap: ComposeSnapshot) => {
 	isDirty.value = true;
 };
 
-/** Reopen the composer with a previous state (Undo send / failed send). */
-const reopenWith = (snap: ComposeSnapshot) => {
-	restoringSnapshot = snap;
-	uiStore.openComposeModal(snap.options);
+/**
+ * Reopen the composer with a previous state (Undo send / failed send). It goes through the store
+ * because this instance is usually gone by then: the composer that opens is a new one.
+ */
+const reopenWith = (snap: ComposeSnapshot, error?: string) => {
+	uiStore.restoreComposeModal({ snapshot: snap, error });
 };
 
 /** Refresh the visible list when it shows a folder this action changed (Drafts / Sent). */
@@ -1016,28 +1197,14 @@ const getSignatureBlock = (): string => {
 	return "";
 };
 
-// Watch compose modal options
-watch(
-	[isComposeModalOpen, composeOptions],
-	([isOpen, options], [wasOpen]) => {
-		if (isOpen && options) {
-			if (restoringSnapshot) {
-				const snap = restoringSnapshot;
-				restoringSnapshot = null;
-				populate(() => applySnapshot(snap));
-				return;
-			}
-			// Starting another message while the previous one waits out its undo window: send it now
-			// (otherwise its Undo would have to overwrite what you're writing).
-			if (isUndoPending.value && !wasOpen) commitSendImmediately();
-			populate(() => initComposer(options));
-		}
-	},
-	{ deep: true, immediate: true },
-);
-
 let draftLoadSeq = 0;
 const isLoadingDraftAttachments = ref(false);
+/**
+ * The fetch of a reopened draft's files. Until it is done the composer does not hold them, so a
+ * save waits for it and Send stays off: either would otherwise replace the stored draft with a copy
+ * that has no attachments.
+ */
+let draftAttachmentsLoad: Promise<void> | null = null;
 
 const blobToBase64 = (blob: Blob) =>
 	new Promise<string>((resolve, reject) => {
@@ -1051,11 +1218,13 @@ const blobToBase64 = (blob: Blob) =>
 	});
 
 /**
- * Drafts reopen with their attachments: list rows carry no attachment data, so fetch the draft and
- * each file. Inline images get a local blob URL so the editor can show them; it's swapped back to
- * `cid:` on send/save like freshly pasted images.
+ * A reopened draft is filled from the stored draft, fetched here, not from the list row it was
+ * opened from. That row can be older than the last autosave, and saving and sending both name the
+ * draft's id: starting from the row would put the old recipients and text back over the newer ones.
+ * Its files come with it. Inline images get a local blob URL so the editor can show them; it's
+ * swapped back to `cid:` on send/save like freshly pasted images.
  */
-const loadDraftAttachments = async (draft: any) => {
+const loadDraft = async (draft: any) => {
 	if (!currentMailbox.value) return;
 	const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
 	const token = ++draftLoadSeq;
@@ -1063,12 +1232,32 @@ const loadDraftAttachments = async (draft: any) => {
 		token === draftLoadSeq && isComposeModalOpen.value && currentDraftId.value === draft.id;
 	isLoadingDraftAttachments.value = true;
 	try {
-		let meta: any[] = Array.isArray(draft.attachments) ? draft.attachments : [];
-		if (meta.length === 0) {
-			const res = await api.getEmail(mailboxId, draft.id);
-			meta = Array.isArray(res.data?.attachments) ? res.data.attachments : [];
+		const stored = (await api.getEmail(mailboxId, draft.id)).data;
+		if (!stillCurrent()) return;
+		// The row was stale: this is no longer a plain draft, so it must not be edited as one.
+		if (stored?.folder_id !== "drafts" || ["scheduled", "sending"].includes(stored?.delivery_status)) {
+			forceCloseModal();
+			showInfoToast(
+				stored?.delivery_status === "scheduled"
+					? "This message is scheduled. Cancel the schedule to edit it."
+					: "This draft has already been sent or moved.",
+			);
+			refreshListIfShowing(mailboxId, ["drafts"]);
+			return;
 		}
-		if (!meta.length || !stillCurrent()) return;
+		populate(() => {
+			to.value = stored.recipient || "";
+			cc.value = stored.cc || "";
+			bcc.value = stored.bcc || "";
+			showCc.value = !!cc.value;
+			showBcc.value = !!bcc.value;
+			subject.value = stored.subject === "(No Subject)" ? "" : stored.subject || "";
+			body.value = stored.body || "";
+		});
+		isDirty.value = false;
+
+		const meta: any[] = Array.isArray(stored.attachments) ? stored.attachments : [];
+		if (!meta.length) return;
 		const files = await Promise.all(
 			meta.map(async (att: any) => {
 				const res = await api.getAttachment(mailboxId, draft.id, att.id);
@@ -1105,8 +1294,13 @@ const loadDraftAttachments = async (draft: any) => {
 		}
 		if (html !== body.value) populate(() => (body.value = html));
 	} catch (e) {
-		console.error("Failed to load draft attachments", e);
-		if (stillCurrent()) error.value = "Couldn't load this draft's attachments. Re-attach them before sending.";
+		console.error("Failed to load draft", e);
+		// Not left open half-loaded: the next save would replace the stored draft with a copy that
+		// lacks whatever did not arrive (its files, or newer text). Nothing has been typed yet.
+		if (stillCurrent()) {
+			forceCloseModal();
+			showErrorToast("Couldn't open this draft. Check your connection and try again.");
+		}
 	} finally {
 		if (token === draftLoadSeq) isLoadingDraftAttachments.value = false;
 	}
@@ -1121,6 +1315,7 @@ const initComposer = (options: ComposeOptions) => {
 	// Per-message state must not leak from the previous composer (attachments, draft id, errors).
 	draftLoadSeq++;
 	isLoadingDraftAttachments.value = false;
+	draftAttachmentsLoad = null;
 	attachments.value = [];
 	inlineAttachments.value = [];
 	currentDraftId.value = null;
@@ -1133,6 +1328,8 @@ const initComposer = (options: ComposeOptions) => {
 	{
 		{
 			if (options.mode === "draft" && original) {
+				// Shown from the list row at once, then replaced by the stored draft (see loadDraft).
+				// Saving and Send stay off until that has arrived.
 				currentDraftId.value = original.id;
 				to.value = original.recipient || "";
 				cc.value = original.cc || "";
@@ -1142,48 +1339,33 @@ const initComposer = (options: ComposeOptions) => {
 				subject.value = original.subject === "(No Subject)" ? "" : original.subject || "";
 				body.value = original.body || "";
 				isDirty.value = false;
-				void loadDraftAttachments(original);
+				draftAttachmentsLoad = loadDraft(original);
 			} else if (options.mode === "reply" && original) {
-				const isSent =
-					Boolean(currentMailbox.value?.email &&
-						original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
-					(original.delivery_status !== undefined && original.delivery_status !== null) ||
-					(original.opened_count !== undefined && original.opened_count !== null);
-				to.value = isSent ? original.recipient : original.sender;
+				to.value = wasSentByMailbox(original) ? original.recipient : original.sender;
 				cc.value = "";
 				bcc.value = "";
 				subject.value = original.subject.startsWith("Re: ")
 					? original.subject
 					: `Re: ${original.subject}`;
-				const initialText = options.initialBody ? `<p>${options.initialBody.replace(/\n/g, "<br>")}</p><br>` : "";
+				const initialText = options.initialBody ? `${options.initialBody}<br>` : "";
 				body.value = `${initialText}${sigBlock}<br><blockquote style="border-left: 2px solid #ccc; margin: 0; padding-left: 1em; color: #666;">On ${original.date}, ${original.sender} wrote:<br><br>${original.body || ""}</blockquote>`;
 				isDirty.value = false;
 			} else if (options.mode === "reply-all" && original) {
-				const isSent =
-					Boolean(currentMailbox.value?.email &&
-						original.sender.toLowerCase().includes(currentMailbox.value.email.toLowerCase())) ||
-					(original.delivery_status !== undefined && original.delivery_status !== null) ||
-					(original.opened_count !== undefined && original.opened_count !== null);
-				to.value = isSent ? original.recipient : original.sender;
+				to.value = wasSentByMailbox(original) ? original.recipient : original.sender;
 
-				const ccRecipients = new Set<string>();
-				if (
-					original.recipient &&
-					original.recipient !== currentMailbox.value?.email &&
-					original.recipient !== original.sender
-				) {
-					ccRecipients.add(original.recipient);
-				}
-				if (original.cc) {
-					original.cc.split(/[,;\s]+/).forEach((addr: string) => {
-						if (addr && addr !== currentMailbox.value?.email) {
-							ccRecipients.add(addr);
-						}
-					});
+				// Cc: everyone else on the original. Never this mailbox, nor anyone already in To.
+				const taken = new Set(splitAddresses(to.value).map(addressOf));
+				taken.add(ownAddress());
+				const ccRecipients: string[] = [];
+				for (const addr of [...splitAddresses(original.recipient), ...splitAddresses(original.cc)]) {
+					const key = addressOf(addr);
+					if (taken.has(key)) continue;
+					taken.add(key);
+					ccRecipients.push(addr);
 				}
 
-				if (ccRecipients.size > 0) {
-					cc.value = Array.from(ccRecipients).join(", ");
+				if (ccRecipients.length > 0) {
+					cc.value = ccRecipients.join(", ");
 					showCc.value = true;
 				} else {
 					cc.value = "";
@@ -1226,17 +1408,20 @@ ${original.body || ""}
 	}
 };
 
+/**
+ * The body can hold HTML from a received email (the quote on reply / forward), so it must never be
+ * assigned to innerHTML of an element of the app document: even detached, `<img onerror=…>` runs
+ * there, next to the session token. A DOMParser document is inert — no script, handlers or loads.
+ */
 const htmlToPlainText = (html: string): string => {
-	const div = document.createElement("div");
-	div.innerHTML = html;
-	let text = html
+	const text = html
 		.replace(/<br\s*\/?>/gi, "\n")
 		.replace(/<\/p>/gi, "\n\n")
 		.replace(/<p[^>]*>/gi, "")
 		.replace(/<div[^>]*>/gi, "")
 		.replace(/<\/div>/gi, "\n");
-	div.innerHTML = text;
-	return (div.textContent || div.innerText || "").trim();
+	const doc = new DOMParser().parseFromString(text, "text/html");
+	return (doc.body.textContent || "").trim();
 };
 
 const previewHtmlDoc = computed(() => {
@@ -1270,7 +1455,7 @@ const triggerSendFlow = async (isDraft = false) => {
 		manualSaveDraft();
 		return;
 	}
-	if (isCheckingSuppression.value) return;
+	if (isCheckingSuppression.value || sendInProgress) return;
 
 	error.value = null;
 	if (!currentMailbox.value) {
@@ -1283,14 +1468,29 @@ const triggerSendFlow = async (isDraft = false) => {
 		return;
 	}
 
-	if (!suppressionAcknowledged) {
-		isCheckingSuppression.value = true;
-		const hits = await findSuppressedRecipients();
-		isCheckingSuppression.value = false;
-		if (hits.length > 0) {
-			suppressionWarning.value = hits;
-			return;
-		}
+	// The button is off meanwhile; this is the keyboard shortcut (see draftAttachmentsLoad).
+	if (isLoadingDraftAttachments.value) {
+		error.value = "This draft is still loading. Try again in a moment.";
+		return;
+	}
+
+	const epoch = composeEpoch;
+	cancelPendingAutosave();
+	isCheckingSuppression.value = true;
+	const check = suppressionAcknowledged ? null : await findSuppressedRecipients();
+	// A draft save that is running finishes first, so the draft it creates is the one this message
+	// replaces (taken into the snapshot below) instead of being left behind in Drafts.
+	while (autosaveRunning) await autosaveRunning;
+	isCheckingSuppression.value = false;
+	// The check can take a while. If this composer was closed meanwhile, the one on screen now holds
+	// another message: going on would close that one and send this one's emptied fields. Likewise if
+	// Schedule was confirmed meanwhile: the message must not go out now as well as later.
+	if (epoch !== composeEpoch || sendInProgress) return;
+	if (check && check.hits.length > 0) {
+		suppressionBlocksSend.value = check.blocks;
+		suppressionWarning.value = check.hits;
+		if (isDirty.value) scheduleAutosave();
+		return;
 	}
 	suppressionAcknowledged = false;
 
@@ -1306,15 +1506,14 @@ const triggerSendFlow = async (isDraft = false) => {
 	const allAttachments = [...attachments.value, ...inlineAttachments.value];
 	const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
 
+	// Only what every send endpoint accepts. The sender is the mailbox in the URL; the draft this
+	// replaces is named when the message goes out (commitSend).
 	const payload: any = {
-		mailboxId,
-		draft_id: currentDraftId.value || undefined,
 		to: to.value,
-		from: currentMailbox.value.email,
 		subject: subject.value || "(No subject)",
 		html: finalHtml,
 		text: htmlToPlainText(finalHtml),
-		is_draft: false,
+		...draftThreading(composeOptions.value),
 	};
 
 	if (cc.value.trim()) payload.cc = cc.value;
@@ -1324,12 +1523,18 @@ const triggerSendFlow = async (isDraft = false) => {
 	const snapshot = takeSnapshot();
 	const recipientLabel = to.value.trim().split(",")[0] || "recipient";
 	pendingSend.value = {
+		mailboxId,
 		payload,
 		mode: composeOptions.value.mode,
 		originalEmailId: composeOptions.value.originalEmail?.id,
 		recipientLabel,
 		snapshot,
+		removedDraft: snapshot.currentDraftId ? emailStore.removeLocal([snapshot.currentDraftId]) : undefined,
 	};
+
+	// The message goes out from here: no draft save after this point (see sendInProgress).
+	cancelPendingAutosave();
+	sendInProgress = true;
 
 	// Start 5-second Undo buffer
 	isUndoPending.value = true;
@@ -1358,6 +1563,7 @@ const cancelUndoSend = () => {
 	const pending = pendingSend.value;
 	pendingSend.value = null;
 	if (pending) {
+		settleRemovedDraft(pending, false);
 		reopenWith(pending.snapshot);
 	} else {
 		uiStore.isComposeModalOpen = true;
@@ -1384,42 +1590,89 @@ const commitSend = async () => {
 	}
 
 	isLoading.value = true;
+	const { mailboxId } = pending;
+	const draftId = pending.snapshot.currentDraftId || undefined;
 	try {
-		const mailboxId = pending.payload.mailboxId;
-		if (
-			pending.mode === "reply" ||
-			pending.mode === "reply-all"
-		) {
-			if (pending.originalEmailId) {
-				await api.replyToEmail(mailboxId, pending.originalEmailId, pending.payload);
+		if (pending.originalEmailId && (isReplyMode(pending.mode) || pending.mode === "forward")) {
+			// The server removes the autosaved draft once the message is out, and only if that id is
+			// still a draft. Deleting it from here by id also deleted the Sent copy whenever the same
+			// draft had meanwhile been sent from another tab.
+			const message = { ...pending.payload, draft_id: draftId };
+			if (pending.mode === "forward") {
+				await api.forwardEmail(mailboxId, pending.originalEmailId, message);
 			} else {
-				await emailStore.sendEmail(mailboxId, pending.payload);
-			}
-		} else if (pending.mode === "forward") {
-			if (pending.originalEmailId) {
-				await api.forwardEmail(mailboxId, pending.originalEmailId, pending.payload);
-			} else {
-				await emailStore.sendEmail(mailboxId, pending.payload);
+				await api.replyToEmail(mailboxId, pending.originalEmailId, message);
 			}
 		} else {
-			await emailStore.sendEmail(mailboxId, pending.payload);
+			await emailStore.sendEmail(mailboxId, { ...pending.payload, draft_id: draftId, is_draft: false });
 		}
 
-		forceCloseModal();
+		// The composer this message came from closed on Send, so one that is open now belongs to a
+		// different message: leave it alone.
+		settleRemovedDraft(pending, true);
 		showSuccessToast("Email sent successfully!");
 		refreshListIfShowing(mailboxId, ["sent", "drafts", "inbox"]);
 	} catch (e: any) {
-		const errorMessage =
-			e.response?.data?.error || "Failed to dispatch email.";
-		showErrorToast(errorMessage);
-		reopenWith(pending.snapshot);
+		settleRemovedDraft(pending, false);
+		let reason = apiErrorMessage(e, "Failed to dispatch email.");
+		if (isStaleDraft(e)) {
+			pending.snapshot.currentDraftId = null;
+			reason = STALE_DRAFT_MESSAGE;
+		}
+		await keepUnsentMessage(pending, reason);
 	} finally {
 		isLoading.value = false;
 	}
 };
 
+/**
+ * A send failed after its composer closed: the message must not be lost. Reopen it when that
+ * overwrites nothing; if another composer is open (or the user left this mailbox), save it to
+ * Drafts instead; and if that fails too, keep it behind a button on a toast that does not expire.
+ */
+const keepUnsentMessage = async (pending: PendingSend, reason: string) => {
+	const { mailboxId, snapshot, recipientLabel } = pending;
+	const canReopen = () => !uiStore.isComposeModalOpen && route.params.mailboxId === mailboxId;
+	if (canReopen()) {
+		showErrorToast(reason);
+		reopenWith(snapshot, reason);
+		return;
+	}
+
+	try {
+		// A reply keeps what makes it one, or it would later go out from Drafts as a new message.
+		await api.saveDraft(mailboxId, {
+			...pending.payload,
+			...replyThreading(snapshot.options),
+			draft_id: snapshot.currentDraftId || undefined,
+		});
+		const where = route.params.mailboxId === mailboxId ? "Drafts" : `the Drafts of ${mailboxId}`;
+		showErrorToast(`Your message to ${recipientLabel} was not sent. It is saved in ${where}. ${reason}`, 12000);
+		refreshListIfShowing(mailboxId, ["drafts"]);
+	} catch {
+		const toastId = addToast(
+			`Your message to ${recipientLabel} was not sent and could not be saved to Drafts. ${reason}`,
+			"error",
+			0,
+			{
+				label: "Reopen",
+				handler: () => {
+					if (!canReopen()) {
+						showInfoToast(`Go to ${mailboxId} and close the message you are writing, then press Reopen.`);
+						return;
+					}
+					removeToast(toastId);
+					reopenWith(snapshot, reason);
+				},
+			},
+		);
+	}
+};
+
 const handleScheduleSend = async (isoDate: string) => {
 	showScheduleModal.value = false;
+	// A Send that is still waiting on its do-not-contact check counts too (see triggerSendFlow).
+	if (sendInProgress || isCheckingSuppression.value) return;
 	error.value = null;
 	if (!currentMailbox.value) {
 		error.value = "No mailbox selected.";
@@ -1430,42 +1683,59 @@ const handleScheduleSend = async (isoDate: string) => {
 		return;
 	}
 
-	let finalHtml = body.value;
-	for (const att of inlineAttachments.value) {
-		if (att.localUrl && att.contentId) {
-			const cleanCid = att.contentId.replace(/^<|>$/g, "");
-			finalHtml = finalHtml.split(att.localUrl).join(`cid:${cleanCid}`);
-		}
-	}
-	const allAttachments = [...attachments.value, ...inlineAttachments.value];
-	const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
-
-	const payload: any = {
-		mailboxId,
-		draft_id: currentDraftId.value || undefined,
-		to: to.value,
-		from: currentMailbox.value.email,
-		subject: subject.value || "(No subject)",
-		html: finalHtml,
-		text: htmlToPlainText(finalHtml),
-		is_draft: false,
-		scheduled_at: isoDate,
-	};
-	if (cc.value.trim()) payload.cc = cc.value;
-	if (bcc.value.trim()) payload.bcc = bcc.value;
-	if (allAttachments.length > 0) payload.attachments = allAttachments;
-
+	// No draft save may overlap the request (see sendInProgress); one that is already running
+	// finishes first, so the request names the draft it created.
+	const epoch = composeEpoch;
+	cancelPendingAutosave();
+	sendInProgress = true;
 	isLoading.value = true;
 	try {
+		while (autosaveRunning) await autosaveRunning;
+		if (epoch !== composeEpoch) return;
+
+		let finalHtml = body.value;
+		for (const att of inlineAttachments.value) {
+			if (att.localUrl && att.contentId) {
+				const cleanCid = att.contentId.replace(/^<|>$/g, "");
+				finalHtml = finalHtml.split(att.localUrl).join(`cid:${cleanCid}`);
+			}
+		}
+		const allAttachments = [...attachments.value, ...inlineAttachments.value];
+		const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
+
+		const payload: any = {
+			draft_id: currentDraftId.value || undefined,
+			to: to.value,
+			subject: subject.value || "(No subject)",
+			html: finalHtml,
+			text: htmlToPlainText(finalHtml),
+			is_draft: false,
+			send_at: isoDate,
+			...draftThreading(composeOptions.value),
+			...replyThreading(composeOptions.value),
+		};
+		if (cc.value.trim()) payload.cc = cc.value;
+		if (bcc.value.trim()) payload.bcc = bcc.value;
+		if (allAttachments.length > 0) payload.attachments = allAttachments;
+
 		await emailStore.sendEmail(mailboxId, payload);
-		forceCloseModal();
+		// Only this composer: if it is no longer the one on screen, another message is open there.
+		if (epoch === composeEpoch) forceCloseModal();
 		showSuccessToast(`Email scheduled for ${new Date(isoDate).toLocaleString()}`);
 		refreshListIfShowing(mailboxId, ["sent", "drafts", "inbox"]);
 	} catch (e: any) {
-		const msg = e.response?.data?.error || "Failed to schedule email.";
+		// The composer is still open with the message; the banner keeps the reason once the toast is gone.
+		let msg = apiErrorMessage(e, "Failed to schedule email.");
+		if (isStaleDraft(e)) {
+			currentDraftId.value = null;
+			msg = STALE_DRAFT_MESSAGE;
+		}
+		error.value = msg;
 		showErrorToast(msg);
+		if (isDirty.value) scheduleAutosave();
 	} finally {
 		isLoading.value = false;
+		sendInProgress = false;
 	}
 };
 
@@ -1476,6 +1746,38 @@ const formatBytes = (bytes: number, decimals = 1) => {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`;
 };
+
+// Fill the composer when it opens or its options change. Keep this the LAST statement of setup:
+// `immediate` runs it right here (the component is mounted with v-if, so it is already open), and
+// everything it reaches — initComposer, draftLoadSeq, commitSendImmediately — is a const / let that
+// must be initialised by then. Further up it threw "Cannot access … before initialization" and
+// every Reply, Forward and draft opened empty.
+watch(
+	[isComposeModalOpen, composeOptions],
+	([isOpen, options], [wasOpen]) => {
+		if (isOpen && options) {
+			// Another message from here on: whatever was still waiting to send the previous one stops.
+			composeEpoch++;
+			sendInProgress = false;
+			const restore = uiStore.takeComposeRestore();
+			if (restore) {
+				populate(() => applySnapshot(restore.snapshot));
+				error.value = restore.error || null;
+				return;
+			}
+			// Starting another message while the previous one waits out its undo window: send it now
+			// (otherwise its Undo would have to overwrite what you're writing).
+			if (isUndoPending.value && !wasOpen) commitSendImmediately();
+			populate(() => initComposer(options));
+			// Text moved here from the quick-reply box is in no draft yet: closing must not drop it silently.
+			if (options.initialBodyUnsaved) isDirty.value = true;
+		}
+	},
+	// Not deep: the options object is replaced whenever a message is opened. Watching inside it
+	// refilled the composer (dropping what was typed) whenever the quoted message changed in place,
+	// e.g. when a star request on it finished.
+	{ immediate: true },
+);
 </script>
 
 <style scoped>

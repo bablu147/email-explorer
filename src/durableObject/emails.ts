@@ -39,6 +39,9 @@ export interface AttachmentData {
 	disposition?: string | null;
 }
 
+/** See EmailHandler.getDraftState. */
+export type DraftState = "missing" | "draft" | "scheduled" | "other";
+
 export class EmailHandler {
 	#sql: SqlStorage;
 	#qb: DOQB;
@@ -275,7 +278,7 @@ export class EmailHandler {
 		return result.results;
 	}
 
-	async moveEmail(id: string, folderId: string) {
+	async moveEmail(id: string, folderId: string): Promise<"moved" | "no_folder" | "not_a_draft"> {
 		const folder = this.#qb
 			.select("folders")
 			.fields(["id"])
@@ -283,7 +286,21 @@ export class EmailHandler {
 			.one();
 
 		if (!folder.results) {
-			return false;
+			return "no_folder";
+		}
+
+		// Whatever is in Drafts can be overwritten through draft_id and sent as this mailbox, so only
+		// an unsent outgoing message may be moved there: a composer or follow-up draft ('draft'), or a
+		// scheduled one ('scheduled': moving it to Drafts is how a schedule is cancelled, below).
+		// Received and sent messages carry another status ('inbox', 'spam', 'bounced') and are
+		// refused, as is a message that is being sent right now ('sending').
+		if (folderId === "drafts") {
+			const row = this.#sql
+				.exec("SELECT delivery_status FROM emails WHERE id = ?", id)
+				.toArray()[0] as any;
+			if (row && row.delivery_status !== "draft" && row.delivery_status !== "scheduled") {
+				return "not_a_draft";
+			}
 		}
 
 		this.#qb
@@ -305,7 +322,7 @@ export class EmailHandler {
 			id,
 		);
 
-		return true;
+		return "moved";
 	}
 
 	async searchEmails(options: {
@@ -383,18 +400,55 @@ export class EmailHandler {
 		}
 	}
 
+	/**
+	 * What an id that the client calls a draft really points at. Only "draft" and "scheduled" may be
+	 * overwritten or removed through it: a row in Drafts (scheduled ones live there too) that is not
+	 * being sent right now. Synchronous, so a caller can check and write with nothing running in
+	 * between.
+	 */
+	#draftState(id: string): DraftState {
+		const row = this.#sql
+			.exec("SELECT folder_id, delivery_status FROM emails WHERE id = ?", id)
+			.toArray()[0] as any;
+		if (!row) return "missing";
+		if (row.folder_id !== "drafts" || row.delivery_status === "sending") return "other";
+		return row.delivery_status === "scheduled" ? "scheduled" : "draft";
+	}
+
+	async getDraftState(id: string): Promise<DraftState> {
+		return this.#draftState(id);
+	}
+
+	/**
+	 * deleteEmail for a client-supplied draft_id: deletes the row only if it is a draft (scheduled or
+	 * not), and returns its attachments. Any other message (received, sent, being sent) is left alone.
+	 */
+	async deleteDraft(id: string) {
+		const state = this.#draftState(id);
+		if (state !== "draft" && state !== "scheduled") return [];
+		return this.deleteEmail(id);
+	}
+
+	/**
+	 * Saves a draft: updates the draft that draftId names, or creates one if no row has that id.
+	 * Returns false and changes nothing when draftId names a message that is not a draft, because
+	 * the id comes from the client and used to overwrite received mail.
+	 *
+	 * A save rewrites the row as a plain draft, so one that names a scheduled message is only allowed
+	 * as part of scheduling it again (`reschedules`). A plain draft save is refused: an autosave from
+	 * a composer still open in another tab used to cancel the scheduled send without anyone noticing.
+	 */
 	async upsertDraft(
 		draftId: string,
 		email: EmailData,
 		attachments: AttachmentData[],
-	) {
-		const existing = this.#qb
-			.select("emails")
-			.fields(["id"])
-			.where("id = ?", draftId)
-			.one();
+		reschedules = false,
+	): Promise<boolean> {
+		const state = this.#draftState(draftId);
+		if (state === "other") return false;
+		if (state === "scheduled" && !reschedules) return false;
 
-		if (existing.results) {
+		if (state !== "missing") {
 			this.#qb
 				.update({
 					tableName: "emails",
@@ -456,6 +510,7 @@ export class EmailHandler {
 					.execute();
 			}
 		}
+		return true;
 	}
 
 	async getThreadEmails(threadId: string) {

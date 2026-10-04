@@ -20,15 +20,20 @@ export const MailboxDetailsSchema = z.object({
 	settings: z.record(z.any()),
 });
 
-export const UpdateMailboxRequestSchema = z.object({
-	settings: z.record(z.any()),
-});
+// Strict: an unknown top-level key is a 400 instead of being silently dropped.
+export const UpdateMailboxRequestSchema = z
+	.object({
+		settings: z.record(z.any()),
+	})
+	.strict();
 
-export const CreateMailboxRequestSchema = z.object({
-	email: z.string().email(),
-	name: z.string().min(1),
-	settings: z.record(z.any()).optional(),
-});
+export const CreateMailboxRequestSchema = z
+	.object({
+		email: z.string().email(),
+		name: z.string().min(1),
+		settings: z.record(z.any()).optional(),
+	})
+	.strict();
 
 export const ForgotPasswordRequestSchema = z.object({
 	email: z.string().email(),
@@ -56,6 +61,22 @@ const ErrorResponseSchema = z.object({
 const SuccessResponseSchema = z.object({
 	status: z.string(),
 });
+
+// Mailbox create/delete are admin-only: returns the 403 to send, or null when allowed.
+// With auth disabled by configuration there are no sessions, so everyone is allowed (as in
+// GetMailboxes). The config is checked, not "no session", so a missing session fails closed.
+function requireAdmin(c: AppContext) {
+	if (c.env.config?.auth?.enabled === false) {
+		return null;
+	}
+
+	const session = c.get("session");
+	if (!session?.isAdmin) {
+		return c.json({ error: "Admin access required" }, 403);
+	}
+
+	return null;
+}
 
 export class GetMailboxes extends OpenAPIRoute {
 	schema = {
@@ -94,9 +115,10 @@ export class GetMailboxes extends OpenAPIRoute {
 		const authId = c.env.MAILBOX.idFromName("AUTH");
 		const authDO = c.env.MAILBOX.get(authId);
 		const userMailboxes = await authDO.getUserMailboxes(session.userId);
-		const allowedMailboxIds = new Set(userMailboxes.map((m) => m.mailboxId));
+		// Letter case is ignored, as in the access check: a grant is stored as the admin typed it.
+		const allowedMailboxIds = new Set(userMailboxes.map((m) => m.mailboxId.toLowerCase()));
 
-		return c.json(allMailboxes.filter((m) => allowedMailboxIds.has(m.id)));
+		return c.json(allMailboxes.filter((m) => allowedMailboxIds.has(m.id.toLowerCase())));
 	}
 }
 
@@ -193,11 +215,20 @@ export class DeleteMailbox extends OpenAPIRoute {
 		},
 		responses: {
 			"204": { description: "Deleted successfully" },
+			"403": {
+				description: "Forbidden - Admin privileges required",
+				...contentJson(ErrorResponseSchema),
+			},
 			"404": { description: "Not found", ...contentJson(ErrorResponseSchema) },
 		},
 	};
 
 	async handle(c: AppContext) {
+		const denied = requireAdmin(c);
+		if (denied) {
+			return denied;
+		}
+
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId } = data.params;
 		const key = `mailboxes/${mailboxId}.json`;
@@ -230,6 +261,10 @@ export class PostMailbox extends OpenAPIRoute {
 				description: "Bad request",
 				...contentJson(ErrorResponseSchema),
 			},
+			"403": {
+				description: "Forbidden - Admin privileges required",
+				...contentJson(ErrorResponseSchema),
+			},
 			"409": {
 				description: "Mailbox already exists",
 				...contentJson(ErrorResponseSchema),
@@ -238,8 +273,15 @@ export class PostMailbox extends OpenAPIRoute {
 	};
 
 	async handle(c: AppContext) {
+		const denied = requireAdmin(c);
+		if (denied) {
+			return denied;
+		}
+
 		const data = await this.getValidatedData<typeof this.schema>();
-		const { email, name, settings } = data.body;
+		const { name, settings } = data.body;
+		// Mailbox ids are always lower-case: inbound mail is filed under the lower-cased recipient.
+		const email = data.body.email.trim().toLowerCase();
 
 		const key = `mailboxes/${email}.json`;
 
@@ -283,51 +325,6 @@ export class PostMailbox extends OpenAPIRoute {
 		};
 
 		return c.json(response, 201);
-	}
-}
-
-export class CreateDummyMailbox extends OpenAPIRoute {
-	schema = {
-		summary: "Create a dummy mailbox for debugging",
-		operationId: "createDummyMailbox",
-		tags: ["Debug"],
-		responses: {
-			"200": {
-				description: "Dummy mailbox created",
-				...contentJson(z.object({ status: z.string() })),
-			},
-		},
-	};
-
-	async handle(c: AppContext) {
-		const mailboxId = "test@example.com";
-		const key = `mailboxes/${mailboxId}.json`;
-		const settings = {
-			fromName: "Test User",
-			forwarding: {
-				enabled: false,
-				email: "",
-			},
-			signature: {
-				enabled: true,
-				text: "Sent from my awesome email client",
-			},
-			autoReply: {
-				enabled: false,
-				subject: "",
-				message: "",
-			},
-		};
-
-		await c.env.BUCKET.put(key, JSON.stringify(settings));
-
-		const ns = c.env.MAILBOX;
-		const id = ns.idFromName(mailboxId);
-		const stub = ns.get(id);
-
-		await stub.getFolders();
-
-		return c.json({ status: "ok" });
 	}
 }
 

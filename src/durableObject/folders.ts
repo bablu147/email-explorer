@@ -104,6 +104,21 @@ export class FolderHandler {
 			return false;
 		}
 
+		// emails.folder_id is ON DELETE CASCADE, so deleting the folder row would delete its mail.
+		// Move the mail to Archive first ('archive' is seeded as a non-deletable folder, so it always
+		// exists). Both statements are synchronous with no await between them, so the Durable Object
+		// commits them together: the folder can never be gone while its mail is still in it.
+		this.#qb
+			.update({
+				tableName: "emails",
+				data: { folder_id: "archive" },
+				where: {
+					conditions: "folder_id = ?",
+					params: [id],
+				},
+			})
+			.execute();
+
 		this.#qb
 			.delete({
 				tableName: "folders",

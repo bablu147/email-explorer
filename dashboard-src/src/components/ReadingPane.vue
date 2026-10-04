@@ -305,9 +305,14 @@ const isRestoreFolder = computed(() => ["archive", "trash", "spam"].includes(pro
 
 // Inbound rows also carry opened_count = 0, so that column can't decide. A message is outgoing if it lives in
 // Sent, was opened from Sent, or was sent by this mailbox (covers sent mail later archived / starred / searched).
+// The message's own folder decides first: in Inbox and Spam the From header is whatever the outside sender
+// wrote, so spam that names our own address is not ours, and Reply must not go to the To header it chose.
 const isSentEmail = computed(() => {
 	if (!email.value) return false;
-	if (email.value.folder_id === "sent" || props.fromFolder === "sent") return true;
+	const folder = email.value.folder_id || "";
+	if (folder === "sent") return true;
+	if (folder === "inbox" || folder === "spam") return false;
+	if (props.fromFolder === "sent") return true;
 	const own = (props.mailboxId || "").toLowerCase();
 	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });

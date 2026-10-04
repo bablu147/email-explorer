@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { OutgoingAttachment } from "@/types";
 
 export type ComposeMode = "new" | "reply" | "reply-all" | "forward" | "draft";
 export type SplitViewMode = "split" | "full";
@@ -6,10 +7,34 @@ export type SplitViewMode = "split" | "full";
 export interface ComposeOptions {
 	mode: ComposeMode;
 	originalEmail?: any;
+	/** HTML, placed above the signature (new) or the quote (reply). */
 	initialBody?: string;
+	/** initialBody is text the user typed that now exists only in the composer: closing asks first. */
+	initialBodyUnsaved?: boolean;
 	initialTo?: string;
 	initialSubject?: string;
 	appBinding?: any;
+}
+
+/** Everything needed to put the composer back exactly as it was (Undo, or a failed send). */
+export interface ComposeSnapshot {
+	options: ComposeOptions;
+	to: string;
+	cc: string;
+	bcc: string;
+	showCc: boolean;
+	showBcc: boolean;
+	subject: string;
+	body: string;
+	attachments: OutgoingAttachment[];
+	inlineAttachments: any[];
+	currentDraftId: string | null;
+}
+
+/** A message on its way back into the composer, and why (shown there) when a send failed. */
+export interface ComposeRestore {
+	snapshot: ComposeSnapshot;
+	error?: string;
 }
 
 export const useUIStore = defineStore("ui", {
@@ -19,6 +44,9 @@ export const useUIStore = defineStore("ui", {
 			mode: "new" as ComposeMode,
 			originalEmail: null,
 		} as ComposeOptions,
+		// Held here, not in the composer: that component is destroyed when it closes on Send, so a
+		// send that fails afterwards can only hand the message back to the next instance through the store.
+		composeRestore: null as ComposeRestore | null,
 		isMobileSidebarOpen: false,
 		isCommandPaletteOpen: false,
 		splitViewMode: ((typeof localStorage !== "undefined" &&
@@ -47,6 +75,18 @@ export const useUIStore = defineStore("ui", {
 		closeComposeModal() {
 			this.isComposeModalOpen = false;
 			this.composeOptions = { mode: "new", originalEmail: null };
+		},
+		/** Reopen the composer with a message that was not sent; the composer that opens applies it. */
+		restoreComposeModal(restore: ComposeRestore) {
+			this.composeRestore = restore;
+			this.composeOptions = restore.snapshot.options;
+			this.isComposeModalOpen = true;
+		},
+		/** Hands the waiting message to the composer that is opening (once). */
+		takeComposeRestore(): ComposeRestore | null {
+			const restore = this.composeRestore;
+			this.composeRestore = null;
+			return restore;
 		},
 		toggleMobileSidebar() {
 			this.isMobileSidebarOpen = !this.isMobileSidebarOpen;
