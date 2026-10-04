@@ -1,5 +1,5 @@
 import { useToast } from "@/composables/useToast";
-import api from "@/services/api";
+import api, { roleRefusedSince } from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
 import type { Email } from "@/types";
@@ -21,6 +21,14 @@ export function useMailActions() {
 	const emailStore = useEmailStore();
 	const folderStore = useFolderStore();
 	const toast = useToast();
+
+	/**
+	 * The failure toast of an action started at `since`. Left out when the server refused the action
+	 * for the user's role: api.ts has already shown the server's sentence, which says why.
+	 */
+	const reportFailure = (since: number, message: string) => {
+		if (!roleRefusedSince(since)) toast.error(message);
+	};
 
 	const folderLabel = (folderId: string): string => {
 		switch (folderId) {
@@ -60,6 +68,7 @@ export function useMailActions() {
 	): Promise<string[]> => {
 		const rows = emails.filter(Boolean);
 		if (!mailboxId || rows.length === 0) return [];
+		const startedAt = Date.now();
 
 		// In the virtual Starred view, archiving/moving keeps the star, so the row stays visible there.
 		const staysVisible = fromFolder === "starred" && target !== "trash" && target !== "spam";
@@ -75,7 +84,8 @@ export function useMailActions() {
 
 		if (failed.length > 0) {
 			if (!staysVisible && emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(failed, { settled: true });
-			toast.error(
+			reportFailure(
+				startedAt,
 				moved.length === 0
 					? `Couldn't move ${failed.length === 1 ? "conversation" : "conversations"} to ${folderLabel(target)}`
 					: `${failed.length} of ${rows.length} ${plural(rows.length, "conversation")} couldn't be moved`,
@@ -113,6 +123,7 @@ export function useMailActions() {
 	const deleteForever = async (mailboxId: string, emails: Email[]): Promise<string[]> => {
 		const rows = emails.filter(Boolean);
 		if (!mailboxId || rows.length === 0) return [];
+		const startedAt = Date.now();
 		const results = await settleAll(rows, (e) => api.deleteEmail(mailboxId, e.id));
 		const deleted = rows.filter((_, i) => results[i].status === "fulfilled");
 		const failedCount = rows.length - deleted.length;
@@ -122,7 +133,7 @@ export function useMailActions() {
 				`${deleted.length === 1 ? "Conversation" : `${deleted.length} conversations`} permanently deleted`,
 			);
 		}
-		if (failedCount > 0) toast.error(`${failedCount} ${plural(failedCount, "conversation")} couldn't be deleted`);
+		if (failedCount > 0) reportFailure(startedAt, `${failedCount} ${plural(failedCount, "conversation")} couldn't be deleted`);
 		folderStore.fetchFolders(mailboxId);
 		return deleted.map((e) => e.id);
 	};
@@ -134,9 +145,11 @@ export function useMailActions() {
 	const setRead = async (mailboxId: string, emails: Email[], read: boolean) => {
 		const rows = emails.filter((e) => e && e.read !== read);
 		if (!mailboxId || rows.length === 0) return;
+		const startedAt = Date.now();
 		const failed = await emailStore.patchFlagsMany(mailboxId, rows.map((e) => e.id), { read });
 		if (failed.length > 0) {
-			toast.error(
+			reportFailure(
+				startedAt,
 				rows.length === 1
 					? `Couldn't mark as ${read ? "read" : "unread"}`
 					: `${failed.length} of ${rows.length} conversations couldn't be marked as ${read ? "read" : "unread"}`,
@@ -148,9 +161,11 @@ export function useMailActions() {
 	const setStarred = async (mailboxId: string, emails: Email[], starred: boolean) => {
 		const rows = emails.filter((e) => e && e.starred !== starred);
 		if (!mailboxId || rows.length === 0) return;
+		const startedAt = Date.now();
 		const failed = await emailStore.patchFlagsMany(mailboxId, rows.map((e) => e.id), { starred });
 		if (failed.length > 0) {
-			toast.error(
+			reportFailure(
+				startedAt,
 				rows.length === 1
 					? `Couldn't ${starred ? "star" : "unstar"}`
 					: `${failed.length} of ${rows.length} conversations couldn't be ${starred ? "starred" : "unstarred"}`,
@@ -168,6 +183,7 @@ export function useMailActions() {
 	): Promise<string[]> => {
 		const rows = emails.filter(Boolean);
 		if (!mailboxId || rows.length === 0) return [];
+		const startedAt = Date.now();
 
 		const listKeyAtAction = emailStore.listKey;
 		const removal = emailStore.removeLocal(rows.map((e) => e.id));
@@ -179,7 +195,7 @@ export function useMailActions() {
 
 		if (failed.length > 0) {
 			if (emailStore.listKey === listKeyAtAction) emailStore.restoreLocal(failed, { settled: true });
-			toast.error(`Couldn't snooze ${failed.length === 1 ? "conversation" : "conversations"}`);
+			reportFailure(startedAt, `Couldn't snooze ${failed.length === 1 ? "conversation" : "conversations"}`);
 		}
 
 		if (snoozed.length > 0) {

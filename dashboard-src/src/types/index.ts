@@ -11,11 +11,16 @@ export interface MailboxSettings {
 	autoReply?: { enabled: boolean; subject: string; message: string };
 }
 
+/** What the signed-in user may do in a mailbox. The server enforces it; see Admin.vue for the wording. */
+export type MailboxRole = "owner" | "admin" | "write" | "read";
+
 export interface Mailbox {
 	id: string;
 	email: string;
 	name: string;
 	settings?: MailboxSettings;
+	/** The caller's role, as the mailbox list returns it ("owner" for a global admin). */
+	role?: MailboxRole;
 }
 
 export interface Email {

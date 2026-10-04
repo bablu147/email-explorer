@@ -268,4 +268,55 @@ export const authMigrations: Migration[] = [
             );
         `,
 	},
+	{
+		// Accounts and access: accounts can be disabled, wrong passwords are counted, and the roles
+		// on mailbox grants start to be enforced.
+		//
+		// The UPDATE is a one-time correction of existing grants. The admin screen has always offered
+		// "read" first and the role was never checked, so today's "read" users are in fact working
+		// with full access. Enforcement must not take sending away from them overnight: they become
+		// "write", and an admin sets the people who really are view-only back to "read".
+		//
+		// Statement order matters. A migration is recorded only after its last statement, so one that
+		// stopped half-way runs again from the top. Everything before the ALTER can run twice without
+		// harm; the ALTER cannot ("duplicate column"), so it is last and the only one of its kind here.
+		name: "8_accounts_and_access",
+		sql: `
+            UPDATE user_mailboxes SET role = 'write' WHERE role = 'read';
+
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                attempt_key TEXT PRIMARY KEY,
+                failures INTEGER NOT NULL,
+                first_failure_at INTEGER NOT NULL,
+                last_failure_at INTEGER NOT NULL,
+                locked_until INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_login_attempts_last_failure ON login_attempts(last_failure_at);
+
+            ALTER TABLE users ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;
+        `,
+	},
+	{
+		// When a session was last used, for the idle timeout. NULL on sessions that already exist:
+		// those count as used at the moment they are next seen, so the release signs nobody out.
+		// Its own migration for the reason given above: one ALTER, and nothing after it.
+		name: "9_session_last_used",
+		sql: `
+            ALTER TABLE sessions ADD COLUMN last_used_at INTEGER;
+        `,
+	},
+	{
+		// Browsers that have signed in to an account, stored by the hash of the token in their
+		// device cookie. Such a browser is let past the account-wide sign-in lock for that account.
+		name: "10_known_devices",
+		sql: `
+            CREATE TABLE IF NOT EXISTS known_devices (
+                device_hash TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_used_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_known_devices_user ON known_devices(user_id);
+        `,
+	},
 ];

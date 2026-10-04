@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, watch } from "vue";
 import CommandPalette from "@/components/CommandPalette.vue";
 import InstallPrompt from "@/components/InstallPrompt.vue";
 import LinkAppModal from "@/components/LinkAppModal.vue";
@@ -20,15 +20,26 @@ import { useAppSettings } from "@/composables/useAppSettings";
 import { useTheme } from "@/composables/useTheme";
 import { initPushNotifications } from "@/services/pushNotification";
 import { useAppBindingsStore } from "@/stores/appBindings";
+import { useAuthStore } from "@/stores/auth";
 
 const { fetchSettings } = useAppSettings();
 const { initTheme } = useTheme();
 const appBindingsStore = useAppBindingsStore();
+const authStore = useAuthStore();
 
 onMounted(() => {
 	initTheme();
 	fetchSettings();
-	appBindingsStore.fetchBindings();
 	initPushNotifications();
 });
+
+// The app bindings need a session. Asked for on the sign-in page, the request only produced a 401,
+// so it waits until someone is signed in.
+watch(
+	() => authStore.isAuthenticated,
+	(signedIn) => {
+		if (signedIn) appBindingsStore.fetchBindings();
+	},
+	{ immediate: true },
+);
 </script>

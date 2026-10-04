@@ -1,5 +1,5 @@
-// Stands in for src/services/api.ts in the composer tests. Every call is recorded; a test answers
-// it by setting `handlers.<name>`, and anything else resolves to an empty response. No request is made.
+// Stands in for src/services/api.ts in the composer and auth tests. Every call is recorded; a test
+// answers it by setting `handlers.<name>`, and anything else resolves to an empty response. No request is made.
 export const calls: { name: string; args: any[] }[] = [];
 export const handlers: Record<string, (...args: any[]) => any> = {};
 
@@ -18,3 +18,12 @@ const api: any = new Proxy(
 export default api;
 
 export const apiErrorMessage = (err: any, fallback: string) => err?.response?.data?.error || fallback;
+
+// The real module runs this handler when a response is a 401; a test does it with `endSession`.
+let sessionEnded: () => void = () => {};
+export const onSessionEnded = (handler: () => void) => {
+	sessionEnded = handler;
+};
+export const endSession = () => sessionEnded();
+
+export const roleRefusedSince = () => false;

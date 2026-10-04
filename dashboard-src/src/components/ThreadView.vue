@@ -135,8 +135,8 @@
               <div v-if="msg.cc"><span class="font-bold text-gray-700 dark:text-gray-300">Cc:</span> {{ msg.cc }}</div>
             </div>
 
-            <!-- Message Action Buttons -->
-            <div class="flex items-center gap-1.5">
+            <!-- Message Action Buttons (reply and star both write, so not for a view-only user) -->
+            <div v-if="canWrite" class="flex items-center gap-1.5">
               <button 
                 type="button" 
                 @click.stop="handleReplySingle(msg)"
@@ -219,8 +219,8 @@
       </div>
     </div>
 
-    <!-- Quick Reply Composer (Anchored at Bottom of Thread) -->
-    <div class="pt-3">
+    <!-- Quick Reply Composer (Anchored at Bottom of Thread; a view-only user cannot send) -->
+    <div v-if="canWrite" class="pt-3">
       <div class="bg-gray-50/80 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700/60 rounded-2xl p-4 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
@@ -282,6 +282,7 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import AppAvatar from "@/components/AppAvatar.vue";
 import AppBadge from "@/components/AppBadge.vue";
@@ -289,6 +290,7 @@ import EmailIframe from "@/components/EmailIframe.vue";
 import { useToast } from "@/composables/useToast";
 import api, { apiErrorMessage } from "@/services/api";
 import { useEmailStore } from "@/stores/emails";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { firstNameFromSender, renderTemplate, useTemplatesStore } from "@/stores/templates";
 import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
@@ -309,6 +311,7 @@ const emit = defineEmits<{
 
 const uiStore = useUIStore();
 const emailStore = useEmailStore();
+const { canWrite } = storeToRefs(useMailboxStore());
 const toast = useToast();
 
 const messages = ref<Email[]>([]);

@@ -103,6 +103,8 @@ export type Env = {
 	MAILBOX: DurableObjectNamespace<import("./durableObject/index").MailboxDO>;
 	BUCKET: R2Bucket;
 	SEND_EMAIL: SendEmail;
+	/** Per-IP limit on the credential endpoints. Optional: without the binding there is no per-IP limit. */
+	AUTH_RATE_LIMITER?: RateLimit;
 	config?: EmailExplorerOptions;
 	VAPID_PUBLIC_KEY?: string;
 	VAPID_PRIVATE_KEY?: string;

@@ -17,12 +17,16 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute } from "vue-router";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 
 const route = useRoute();
 const uiStore = useUIStore();
+const mailboxStore = useMailboxStore();
 
 const shouldShow = computed(() => {
+	// A view-only user cannot send
+	if (!mailboxStore.canWrite) return false;
 	// Hide if compose modal is already open, or when viewing email detail (avoid covering Quick Reply)
 	if (uiStore.isComposeModalOpen) return false;
 	if (route.name === "EmailDetail") return false;

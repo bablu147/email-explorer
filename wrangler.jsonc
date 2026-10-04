@@ -7,6 +7,10 @@
 	"compatibility_date": "2025-11-28",
 	"main": "src/index.ts",
 	"name": "email-explorer",
+	// Served on its custom domain only (attached in the Cloudflare dashboard): no *.workers.dev
+	// address and no per-version preview addresses, which would be second front doors to the mail.
+	"workers_dev": false,
+	"preview_urls": false,
 	"upload_source_maps": true,
 	"observability": {
 		"enabled": true
@@ -28,6 +32,16 @@
 	"send_email": [
 		{
 			"name": "SEND_EMAIL"
+		}
+	],
+	// Ceiling per client IP on the credential endpoints (login, register, forgot/reset/change
+	// password), on top of the per-account backoff. The namespace id is any number unique in the
+	// Cloudflare account.
+	"ratelimits": [
+		{
+			"name": "AUTH_RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": { "limit": 20, "period": 60 }
 		}
 	],
 	"triggers": {

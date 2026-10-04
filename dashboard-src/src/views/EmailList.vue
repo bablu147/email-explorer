@@ -76,7 +76,9 @@
 
         <!-- Row 2: select-all, filters, search -->
         <div class="flex items-center gap-2 px-4 pb-2.5 flex-wrap">
+          <!-- Selecting only leads to bulk changes, so a view-only user gets no checkboxes -->
           <label
+            v-if="canWrite"
             class="items-center justify-center w-7 h-7 -ml-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
             :class="selectedEmailIds.length > 0 ? 'flex' : 'hidden sm:flex'"
             :title="isAllSelected ? 'Deselect all' : 'Select all'"
@@ -240,6 +242,7 @@
             <div class="flex items-start gap-3 pl-4 pr-3 sm:pr-4 py-2.5 min-h-[72px] w-full">
               <!-- Selection checkbox: reveals on hover (desktop) or when selecting -->
               <div
+                v-if="canWrite"
                 class="pt-2.5 -ml-1 shrink-0"
                 :class="selectedEmailIds.length > 0 ? 'block' : 'hidden sm:block'"
                 @click.stop
@@ -427,6 +430,8 @@
               :class="activeRowIndex === idx ? 'sm:flex' : 'sm:group-hover:flex'"
               @click.stop
             >
+              <!-- Everything in this bar except "Link to app" changes the mailbox: not for a view-only user -->
+              <template v-if="canWrite">
               <button
                 type="button"
                 @click.stop.prevent="handleArchive(email)"
@@ -517,6 +522,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
+              </template>
               <button
                 type="button"
                 @click.stop.prevent="handleOpenLinkApp(email)"
@@ -529,7 +535,7 @@
                 </svg>
               </button>
               <button
-                v-if="!isOutgoingFolder"
+                v-if="!isOutgoingFolder && canWrite"
                 type="button"
                 @click.stop.prevent="handleQuickReply(email)"
                 class="p-1.5 rounded-md text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
@@ -614,7 +620,7 @@
             Clear filters
           </button>
           <button
-            v-else-if="folderId === 'inbox'"
+            v-else-if="folderId === 'inbox' && canWrite"
             type="button"
             @click="uiStore.openComposeModal()"
             class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
@@ -678,7 +684,7 @@
       leave-to-class="opacity-0 translate-y-2"
     >
       <div
-        v-if="selectedEmailIds.length > 0"
+        v-if="selectedEmailIds.length > 0 && canWrite"
         :style="bulkBarStyle"
         class="bulk-bar fixed left-3 sm:left-1/2 sm:-translate-x-1/2 z-50 bg-gray-900 dark:bg-gray-800 text-white pl-4 pr-1.5 py-1.5 rounded-xl shadow-2xl border border-gray-800 dark:border-gray-700 flex items-center gap-1 text-xs font-medium max-w-[calc(100vw-6.5rem)] sm:max-w-[calc(100vw-1.5rem)]"
         role="toolbar"
@@ -786,6 +792,7 @@ import api from "@/services/api";
 import { extractCleanEmail, useAppBindingsStore } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
 import { filterEmailsByQuery } from "@/utils/searchParser";
@@ -800,6 +807,8 @@ const { emails, isRefreshing, hasMore, isLoadingMore, loadMoreFailed } = storeTo
 const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
 const uiStore = useUIStore();
+// False for a view-only user: every control and shortcut below that changes the mailbox checks it.
+const { canWrite } = storeToRefs(useMailboxStore());
 const mail = useMailActions();
 const toast = useToast();
 
@@ -1080,11 +1089,14 @@ watch([selectedEmailIds, isAllSelected], () => {
 }, { deep: true, flush: "post" });
 
 const toggleSelectAll = () => {
+	if (!canWrite.value) return;
 	selectedEmailIds.value = isAllSelected.value ? [] : filteredEmails.value.map((e) => e.id);
 };
 
 /** Click toggles one row; Shift+click selects the range from the last toggled row. */
 const toggleSelectEmail = (emailId: string, event?: MouseEvent) => {
+	// Also reached by long-press and `x`: nothing can be done with a selection in a view-only mailbox.
+	if (!canWrite.value) return;
 	const list = filteredEmails.value;
 	const idx = list.findIndex((e) => e.id === emailId);
 	if (event?.shiftKey && lastSelectedIndex.value >= 0 && idx >= 0) {
@@ -1151,7 +1163,8 @@ const handleRowClick = (email: Email, idx: number) => {
 		return;
 	}
 	activeRowIndex.value = idx;
-	if (folderId.value === "drafts" || folderId.value === "draft") {
+	// A view-only user cannot edit a draft; it opens in the reader like any other message.
+	if ((folderId.value === "drafts" || folderId.value === "draft") && canWrite.value) {
 		openDraftInComposer(email);
 		return;
 	}
@@ -1552,6 +1565,9 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		return;
 	}
 
+	// View-only: of the keys below, only opening a message changes nothing.
+	if (!canWrite.value && e.key !== "Enter" && e.key !== "o") return;
+
 	// Bulk-aware actions
 	if (selectedEmailIds.value.length > 0) {
 		if (e.key === "e" || e.key === "E") { e.preventDefault(); archiveSelected(); return; }
@@ -1566,7 +1582,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		case "Enter":
 		case "o":
 			e.preventDefault();
-			if (folderId.value === "drafts" || folderId.value === "draft") openDraftInComposer(active);
+			if ((folderId.value === "drafts" || folderId.value === "draft") && canWrite.value) openDraftInComposer(active);
 			else if (isSplitActive.value) activeEmailId.value = active.id;
 			else openDetail(active);
 			return;

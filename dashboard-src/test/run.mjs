@@ -31,6 +31,18 @@ const suites = [
 		entry: "api.test.ts",
 		stubs: { axios: stub("axios.ts") },
 	},
+	{
+		entry: "session.test.ts",
+		stubs: { axios: stub("axios.ts"), "@/composables/useToast": stub("toast.ts") },
+	},
+	{
+		entry: "auth.test.ts",
+		stubs: {
+			"@/services/api": stub("api.ts"),
+			"@/services/pushNotification": stub("push.ts"),
+			"@/composables/useToast": stub("toast.ts"),
+		},
+	},
 ];
 
 const plugin = (suite) => ({

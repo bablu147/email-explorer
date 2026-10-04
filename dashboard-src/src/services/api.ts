@@ -1,5 +1,8 @@
 import axios from "axios";
+import { useToast } from "@/composables/useToast";
 
+// No request carries an Authorization header: the session is an HttpOnly cookie, which the browser
+// attaches to these same-origin requests by itself and which page script cannot read.
 const apiClient = axios.create({
 	baseURL: "",
 	headers: {
@@ -7,33 +10,50 @@ const apiClient = axios.create({
 	},
 });
 
-// Request interceptor to add auth token
-apiClient.interceptors.request.use(
-	(config) => {
-		const session = localStorage.getItem("session");
-		if (session) {
-			try {
-				const parsed = JSON.parse(session);
-				config.headers.Authorization = `Bearer ${parsed.id}`;
-			} catch (e) {
-				// Invalid session, ignore
-			}
-		}
-		return config;
-	},
-	(error) => Promise.reject(error),
-);
+// A 401 from sign-in is about the password that was typed, not about a session. (Changing a
+// password answers a wrong current password with 400, so a 401 there is the session ending.)
+const PASSWORD_CHECK_URLS = ["/api/v1/auth/login"];
+/** Pages a signed-out visitor may be on. A 401 there must not send them to the sign-in page. */
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
-// Response interceptor to handle 401
+let sessionEnded: () => void = () => {};
+/** Registers what runs when the server says there is no session (the auth store forgets the user). */
+export const onSessionEnded = (handler: () => void) => {
+	sessionEnded = handler;
+};
+
+// A refusal for the caller's role on a mailbox. The server's sentence says what is not allowed.
+const ROLE_REFUSALS = ["view_only", "mailbox_admin_required"];
+let lastRefusal = { message: "", shownAt: 0, at: 0 };
+const showRoleRefusal = (message: string) => {
+	const now = Date.now();
+	// One refused action can be many requests (a bulk move): the sentence is shown once for them,
+	// and again only when the toast that carries it has had time to go.
+	const stillShown = message === lastRefusal.message && now - lastRefusal.shownAt <= 3000;
+	if (!stillShown) useToast().error(message);
+	lastRefusal = { message, shownAt: stillShown ? lastRefusal.shownAt : now, at: now };
+};
+/** True when a role refusal was shown since `since` (ms): the caller's own failure toast would repeat it. */
+export const roleRefusedSince = (since: number): boolean => lastRefusal.at >= since;
+
 apiClient.interceptors.response.use(
 	(response) => response,
 	async (error) => {
-		if (error.response?.status === 401) {
-			// Clear auth and redirect to login
-			localStorage.removeItem("session");
-			if (window.location.pathname !== "/login") {
-				window.location.href = "/login";
+		const status = error.response?.status;
+		// Only a 401 means the session is gone. A 503 ("could not check the session"), any other
+		// status and a network failure say nothing about it, so they sign nobody out.
+		if (status === 401 && !PASSWORD_CHECK_URLS.includes(error.config?.url)) {
+			sessionEnded();
+			const { pathname, search, hash } = window.location;
+			if (!PUBLIC_PATHS.includes(pathname.replace(/\/+$/, ""))) {
+				// A full page load, so that nothing the ended session fetched stays in memory.
+				// `redirect` brings the user back here after signing in; `ended` makes Login.vue say why.
+				window.location.assign(`/login?redirect=${encodeURIComponent(pathname + search + hash)}&ended=1`);
 			}
+		}
+		const data = error.response?.data;
+		if (status === 403 && ROLE_REFUSALS.includes(data?.code) && typeof data.error === "string") {
+			showRoleRefusal(data.error);
 		}
 		return Promise.reject(error);
 	},
@@ -106,20 +126,19 @@ export default {
 		apiClient.post("/api/v1/auth/register", { email, password }),
 	login: (email: string, password: string) =>
 		apiClient.post("/api/v1/auth/login", { email, password }),
-	logout: () => apiClient.post("/api/v1/auth/logout"),
+	// `{}` here and on the other POSTs with nothing to say: without a body axios drops the
+	// Content-Type header, and the server wants state-changing requests to declare JSON.
+	logout: () => apiClient.post("/api/v1/auth/logout", {}),
 	getCurrentUser: () => apiClient.get("/api/v1/auth/me"),
+	changePassword: (currentPassword: string, newPassword: string) =>
+		apiClient.post("/api/v1/auth/change-password", {
+			current_password: currentPassword,
+			new_password: newPassword,
+		}),
 	forgotPassword: (email: string) =>
 		apiClient.post("/api/v1/auth/forgot-password", { email }),
 	resetPassword: (token: string, newPassword: string) =>
 		apiClient.post("/api/v1/auth/reset-password", { token, newPassword }),
-
-	// Set/clear auth token manually
-	setAuthToken: (token: string) => {
-		apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-	},
-	clearAuthToken: () => {
-		delete apiClient.defaults.headers.common["Authorization"];
-	},
 
 	// Mailboxes
 	listMailboxes: () => apiClient.get("/api/v1/mailboxes"),
@@ -174,7 +193,7 @@ export default {
 	scheduleEmail: (mailboxId: string, id: string, sendAt: string | null) =>
 		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/schedule`, { send_at: sendAt }),
 	sendScheduledNow: (mailboxId: string, id: string) =>
-		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/send-now`),
+		apiClient.post(`/api/v1/mailboxes/${mailboxId}/emails/${id}/send-now`, {}),
 	getQueueSummary: (mailboxId: string) =>
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}/queue-summary`),
 
@@ -206,6 +225,15 @@ export default {
 	adminRegisterUser: (email: string, password: string) =>
 		apiClient.post("/api/v1/auth/admin/register", { email, password }),
 	adminListUsers: () => apiClient.get("/api/v1/auth/admin/users"),
+	adminUpdateUser: (
+		userId: string,
+		patch: { isAdmin?: boolean; disabled?: boolean; password?: string },
+	) => apiClient.put(`/api/v1/auth/admin/users/${encodeURIComponent(userId)}`, patch),
+	adminDeleteUser: (userId: string) =>
+		apiClient.delete(`/api/v1/auth/admin/users/${encodeURIComponent(userId)}`),
+	adminRevokeUserSessions: (userId: string) =>
+		apiClient.post(`/api/v1/auth/admin/users/${encodeURIComponent(userId)}/revoke-sessions`, {}),
+	// Granting again changes the role: the server keeps one grant per user and mailbox.
 	adminGrantAccess: (userId: string, mailboxId: string, role: string) =>
 		apiClient.post("/api/v1/auth/admin/grant-access", {
 			userId,
@@ -257,7 +285,7 @@ export default {
 	) => apiClient.put(`/api/v1/templates/${encodeURIComponent(id)}`, template),
 	deleteTemplate: (id: string) =>
 		apiClient.delete(`/api/v1/templates/${encodeURIComponent(id)}`),
-	resetPitchTemplate: () => apiClient.post("/api/v1/templates/pitch/reset"),
+	resetPitchTemplate: () => apiClient.post("/api/v1/templates/pitch/reset", {}),
 
 	// Follow-ups and the outreach pipeline
 	getFollowUpConfig: () => apiClient.get("/api/v1/followups/config"),

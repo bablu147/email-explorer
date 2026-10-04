@@ -9,14 +9,28 @@ import { injectEmailTracking } from "./tracking";
 import { type InboundEmailEvent, receiveEmail } from "./inbound";
 
 import {
+	checkCookieRequest,
+	checkJsonBody,
+	clientIpKey,
+	CREDENTIAL_PATHS,
+	decideMailboxAccess,
+	MAILBOX_REFUSALS,
+	roleForMailbox,
+} from "./access";
+import { type PresentedToken, readSessionTokens } from "./session-cookie";
+
+import {
+	DeleteUser,
 	GetMe,
 	GetUsers,
 	PostAdminRegister,
+	PostChangePassword,
 	PostGrantAccess,
 	PostLogin,
 	PostLogout,
 	PostRegister,
 	PostRevokeAccess,
+	PostRevokeUserSessions,
 	PutUser,
 } from "./routes/auth";
 import {
@@ -79,41 +93,49 @@ import type { EmailExplorerOptions, Env, Session } from "./types";
 export { injectEmailTracking, base64ToBytes };
 export { MailboxDO } from "./durableObject";
 
-// Helper function to extract session token
-function getSessionToken(request: Request): string | null {
-	// Try Authorization header first
-	const authHeader = request.headers.get("Authorization");
-	if (authHeader?.startsWith("Bearer ")) {
-		return authHeader.substring(7);
-	}
-
-	// Try cookie
-	const cookie = request.headers.get("Cookie");
-	if (cookie) {
-		const match = cookie.match(/session=([^;]+)/);
-		return match ? match[1] : null;
-	}
-
-	return null;
+function jsonResponse(
+	body: unknown,
+	status: number,
+	headers: Record<string, string> = {},
+): Response {
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { "Content-Type": "application/json", ...headers },
+	});
 }
 
-// Helper function to validate session
-async function validateSession(
+// `via` is how the valid token arrived. A cookie is attached by the browser on its own, so only
+// cookie-authenticated requests get the cross-site checks.
+type Authenticated = { session: Session; via: PresentedToken["via"] };
+
+// Tries each token the request presents, in order, and returns the first valid session. A tab
+// still running the previous dashboard build sends "Authorization: Bearer undefined" once it has
+// signed in again, and has to fall through to its cookie.
+//
+// null means there is no valid session. "unavailable" means no token was valid and at least one
+// could not be checked at all. The two are kept apart because the dashboard answers a 401 by
+// signing the user out, which a storage error must not cause.
+async function authenticate(
 	request: Request,
 	env: Env,
-): Promise<Session | null> {
-	const token = getSessionToken(request);
-	if (!token) return null;
+): Promise<Authenticated | "unavailable" | null> {
+	const tokens = readSessionTokens(request);
+	if (tokens.length === 0) return null;
 
 	const authId = env.MAILBOX.idFromName("AUTH");
 	const authDO = env.MAILBOX.get(authId);
 
-	try {
-		const session = await authDO.validateSession(token);
-		return session;
-	} catch {
-		return null;
+	let unchecked = false;
+	for (const { token, via } of tokens) {
+		try {
+			const session = await authDO.validateSession(token);
+			if (session) return { session, via };
+		} catch (err) {
+			console.error("Session check failed:", err);
+			unchecked = true;
+		}
 	}
+	return unchecked ? "unavailable" : null;
 }
 
 // Helper function to check if route is public
@@ -137,12 +159,47 @@ function requiresSession(pathname: string): boolean {
 	const authRoutes = [
 		"/api/v1/auth/me",
 		"/api/v1/auth/logout",
+		"/api/v1/auth/change-password",
 		"/api/v1/auth/admin",
 	];
 	return authRoutes.some((route) => pathname.startsWith(route));
 }
 
 const app = new Hono<{ Bindings: Env; Variables: { session?: Session } }>();
+
+// Credential endpoints: a ceiling per client IP, checked before the route looks at a password.
+// Registered on the route's own method and path, ahead of the route, so it runs for exactly the
+// requests the route answers. The binding is optional, and a limiter that fails lets the request
+// through: a broken limiter must not stop everyone from signing in.
+for (const path of CREDENTIAL_PATHS) {
+	app.post(path, async (c, next) => {
+		// Sign-in is public, so the cookie checks in the gate never see it. Without this, a form on
+		// another site could sign the visitor into an account of that site's choosing. Refused before
+		// the limiter, so such a page cannot use up the visitor's attempts either.
+		const refusal = checkJsonBody(c.req.raw.headers);
+		if (refusal) {
+			return jsonResponse({ error: refusal.error }, refusal.status);
+		}
+
+		let allowed = true;
+		try {
+			const outcome = await c.env.AUTH_RATE_LIMITER?.limit({
+				key: clientIpKey(c.req.raw.headers),
+			});
+			allowed = outcome?.success !== false;
+		} catch (err) {
+			console.error("Auth rate limiter failed:", err);
+		}
+		if (!allowed) {
+			return c.json(
+				{ error: "Too many attempts. Try again in a minute.", retry_after_seconds: 60 },
+				429,
+				{ "Retry-After": "60" },
+			);
+		}
+		await next();
+	});
+}
 
 // Transparent 1x1 GIF for open tracking
 const TRANSPARENT_GIF_BYTES = Uint8Array.from(
@@ -231,11 +288,14 @@ openapi.post("/api/v1/auth/register", PostRegister);
 openapi.post("/api/v1/auth/login", PostLogin);
 openapi.post("/api/v1/auth/logout", PostLogout);
 openapi.get("/api/v1/auth/me", GetMe);
+openapi.post("/api/v1/auth/change-password", PostChangePassword);
 openapi.post("/api/v1/auth/forgot-password", PostForgotPassword);
 openapi.post("/api/v1/auth/reset-password", PostResetPassword);
 openapi.post("/api/v1/auth/admin/register", PostAdminRegister);
 openapi.get("/api/v1/auth/admin/users", GetUsers);
 openapi.put("/api/v1/auth/admin/users/:userId", PutUser);
+openapi.delete("/api/v1/auth/admin/users/:userId", DeleteUser);
+openapi.post("/api/v1/auth/admin/users/:userId/revoke-sessions", PostRevokeUserSessions);
 openapi.post("/api/v1/auth/admin/grant-access", PostGrantAccess);
 openapi.post("/api/v1/auth/admin/revoke-access", PostRevokeAccess);
 
@@ -346,12 +406,20 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 				requiresSession(url.pathname);
 
 			if (needsAuth) {
-				const session = await validateSession(request, env);
-				if (!session) {
-					return new Response(JSON.stringify({ error: "Unauthorized" }), {
-						status: 401,
-						headers: { "Content-Type": "application/json" },
-					});
+				const auth = await authenticate(request, env);
+				if (auth === "unavailable") {
+					return jsonResponse({ error: "Temporarily unavailable. Try again." }, 503);
+				}
+				if (!auth) {
+					return jsonResponse({ error: "Unauthorized" }, 401);
+				}
+				const { session, via } = auth;
+
+				if (via === "cookie") {
+					const refusal = checkCookieRequest(request.method, request.url, request.headers);
+					if (refusal) {
+						return jsonResponse({ error: refusal.error }, refusal.status);
+					}
 				}
 
 				// Create new Hono app with session in context
@@ -366,7 +434,8 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 					await next();
 				});
 
-				// Middleware to check mailbox access for non-admin users
+				// Middleware to check mailbox access for non-admin users: a grant must exist, and its
+				// role must allow this method on this path.
 				const checkMailboxAccess = async (c: any, next: any) => {
 					if (session.isAdmin) {
 						await next();
@@ -380,12 +449,17 @@ export function EmailExplorer(_options: EmailExplorerOptions = {}) {
 					const authId = env.MAILBOX.idFromName("AUTH");
 					const authDO = env.MAILBOX.get(authId);
 					const userMailboxes = await authDO.getUserMailboxes(session.userId);
-					// Compared without regard to letter case: mailbox ids are lower-case, but a grant is
-					// stored as the admin typed it ("Support@Reflect.cloud") and used to match nothing.
-					const wanted = mailboxId.toLowerCase();
-					if (!userMailboxes.some((m: any) => String(m.mailboxId).toLowerCase() === wanted)) {
+					const role = roleForMailbox(userMailboxes, mailboxId);
+					if (!role) {
 						return c.json(
 							{ error: "You don't have access to this mailbox" },
+							403,
+						);
+					}
+					const decision = decideMailboxAccess(role, c.req.method, c.req.path);
+					if (decision !== "allowed") {
+						return c.json(
+							{ error: MAILBOX_REFUSALS[decision], code: decision },
 							403,
 						);
 					}

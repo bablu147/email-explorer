@@ -16,8 +16,9 @@
           </button>
         </div>
 
-        <!-- Top Actions Toolbar (secondary actions hidden on phones so Back never gets overlapped) -->
-        <div class="flex items-center gap-0.5 sm:gap-1.5 min-w-0">
+        <!-- Top Actions Toolbar (secondary actions hidden on phones so Back never gets overlapped).
+             Every action in it writes to the mailbox, so a view-only user is not offered it. -->
+        <div v-if="canWrite" class="flex items-center gap-0.5 sm:gap-1.5 min-w-0">
           <!-- Follow-up action for Sent emails -->
           <button 
             v-if="isSentEmail" 
@@ -433,7 +434,7 @@ const { currentEmail: email } = storeToRefs(emailStore);
 const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
 const mailboxStore = useMailboxStore();
-const { currentMailbox } = storeToRefs(mailboxStore);
+const { currentMailbox, canWrite } = storeToRefs(mailboxStore);
 const uiStore = useUIStore();
 const route = useRoute();
 const router = useRouter();
@@ -519,6 +520,9 @@ const handleKeyDown = (e: KeyboardEvent) => {
 		handleBack();
 		return;
 	}
+
+	// View-only: every shortcut below changes the mailbox or opens the composer.
+	if (!canWrite.value) return;
 
 	if (e.key === "e" || e.key === "E") {
 		e.preventDefault();
@@ -713,7 +717,9 @@ onMounted(async () => {
 			await mailboxStore.fetchMailbox(mailboxId);
 		}
 
-		if (email.value && !email.value.read) {
+		// A view-only user reads without marking: the server would refuse the change.
+		await mailboxStore.rolesLoaded();
+		if (email.value && !email.value.read && canWrite.value) {
 			await emailStore.updateEmail(mailboxId, emailId, { read: true });
 			folderStore.fetchFolders(mailboxId);
 		}

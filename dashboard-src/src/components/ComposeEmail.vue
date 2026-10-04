@@ -1411,7 +1411,7 @@ ${original.body || ""}
 /**
  * The body can hold HTML from a received email (the quote on reply / forward), so it must never be
  * assigned to innerHTML of an element of the app document: even detached, `<img onerror=…>` runs
- * there, next to the session token. A DOMParser document is inert — no script, handlers or loads.
+ * there, as the signed-in user. A DOMParser document is inert — no script, handlers or loads.
  */
 const htmlToPlainText = (html: string): string => {
 	const text = html

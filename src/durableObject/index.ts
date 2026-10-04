@@ -5,7 +5,7 @@ import type { Chain } from "../outreach";
 import type { SendBlock } from "../delivery";
 import { authMigrations, mailboxMigrations } from "./migrations";
 
-import { AuthHandler } from "./auth";
+import { type AccountResult, AuthHandler, type LoginResult, type UserChange, type UserWithAccess } from "./auth";
 import { FolderHandler } from "./folders";
 import { ContactHandler } from "./contacts";
 import { BindingsLeadsHandler } from "./bindings-leads";
@@ -125,7 +125,7 @@ export class MailboxDO extends DurableObject<Env> {
 		}
 
 		// Initialize domain handlers
-		this.#auth = new AuthHandler(this.#qb, this.#isAuthDO);
+		this.#auth = new AuthHandler(this.ctx.storage.sql, this.#qb, this.#isAuthDO);
 		this.#folders = new FolderHandler(this.ctx.storage.sql, this.#qb);
 		this.#contacts = new ContactHandler(this.#qb);
 		this.#bindingsLeads = new BindingsLeadsHandler(this.ctx.storage.sql, this.#isAuthDO);
@@ -164,23 +164,36 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.#auth.isAdmin(userId);
 	}
 
-	async register(email: string, password: string, isFirstUser = false): Promise<User> {
-		return this.#auth.register(email, password, isFirstUser);
+	// Passwords reach this object already hashed, and a sign-in is two calls with the password check
+	// in between: the key derivation runs in the Worker, not here (see AuthHandler.createUser).
+	async createUser(email: string, passwordHash: string, isFirstUser = false): Promise<User | null> {
+		return this.#auth.createUser(email, passwordHash, isFirstUser);
 	}
 
-	async login(email: string, password: string): Promise<Session | null> {
-		return this.#auth.login(email, password);
+	async beginLogin(email: string, ip: string, deviceToken: string | null = null) {
+		return this.#auth.beginLogin(email, ip, deviceToken);
 	}
 
-	async validateSession(sessionId: string): Promise<Session | null> {
-		return this.#auth.validateSession(sessionId);
+	async completeLogin(login: {
+		userId: string;
+		verifiedHash: string;
+		upgradedHash: string | null;
+		email: string;
+		ip: string;
+		deviceToken?: string | null;
+	}): Promise<LoginResult> {
+		return this.#auth.completeLogin(login);
 	}
 
-	async logout(sessionId: string): Promise<boolean> {
-		return this.#auth.logout(sessionId);
+	async validateSession(token: string): Promise<Session | null> {
+		return this.#auth.validateSession(token);
 	}
 
-	async getUsers(): Promise<User[]> {
+	async logout(token: string): Promise<boolean> {
+		return this.#auth.logout(token);
+	}
+
+	async getUsers(): Promise<UserWithAccess[]> {
 		return this.#auth.getUsers();
 	}
 
@@ -190,6 +203,35 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async updateUserPassword(userId: string, newPassword: string): Promise<void> {
 		return this.#auth.updateUserPassword(userId, newPassword);
+	}
+
+	async beginPasswordChange(userId: string) {
+		return this.#auth.beginPasswordChange(userId);
+	}
+
+	async completePasswordChange(
+		userId: string,
+		verifiedHash: string,
+		newPasswordHash: string,
+		keepSessionId: string,
+	): Promise<boolean> {
+		return this.#auth.completePasswordChange(userId, verifiedHash, newPasswordHash, keepSessionId);
+	}
+
+	async updateUser(
+		actor: { userId: string; sessionId: string },
+		userId: string,
+		change: UserChange,
+	): Promise<AccountResult> {
+		return this.#auth.updateUser(actor, userId, change);
+	}
+
+	async deleteUser(actorUserId: string, userId: string): Promise<AccountResult> {
+		return this.#auth.deleteUser(actorUserId, userId);
+	}
+
+	async revokeUserSessions(userId: string): Promise<number | null> {
+		return this.#auth.revokeUserSessions(userId);
 	}
 
 	async grantMailboxAccess(userId: string, mailboxId: string, role: string): Promise<void> {

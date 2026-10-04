@@ -129,6 +129,8 @@
 
         <!-- Right: Action Buttons -->
         <div class="flex items-center gap-1">
+          <!-- Everything here except Expand changes the mailbox, so a view-only user is not offered it -->
+          <template v-if="canWrite">
           <!-- Follow-up or Reply -->
           <button 
             type="button"
@@ -226,6 +228,7 @@
           </button>
 
           <div class="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+          </template>
 
           <!-- Expand to Full View -->
           <button 
@@ -264,12 +267,14 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import ThreadView from "@/components/ThreadView.vue";
 import { useToast } from "@/composables/useToast";
 import { extractCleanEmail } from "@/stores/appBindings";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 import type { Email } from "@/types";
 
@@ -295,6 +300,8 @@ const emit = defineEmits<{
 
 const emailStore = useEmailStore();
 const folderStore = useFolderStore();
+const mailboxStore = useMailboxStore();
+const { canWrite } = storeToRefs(mailboxStore);
 const uiStore = useUIStore();
 const toast = useToast();
 
@@ -330,8 +337,11 @@ const loadEmail = async (id: string) => {
 		if (props.emailId !== id) return;
 		email.value = emailStore.currentEmail;
 
-		// If unread, mark read in background (optimistic: list row updates instantly)
-		if (email.value && !email.value.read) {
+		// If unread, mark read in background (optimistic: list row updates instantly). Not for a
+		// view-only user: the server refuses the change, and reading leaves the message unread.
+		await mailboxStore.rolesLoaded();
+		if (props.emailId !== id) return;
+		if (email.value && !email.value.read && canWrite.value) {
 			email.value = { ...email.value, read: true };
 			emailStore
 				.patchFlags(props.mailboxId, id, { read: true })

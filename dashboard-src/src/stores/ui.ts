@@ -1,4 +1,6 @@
 import { defineStore } from "pinia";
+import { useToast } from "@/composables/useToast";
+import { useMailboxStore, VIEW_ONLY_MESSAGE } from "@/stores/mailboxes";
 import type { OutgoingAttachment } from "@/types";
 
 export type ComposeMode = "new" | "reply" | "reply-all" | "forward" | "draft";
@@ -69,6 +71,12 @@ export const useUIStore = defineStore("ui", {
 			this.isCommandPaletteOpen = !this.isCommandPaletteOpen;
 		},
 		openComposeModal(options?: ComposeOptions) {
+			// Every button and shortcut that writes a message ends here, so this is where a
+			// view-only user is stopped; the buttons themselves are hidden where they are obvious.
+			if (!useMailboxStore().canWrite) {
+				useToast().info(VIEW_ONLY_MESSAGE);
+				return;
+			}
 			this.composeOptions = options || { mode: "new", originalEmail: null };
 			this.isComposeModalOpen = true;
 		},

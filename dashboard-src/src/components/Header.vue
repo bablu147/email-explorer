@@ -31,6 +31,15 @@
           ⌘K
         </kbd>
       </button>
+
+      <!-- The signed-in user's role on this mailbox is "read": the server refuses every change -->
+      <span
+        v-if="!mailboxStore.canWrite"
+        class="flex-shrink-0 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap"
+        title="You can read this mailbox, but not send, move or change anything in it"
+      >
+        View only
+      </span>
     </div>
 
     <!-- Right: External Links, Theme Toggle, Settings, & Profile Menu -->
@@ -210,6 +219,18 @@
               </svg>
               <span>Admin Panel</span>
             </router-link>
+
+            <!-- Change own password -->
+            <button
+              type="button"
+              @click="openChangePassword"
+              class="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/25 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors cursor-pointer text-left"
+            >
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              <span>Change password</span>
+            </button>
           </div>
 
           <!-- Divider & Logout -->
@@ -228,6 +249,12 @@
         </div>
       </div>
     </div>
+
+    <ChangePasswordModal
+      :is-open="isChangePasswordOpen"
+      :email="authStore.currentUser?.email"
+      @close="isChangePasswordOpen = false"
+    />
   </header>
 </template>
 
@@ -235,6 +262,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import ChangePasswordModal from "@/components/ChangePasswordModal.vue";
 import { useTheme } from "@/composables/useTheme";
 import { useAuthStore } from "@/stores/auth";
 import { useMailboxStore } from "@/stores/mailboxes";
@@ -251,6 +279,12 @@ const { isDark, toggleTheme } = useTheme();
 
 const isUserMenuOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
+const isChangePasswordOpen = ref(false);
+
+const openChangePassword = () => {
+	isUserMenuOpen.value = false;
+	isChangePasswordOpen.value = true;
+};
 
 const currentMailboxId = computed(() => (route.params.mailboxId as string) || "");
 
@@ -319,9 +353,8 @@ const handleKeydown = (event: KeyboardEvent) => {
 };
 
 onMounted(() => {
-	if (mailboxes.value.length === 0) {
-		mailboxStore.fetchMailboxes();
-	}
+	// The list fills the switcher and carries the user's role on each mailbox.
+	mailboxStore.rolesLoaded();
 	document.addEventListener("click", handleClickOutside);
 	document.addEventListener("keydown", handleKeydown);
 });

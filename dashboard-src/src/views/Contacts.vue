@@ -91,6 +91,7 @@
 
           <!-- Add Contact Button -->
           <button
+            v-if="canWrite"
             type="button"
             @click="openAddContactModal"
             class="px-3.5 py-2 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
@@ -166,6 +167,7 @@
           Create contacts to organize studio leads, bind target mobile apps, and launch targeted MMP outreach campaigns with one click.
         </p>
         <button
+          v-if="canWrite"
           type="button"
           @click="openAddContactModal"
           class="px-4 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
@@ -246,6 +248,7 @@
               <!-- More Menu / Edit-Delete buttons -->
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                 <button
+                  v-if="canWrite"
                   type="button"
                   @click="openEditContactModal(contact)"
                   class="p-1 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
@@ -256,6 +259,7 @@
                   </svg>
                 </button>
                 <button
+                  v-if="canWrite"
                   type="button"
                   @click="confirmDeleteContact(contact)"
                   class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
@@ -423,6 +427,7 @@
                       Compose
                     </button>
                     <button
+                      v-if="canWrite"
                       type="button"
                       @click="openEditContactModal(contact)"
                       class="p-1 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
@@ -433,6 +438,7 @@
                       </svg>
                     </button>
                     <button
+                      v-if="canWrite"
                       type="button"
                       @click="confirmDeleteContact(contact)"
                       class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
@@ -551,6 +557,7 @@ import ConfirmModal from "@/components/ConfirmModal.vue";
 import { useToast } from "@/composables/useToast";
 import { useAppBindingsStore, extractCleanEmail } from "@/stores/appBindings";
 import { useContactStore } from "@/stores/contacts";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 import type { AppBinding, Contact } from "@/types";
 
@@ -582,6 +589,8 @@ const isDeleteConfirmOpen = ref(false);
 const contactToDelete = ref<Contact | null>(null);
 
 const mailboxId = computed(() => route.params.mailboxId as string);
+// A view-only user sees the directory but is not offered what the server would refuse.
+const { canWrite } = storeToRefs(useMailboxStore());
 
 onMounted(async () => {
 	loading.value = true;

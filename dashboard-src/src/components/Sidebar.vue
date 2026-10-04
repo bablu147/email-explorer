@@ -42,8 +42,9 @@
         </div>
       </div>
 
-      <!-- Compose Button -->
+      <!-- Compose Button (not offered to a view-only user) -->
       <button 
+        v-if="canWrite"
         type="button"
         @click="openComposeModal" 
         class="w-full mb-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg hover:shadow-emerald-600/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transform hover:-translate-y-0.5 transition-all duration-200 font-bold text-sm flex items-center justify-center gap-2 cursor-pointer"
@@ -362,6 +363,7 @@
           <div class="flex items-center justify-between px-3 mb-1.5">
             <h2 class="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Custom Folders</h2>
             <button 
+              v-if="canWrite"
               type="button"
               @click="openCreateFolderModal" 
               class="p-1 text-gray-400 hover:text-emerald-600 dark:text-gray-500 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all cursor-pointer"
@@ -391,13 +393,14 @@
                 <div class="flex items-center gap-1">
                   <span 
                     v-if="folder.unreadCount > 0" 
-                    class="group-hover/item:hidden px-1.5 py-0.2 text-[11px] font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
+                    class="px-1.5 py-0.2 text-[11px] font-bold rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
+                    :class="{ 'group-hover/item:hidden': canWrite }"
                   >
                     {{ folder.unreadCount }}
                   </span>
 
                   <!-- Quick Folder Action Buttons (visible on hover) -->
-                  <div class="hidden group-hover/item:flex items-center gap-0.5">
+                  <div v-if="canWrite" class="hidden group-hover/item:flex items-center gap-0.5">
                     <button
                       type="button"
                       @click.stop.prevent="openRenameFolderModal(folder)"
@@ -472,11 +475,13 @@ import { useRoute, useRouter } from "vue-router";
 import FolderModal from "@/components/FolderModal.vue";
 import { useEmailStore } from "@/stores/emails";
 import { useFolderStore } from "@/stores/folders";
+import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 import type { Folder } from "@/types";
 
 const folderStore = useFolderStore();
 const { folders } = storeToRefs(folderStore);
+const { canWrite } = storeToRefs(useMailboxStore());
 const emailStore = useEmailStore();
 const { emails } = storeToRefs(emailStore);
 const uiStore = useUIStore();

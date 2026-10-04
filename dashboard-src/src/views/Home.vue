@@ -45,6 +45,13 @@
           Admin Panel
         </router-link>
         <button
+          type="button"
+          @click="isChangePasswordOpen = true"
+          class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+        >
+          Change password
+        </button>
+        <button
           @click="handleLogout"
           class="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"
         >
@@ -187,6 +194,8 @@
         </form>
       </div>
     </div>
+    <!-- Reachable here too: a user with no mailbox yet never sees the mailbox header menu. -->
+    <ChangePasswordModal :is-open="isChangePasswordOpen" :email="authStore.currentUser?.email" @close="isChangePasswordOpen = false" />
   </div>
 </template>
 
@@ -196,6 +205,7 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "@/composables/useToast";
 import { useTheme } from "@/composables/useTheme";
+import ChangePasswordModal from "@/components/ChangePasswordModal.vue";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import { useMailboxStore } from "@/stores/mailboxes";
@@ -253,6 +263,8 @@ const handleCreateMailbox = async () => {
 		isCreatingMailbox.value = false;
 	}
 };
+
+const isChangePasswordOpen = ref(false);
 
 async function handleLogout() {
 	await authStore.logout();

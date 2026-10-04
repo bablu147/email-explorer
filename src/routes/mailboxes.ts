@@ -2,6 +2,7 @@ import { EmailMessage } from "cloudflare:email";
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
+import { type MailboxRole, roleForMailbox } from "../access";
 import { buildMimeMessage } from "../mime-builder";
 import type { Env, Session } from "../types";
 
@@ -11,6 +12,8 @@ export const MailboxSchema = z.object({
 	id: z.string(),
 	email: z.string(),
 	name: z.string(),
+	// What the caller may do in this mailbox.
+	role: z.enum(["owner", "admin", "write", "read"]),
 });
 
 export const MailboxDetailsSchema = z.object({
@@ -41,7 +44,9 @@ export const ForgotPasswordRequestSchema = z.object({
 
 export const ResetPasswordRequestSchema = z.object({
 	token: z.string(),
-	newPassword: z.string().min(8),
+	// Same bounds as every other password field. The upper one keeps an arbitrarily long string
+	// away from the password hash.
+	newPassword: z.string().min(8).max(256),
 });
 
 export const AppSettingsResponseSchema = z.object({
@@ -106,19 +111,24 @@ export class GetMailboxes extends OpenAPIRoute {
 			};
 		});
 
-		// If no session (auth disabled) or user is admin, return all mailboxes
+		// If no session (auth disabled) or user is admin, return all mailboxes. Nothing in a mailbox
+		// is closed to them, which is what "owner" means.
 		if (!session || session.isAdmin) {
-			return c.json(allMailboxes);
+			return c.json(allMailboxes.map((m) => ({ ...m, role: "owner" })));
 		}
 
-		// Non-admin users can only see mailboxes they have access to
+		// Non-admin users can only see mailboxes they have access to, each with the role the access
+		// check will hold them to (roleForMailbox is what that check uses).
 		const authId = c.env.MAILBOX.idFromName("AUTH");
 		const authDO = c.env.MAILBOX.get(authId);
 		const userMailboxes = await authDO.getUserMailboxes(session.userId);
-		// Letter case is ignored, as in the access check: a grant is stored as the admin typed it.
-		const allowedMailboxIds = new Set(userMailboxes.map((m) => m.mailboxId.toLowerCase()));
 
-		return c.json(allMailboxes.filter((m) => allowedMailboxIds.has(m.id.toLowerCase())));
+		const visible: Array<{ id: string; name: string; email: string; role: MailboxRole }> = [];
+		for (const mailbox of allMailboxes) {
+			const role = roleForMailbox(userMailboxes, mailbox.id);
+			if (role) visible.push({ ...mailbox, role });
+		}
+		return c.json(visible);
 	}
 }
 

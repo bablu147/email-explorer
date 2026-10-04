@@ -10,7 +10,11 @@
 		"test:e2e": "node --test --experimental-strip-types --test-concurrency=1 --test-timeout=240000 test/e2e/*.test.ts"
 	},
 	"dependencies": {
-		"email-explorer": "^1.0.4"
+		"chanfana": "2.8.3",
+		"hono": "^4.13.13",
+		"postal-mime": "2.7.6",
+		"workers-qb": "1.15.0",
+		"zod": "3.25.76"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261001.1",

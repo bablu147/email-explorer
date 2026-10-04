@@ -14,6 +14,12 @@
     </div>
 
     <div v-if="mailbox">
+      <p
+        v-if="!mailboxStore.canManage"
+        class="mb-5 px-3.5 py-2.5 rounded-xl text-xs font-medium border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+      >
+        Only a mailbox admin can change this mailbox's name and signature. Ask an administrator if they need changing.
+      </p>
       <form @submit.prevent="updateSettings" class="space-y-6">
         <div>
           <label for="name" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Display Name</label>
@@ -183,7 +189,8 @@
         <div class="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700/60">
           <button 
             type="submit" 
-            class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all cursor-pointer"
+            :disabled="!mailboxStore.canManage"
+            class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save Changes
           </button>

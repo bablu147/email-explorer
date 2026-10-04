@@ -127,12 +127,13 @@ router.beforeEach(async (to, _from, next) => {
 	const requiresAuth = to.meta.requiresAuth !== false; // Auth required by default
 	const requiresAdmin = to.meta.requiresAdmin === true;
 
-	// Initialize auth token if exists
+	// The stored expiry is what the server said at the last sign-in. Past it, the server is asked
+	// again (not waited for: a slow answer must not hold the page). Only its 401 signs the user
+	// out; this browser's clock alone never does.
 	if (authStore.session && !authStore.loading) {
-		const sessionData = authStore.session;
-		// Check if session is expired
-		if (sessionData.expiresAt < Date.now()) {
-			await authStore.logout();
+		const { expiresAt } = authStore.session;
+		if (expiresAt > 0 && expiresAt < Date.now()) {
+			void authStore.checkAuth();
 		}
 	}
 

@@ -25,9 +25,14 @@
 					</p>
 				</div>
 
-				<!-- Error Banner -->
-				<div v-if="authStore.error" class="mb-5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-3.5 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
-					<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<!-- Why the visitor is here again: the 401 handler in services/api.ts adds ?ended=1 -->
+				<div v-if="sessionEnded && !authStore.error" role="status" class="mb-5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-3.5 text-xs text-amber-800 dark:text-amber-300">
+					Your session ended. Sign in again.
+				</div>
+
+				<!-- Error Banner (role="alert": read out as soon as it appears) -->
+				<div v-if="authStore.error" role="alert" class="mb-5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-3.5 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+					<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
 					<span>{{ authStore.error }}</span>
@@ -45,7 +50,7 @@
 							type="email"
 							required
 							autocomplete="email"
-							placeholder="admin@reflect.cloud"
+							placeholder="you@example.com"
 							class="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-mono"
 						/>
 					</div>
@@ -102,23 +107,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
 import { useAppSettings } from "@/composables/useAppSettings";
 import { useAuthStore } from "@/stores/auth";
+import { safeRedirect } from "@/utils/redirect";
 
 const email = ref("");
 const password = ref("");
 const authStore = useAuthStore();
-const router = useRouter();
+const route = useRoute();
 const { isRegistrationEnabled, isAccountRecoveryEnabled } = useAppSettings();
+
+const sessionEnded = computed(() => route.query.ended === "1");
 
 const handleLogin = async () => {
 	try {
 		await authStore.login(email.value, password.value);
-		router.push("/");
-	} catch (error) {
-		console.error("Login failed:", error);
+	} catch {
+		// The store keeps the server's sentence (wrong password, disabled account, too many
+		// attempts) and the banner above shows it.
+		return;
 	}
+	// A full page load rather than a route change: whoever used this tab before, the app starts
+	// with nothing of theirs in memory (mailbox list, roles, messages).
+	window.location.assign(safeRedirect(route.query.redirect));
 };
 </script>

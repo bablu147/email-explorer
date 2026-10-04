@@ -101,7 +101,8 @@ before(async () => {
 		const res = await api.post("/api/v1/mailboxes", { email: box, name: box }, admin);
 		assert.equal(res.status, 201, JSON.stringify(res.body));
 	}
-	const grant = await api.post("/api/v1/auth/admin/grant-access", { userId: memberId, mailboxId: BOX, role: "read" }, admin);
+	// "write": the member sends, moves and deletes throughout this file, which a "read" grant no longer allows.
+	const grant = await api.post("/api/v1/auth/admin/grant-access", { userId: memberId, mailboxId: BOX, role: "write" }, admin);
 	assert.equal(grant.status, 200, JSON.stringify(grant.body));
 });
 
@@ -770,8 +771,12 @@ describe("draft_id can only name a draft", () => {
 	test("on reply and forward, a draft_id that names anything but a draft is ignored: that row is untouched", async () => {
 		await receive({ from: "cust@client.test", to: BOX, subject: "Not a draft: received", body: "Received body" });
 		const received = (await getEmail((await inboxRow("Not a draft: received")).id)).body;
+		const beforeSent = new Set(sentFiles());
 		const sent = await send({ to: "dest@client.test", subject: "Not a draft: sent", text: "Sent body" });
 		assert.equal(sent.status, 201, JSON.stringify(sent.body));
+		// Outgoing files are written a moment after the request returns. This one must be on disk
+		// before the snapshot below, or it would be counted among the replies and forwards.
+		assert.equal((await waitForNewMessages(beforeSent, 1)).length, 1);
 		const before = new Set(sentFiles());
 		let delivered = 0;
 		for (const action of ["reply", "forward"]) {
@@ -1055,7 +1060,8 @@ describe("mailboxes are created and deleted by admins only", () => {
 	test("a member cannot delete a mailbox, even one they have access to; an admin can", async () => {
 		const box = "temp@phase0.test";
 		assert.equal((await api.post("/api/v1/mailboxes", { email: box, name: box }, admin)).status, 201);
-		await api.post("/api/v1/auth/admin/grant-access", { userId: memberId, mailboxId: box, role: "read" }, admin);
+		// The strongest mailbox role there is: a weaker one is stopped earlier, by the role check, and would not reach this rule.
+		await api.post("/api/v1/auth/admin/grant-access", { userId: memberId, mailboxId: box, role: "owner" }, admin);
 		assert.equal((await api.get(boxUrl("/emails", box), member)).status, 200, "the member does have access");
 		const res = await api.del(boxUrl("", box), member);
 		assert.equal(res.status, 403, JSON.stringify(res.body));
