@@ -106,19 +106,21 @@
             <button
               type="button"
               @click="openChain(c)"
-              class="w-full text-left rounded-xl bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 p-3.5 hover:border-emerald-400 dark:hover:border-emerald-600 active:scale-[0.99] transition-all cursor-pointer shadow-xs group"
+              class="w-full text-left rounded-xl bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 p-3.5 hover:border-emerald-400 dark:hover:border-emerald-600 active:scale-[0.99] transition-all cursor-pointer shadow-xs group overflow-hidden"
             >
-              <div class="flex items-center justify-between gap-2 min-w-0">
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{{ c.recipient }}</span>
+              <div class="flex items-start justify-between gap-2 min-w-0">
+                <div class="flex flex-col gap-1 min-w-0 flex-1">
+                  <div class="text-xs font-bold text-gray-900 dark:text-gray-100 truncate" :title="c.recipient">
+                    {{ c.recipient }}
+                  </div>
                   <AppBadge :email="c.recipient" />
+                  <div class="text-xs text-gray-600 dark:text-gray-400 truncate">
+                    {{ c.start_subject || '(No subject)' }}
+                  </div>
                 </div>
-                <svg class="w-4 h-4 text-gray-400 group-hover:text-emerald-500 shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-400 group-hover:text-emerald-500 shrink-0 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
-              </div>
-              <div class="text-xs text-gray-600 dark:text-gray-400 truncate mt-1">
-                {{ c.start_subject || '(No subject)' }}
               </div>
               <div class="flex flex-wrap items-center gap-1.5 mt-2.5 text-[10px] font-semibold">
                 <span class="text-gray-400 dark:text-gray-500">{{ timeAgo(c.last_date) }}</span>
@@ -151,14 +153,14 @@
         <section
           v-for="col in columns"
           :key="col.stage"
-          class="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-100/60 dark:bg-gray-900/60 min-w-0"
+          class="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-100/60 dark:bg-gray-900/60 min-w-0 overflow-hidden"
         >
           <header class="flex items-center justify-between px-3 py-2.5">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full" :class="col.dot"></span>
-              <h2 class="text-xs font-bold">{{ col.label }}</h2>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-2 h-2 rounded-full shrink-0" :class="col.dot"></span>
+              <h2 class="text-xs font-bold truncate">{{ col.label }}</h2>
             </div>
-            <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400 tabular-nums">{{ byStage[col.stage].length }}</span>
+            <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400 tabular-nums shrink-0 ml-1">{{ byStage[col.stage].length }}</span>
           </header>
           <ul class="px-2 pb-2 space-y-2">
             <li v-if="byStage[col.stage].length === 0" class="px-2 py-4 text-center text-[11px] text-gray-400">Nobody here</li>
@@ -166,13 +168,17 @@
               <button
                 type="button"
                 @click="openChain(c)"
-                class="w-full text-left rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors cursor-pointer"
+                class="w-full text-left rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors cursor-pointer overflow-hidden group"
               >
-                <div class="flex items-center gap-2 min-w-0">
-                  <span class="text-xs font-semibold truncate">{{ c.recipient }}</span>
+                <div class="flex flex-col gap-1 min-w-0 w-full">
+                  <div class="text-xs font-bold text-gray-900 dark:text-gray-100 truncate" :title="c.recipient">
+                    {{ c.recipient }}
+                  </div>
                   <AppBadge :email="c.recipient" />
+                  <div class="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                    {{ c.start_subject || '(No subject)' }}
+                  </div>
                 </div>
-                <div class="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{{ c.start_subject || '(No subject)' }}</div>
                 <div class="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] font-semibold">
                   <span class="text-gray-400">{{ timeAgo(c.last_date) }}</span>
                   <span v-if="c.sent_count > 1" class="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">

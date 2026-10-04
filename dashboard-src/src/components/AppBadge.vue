@@ -1,11 +1,11 @@
 <template>
-  <div v-if="binding" class="inline-flex items-center gap-1 group/badge" @click.stop>
+  <div v-if="binding" class="inline-flex items-center gap-1 group/badge max-w-full min-w-0" @click.stop>
     <!-- App Identity Chip -->
     <a
       :href="binding.app_url"
       target="_blank"
       rel="noopener noreferrer"
-      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold transition-all duration-150 border shadow-2xs hover:scale-102 cursor-pointer"
+      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold transition-all duration-150 border shadow-2xs hover:scale-102 cursor-pointer max-w-full min-w-0 overflow-hidden"
       :class="badgeColorClasses"
       :title="`${binding.app_name} (${formatPlatform(binding.platform)})${binding.developer_name ? ' by ' + binding.developer_name : ''} • Click to open ${formatPlatform(binding.platform)}`"
     >
@@ -16,7 +16,7 @@
         loading="lazy"
         @error="handleImgError"
       />
-      <span class="truncate max-w-[150px] tracking-tight">{{ binding.app_name }}</span>
+      <span class="truncate min-w-0 tracking-tight">{{ binding.app_name }}</span>
 
       <!-- External Link Arrow -->
       <svg class="w-3 h-3 opacity-60 group-hover/badge:opacity-100 transition-opacity flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@
     <button
       type="button"
       @click.stop.prevent="openEditModal"
-      class="opacity-0 group-hover/badge:opacity-100 transition-opacity p-0.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded cursor-pointer"
+      class="opacity-0 group-hover/badge:opacity-100 transition-opacity p-0.5 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded cursor-pointer flex-shrink-0"
       title="Edit app binding"
     >
       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
