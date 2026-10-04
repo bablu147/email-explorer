@@ -6,6 +6,7 @@
         @keydown.meta.enter="triggerSendFlow(false)"
         @keydown.ctrl.enter="triggerSendFlow(false)"
         class="bg-white dark:bg-gray-800 rounded-none sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-4xl text-gray-900 dark:text-gray-100 border-0 sm:border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all flex flex-col"
+        :style="composeModalStyle"
       >
         <!-- Header: Fixed Safe-Area Top Header -->
         <div class="flex justify-between items-center bg-gray-100 dark:bg-gray-900/90 px-4 sm:px-6 py-3 sm:py-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:pt-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -240,7 +241,7 @@
           <!-- Tier 3: Fixed Sticky Bottom Action Bar (pinned above virtual keyboard & safe area) -->
           <div class="px-3 sm:px-6 py-2.5 sm:py-3.5 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 flex-shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-3.5">
             <!-- Left: Attachment + Draft Status Indicator -->
-            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap sm:flex-wrap min-w-0">
               <input 
                 type="file" 
                 ref="fileInputRef" 
@@ -555,12 +556,20 @@
         </button>
       </div>
     </div>
+
+    <!-- Schedule Send Modal -->
+    <ScheduleSendModal
+      :show="showScheduleModal"
+      :recipient-label="to.trim().split(',')[0]"
+      @close="showScheduleModal = false"
+      @schedule="handleScheduleSend"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, h, nextTick, ref, watch } from "vue";
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useToast } from "@/composables/useToast";
 import api from "@/services/api";
@@ -571,6 +580,7 @@ import { type ComposeMode, type ComposeOptions, useUIStore } from "@/stores/ui";
 import type { AppPlatform, OutgoingAttachment } from "@/types";
 import RecipientInput from "./RecipientInput.vue";
 import RichTextEditor from "./RichTextEditor.vue";
+import ScheduleSendModal from "./ScheduleSendModal.vue";
 
 const uiStore = useUIStore();
 const { isComposeModalOpen, composeOptions } = storeToRefs(uiStore);
@@ -598,6 +608,42 @@ const showPreviewModal = ref(false);
 const showScheduleModal = ref(false);
 const previewDevice = ref<"desktop" | "mobile">("desktop");
 const fileInputRef = ref<HTMLInputElement | null>(null);
+
+// Visual Viewport tracking on mobile to ensure bottom action bar sits right above the keyboard
+const visualViewportHeight = ref<number | null>(null);
+
+const updateVisualViewport = () => {
+	if (typeof window !== "undefined" && window.visualViewport && window.innerWidth < 640) {
+		visualViewportHeight.value = window.visualViewport.height;
+	} else {
+		visualViewportHeight.value = null;
+	}
+};
+
+const composeModalStyle = computed(() => {
+	if (visualViewportHeight.value) {
+		return {
+			height: `${visualViewportHeight.value}px`,
+			maxHeight: `${visualViewportHeight.value}px`,
+		};
+	}
+	return {};
+});
+
+onMounted(() => {
+	if (typeof window !== "undefined" && window.visualViewport) {
+		window.visualViewport.addEventListener("resize", updateVisualViewport);
+		window.visualViewport.addEventListener("scroll", updateVisualViewport);
+		updateVisualViewport();
+	}
+});
+
+onBeforeUnmount(() => {
+	if (typeof window !== "undefined" && window.visualViewport) {
+		window.visualViewport.removeEventListener("resize", updateVisualViewport);
+		window.visualViewport.removeEventListener("scroll", updateVisualViewport);
+	}
+});
 
 // Autosave & Dirty state
 const isDirty = ref(false);
@@ -1367,6 +1413,57 @@ const commitSend = async () => {
 			e.response?.data?.error || "Failed to dispatch email.";
 		showErrorToast(errorMessage);
 		reopenWith(pending.snapshot);
+	} finally {
+		isLoading.value = false;
+	}
+};
+
+const handleScheduleSend = async (isoDate: string) => {
+	showScheduleModal.value = false;
+	error.value = null;
+	if (!currentMailbox.value) {
+		error.value = "No mailbox selected.";
+		return;
+	}
+	if (!to.value.trim()) {
+		error.value = "Please specify at least one recipient.";
+		return;
+	}
+
+	let finalHtml = body.value;
+	for (const att of inlineAttachments.value) {
+		if (att.localUrl && att.contentId) {
+			const cleanCid = att.contentId.replace(/^<|>$/g, "");
+			finalHtml = finalHtml.split(att.localUrl).join(`cid:${cleanCid}`);
+		}
+	}
+	const allAttachments = [...attachments.value, ...inlineAttachments.value];
+	const mailboxId = (route.params.mailboxId as string) || currentMailbox.value.id;
+
+	const payload: any = {
+		mailboxId,
+		draft_id: currentDraftId.value || undefined,
+		to: to.value,
+		from: currentMailbox.value.email,
+		subject: subject.value || "(No subject)",
+		html: finalHtml,
+		text: htmlToPlainText(finalHtml),
+		is_draft: false,
+		scheduled_at: isoDate,
+	};
+	if (cc.value.trim()) payload.cc = cc.value;
+	if (bcc.value.trim()) payload.bcc = bcc.value;
+	if (allAttachments.length > 0) payload.attachments = allAttachments;
+
+	isLoading.value = true;
+	try {
+		await emailStore.sendEmail(mailboxId, payload);
+		forceCloseModal();
+		showSuccessToast(`Email scheduled for ${new Date(isoDate).toLocaleString()}`);
+		refreshListIfShowing(mailboxId, ["sent", "drafts", "inbox"]);
+	} catch (e: any) {
+		const msg = e.response?.data?.error || "Failed to schedule email.";
+		showErrorToast(msg);
 	} finally {
 		isLoading.value = false;
 	}

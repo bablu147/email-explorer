@@ -265,7 +265,7 @@
           type="button"
           @click="setViewMode('visual')"
           :class="viewMode === 'visual' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1 text-xs rounded transition-all flex items-center gap-1.5"
+          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
           title="Rich Text Visual Editor"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,7 +278,7 @@
           type="button"
           @click="setViewMode('code')"
           :class="viewMode === 'code' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1 text-xs rounded transition-all flex items-center gap-1.5"
+          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
           title="HTML Source Code Editor"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +291,7 @@
           type="button"
           @click="setViewMode('split')"
           :class="viewMode === 'split' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1 text-xs rounded transition-all flex items-center gap-1.5"
+          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
           title="Side-by-side Code and Live Preview"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,7 +366,7 @@
       <textarea
         v-model="sourceCode"
         @input="updateFromSource"
-        class="w-full flex-grow min-h-[240px] bg-gray-900 text-gray-100 font-mono text-xs p-3.5 rounded-lg border border-gray-700 focus:outline-none focus:border-emerald-500 resize-y"
+        class="w-full flex-grow min-h-[240px] bg-gray-900 text-gray-100 font-mono text-base sm:text-xs p-3.5 rounded-lg border border-gray-700 focus:outline-none focus:border-emerald-500 resize-y"
         placeholder="Enter HTML markup here..."
       />
     </div>
@@ -845,6 +845,12 @@ onBeforeUnmount(() => {
 :deep(.ProseMirror) {
   outline: none;
   min-height: 220px;
+}
+
+@media (max-width: 639px) {
+  :deep(.ProseMirror) {
+    font-size: 16px;
+  }
 }
 
 :deep(.ProseMirror p) {

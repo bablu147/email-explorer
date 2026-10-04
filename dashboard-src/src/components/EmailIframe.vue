@@ -33,22 +33,20 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useTheme } from "@/composables/useTheme";
 
 const props = defineProps<{
 	body: string;
 }>();
 
+const { isDark: appDark } = useTheme();
 const iframe = ref<HTMLIFrameElement | null>(null);
 const iframeHeight = ref(420);
 const forceLight = ref(false);
 
 const isDarkTheme = computed(() => {
 	if (forceLight.value) return false;
-	if (typeof document === "undefined") return false;
-	return (
-		document.documentElement.classList.contains("dark") ||
-		document.documentElement.getAttribute("data-theme") === "dark"
-	);
+	return appDark.value;
 });
 
 const adjustHeight = () => {

@@ -81,11 +81,11 @@ const submitCustom = () => {
 <template>
   <div 
     v-if="show" 
-    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[80] p-4"
+    class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center z-[80] p-0 sm:p-4"
     @click.self="emit('close')"
   >
     <div 
-      class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-5 border border-gray-200 dark:border-gray-700 animate-in zoom-in-95 duration-150 select-none"
+      class="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-sm w-full p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-5 border-t sm:border border-gray-200 dark:border-gray-700 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 select-none"
     >
       <div class="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700/60">
         <div class="flex items-center gap-2">
@@ -118,7 +118,7 @@ const submitCustom = () => {
           :key="p.id"
           type="button"
           @click="selectPreset(p.date)"
-          class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 text-left transition-colors cursor-pointer group"
+          class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 text-left transition-colors cursor-pointer group min-h-[40px] sm:min-h-0"
         >
           <span class="text-xs font-semibold text-gray-800 dark:text-gray-200 group-hover:text-purple-600 dark:group-hover:text-purple-400">
             {{ p.label }}
@@ -131,7 +131,7 @@ const submitCustom = () => {
         <button
           type="button"
           @click="isCustomMode = true"
-          class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 text-left transition-colors cursor-pointer group border-t border-gray-100 dark:border-gray-700/40 mt-1 pt-2.5"
+          class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/50 text-left transition-colors cursor-pointer group border-t border-gray-100 dark:border-gray-700/40 mt-1 pt-2.5 min-h-[40px] sm:min-h-0"
         >
           <span class="text-xs font-semibold text-purple-600 dark:text-purple-400">
             Pick date & time…
@@ -150,14 +150,14 @@ const submitCustom = () => {
           <input
             v-model="customDate"
             type="datetime-local"
-            class="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            class="w-full px-3 py-2 text-base sm:text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
           />
         </div>
         <div class="flex items-center justify-end gap-2 pt-2">
           <button
             type="button"
             @click="isCustomMode = false"
-            class="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer"
+            class="px-3 py-2 sm:py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer min-h-[40px] sm:min-h-0"
           >
             Back
           </button>
@@ -165,7 +165,7 @@ const submitCustom = () => {
             type="button"
             :disabled="!customDate"
             @click="submitCustom"
-            class="px-4 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+            class="px-4 py-2 sm:py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer min-h-[40px] sm:min-h-0"
           >
             Schedule
           </button>

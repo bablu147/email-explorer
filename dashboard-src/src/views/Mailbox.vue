@@ -5,6 +5,7 @@
       <Header />
       <main
         class="flex-1 min-h-0 bg-white dark:bg-gray-900 flex flex-col lg:!pb-0"
+        :class="isInternalScrollView ? 'overflow-hidden' : 'overflow-y-auto'"
         :style="{ paddingBottom: 'calc(4.25rem + env(safe-area-inset-bottom, 0px))' }"
       >
         <router-view />
@@ -15,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, watch } from "vue";
+import { computed, defineAsyncComponent, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import Header from "@/components/Header.vue";
 import Sidebar from "@/components/Sidebar.vue";
@@ -26,6 +27,10 @@ const ComposeEmail = defineAsyncComponent(() => import("@/components/ComposeEmai
 const uiStore = useUIStore();
 const mailboxStore = useMailboxStore();
 const route = useRoute();
+
+const isInternalScrollView = computed(() =>
+	["EmailList", "DiscoverApps", "Pipeline"].includes(route.name as string),
+);
 
 const loadMailbox = (id?: string) => {
 	const mailboxId = id || (route.params.mailboxId as string);
