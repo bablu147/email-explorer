@@ -32,15 +32,16 @@
 
         <button
           type="button"
-          @click="setViewMode('split')"
-          :class="viewMode === 'split' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+          @click="setViewMode('preview')"
+          :class="viewMode === 'preview' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
           class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer"
-          title="Side-by-side Code and Live Rendered Preview"
+          title="Preview rendered email as recipients will see it"
         >
           <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
-          <span>Live Preview</span>
+          <span>Preview</span>
         </button>
       </div>
 
@@ -54,8 +55,8 @@
           <span>Sends as HTML email</span>
         </span>
 
-        <!-- Code/Split Mode: Quick HTML Tools -->
-        <div v-if="viewMode === 'code' || viewMode === 'split'" class="flex items-center gap-1.5">
+        <!-- Code Mode: Quick HTML Tools -->
+        <div v-else-if="viewMode === 'code'" class="flex items-center gap-1.5">
           <input
             type="file"
             ref="htmlFileInput"
@@ -134,6 +135,79 @@
               </button>
             </div>
           </div>
+        </div>
+
+        <!-- Preview Mode: Simulator Controls -->
+        <div v-else-if="viewMode === 'preview'" class="flex items-center gap-2 flex-wrap text-xs">
+          <!-- Device Selector -->
+          <div class="inline-flex items-center p-0.5 bg-gray-200/90 dark:bg-gray-700/90 rounded-lg">
+            <button
+              type="button"
+              @click="previewDevice = 'desktop'"
+              :class="previewDevice === 'desktop' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+              class="px-2 py-0.5 text-xs rounded transition-all cursor-pointer"
+              title="Standard 600px desktop email layout"
+            >
+              Desktop
+            </button>
+            <button
+              type="button"
+              @click="previewDevice = 'mobile'"
+              :class="previewDevice === 'mobile' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+              class="px-2 py-0.5 text-xs rounded transition-all cursor-pointer"
+              title="375px mobile phone simulator"
+            >
+              Mobile
+            </button>
+            <button
+              type="button"
+              @click="previewDevice = 'fluid'"
+              :class="previewDevice === 'fluid' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+              class="px-2 py-0.5 text-xs rounded transition-all cursor-pointer"
+              title="100% fluid full-width view"
+            >
+              Fluid
+            </button>
+          </div>
+
+          <!-- Split vs Full Canvas -->
+          <button
+            type="button"
+            @click="previewLayout = previewLayout === 'full' ? 'split' : 'full'"
+            :class="previewLayout === 'split' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold' : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'"
+            class="px-2 py-1 rounded text-xs flex items-center gap-1 cursor-pointer transition-colors"
+            :title="previewLayout === 'full' ? 'Open side-by-side HTML Code and Live Preview' : 'Expand to Full Preview Canvas'"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span>{{ previewLayout === 'full' ? 'Split View' : 'Full Canvas' }}</span>
+          </button>
+
+          <!-- Zoom / Scale -->
+          <div class="hidden sm:inline-flex items-center gap-1 text-[11px] text-gray-500">
+            <span>Scale:</span>
+            <select
+              v-model="previewScale"
+              class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded px-1.5 py-0.5 text-xs cursor-pointer focus:outline-none"
+            >
+              <option :value="1">100%</option>
+              <option :value="0.85">85%</option>
+              <option :value="0.75">75%</option>
+            </select>
+          </div>
+
+          <!-- Refresh Preview Button -->
+          <button
+            type="button"
+            @click="refreshPreview"
+            class="p-1 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            title="Refresh rendered preview"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -467,63 +541,100 @@
       />
     </div>
 
-    <!-- 3. Split View (Live Code on Left, Live Rendered Email Preview on Right) -->
-    <div v-else-if="viewMode === 'split'" class="flex-grow flex flex-col min-h-[380px]">
-      <!-- Split View Header Controls -->
-      <div class="bg-gray-100 dark:bg-gray-800/80 px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-gray-700 dark:text-gray-300">HTML Source & Live Preview</span>
-          <span class="text-[11px] text-gray-500">Live synced</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">Device Simulator:</span>
-          <div class="flex bg-gray-200 dark:bg-gray-700 rounded p-0.5">
-            <button
-              type="button"
-              @click="previewDevice = 'desktop'"
-              :class="previewDevice === 'desktop' ? 'bg-white dark:bg-gray-800 text-emerald-500 font-bold' : 'text-gray-500'"
-              class="px-2 py-0.5 text-xs rounded transition-all"
-            >
-              Desktop
-            </button>
-            <button
-              type="button"
-              @click="previewDevice = 'mobile'"
-              :class="previewDevice === 'mobile' ? 'bg-white dark:bg-gray-800 text-emerald-500 font-bold' : 'text-gray-500'"
-              class="px-2 py-0.5 text-xs rounded transition-all"
-            >
-              Mobile (375px)
-            </button>
+    <!-- 3. Preview Mode (Full Canvas or Side-by-Side Split) -->
+    <div v-else-if="viewMode === 'preview'" class="flex-grow flex flex-col min-h-[420px] bg-gray-100 dark:bg-gray-950/70 overflow-hidden">
+      <!-- Full Canvas Layout -->
+      <div v-if="previewLayout === 'full'" class="flex-grow flex flex-col items-center justify-start p-3 sm:p-6 overflow-y-auto">
+        <!-- Frame Container -->
+        <div
+          :style="{
+            width: previewDevice === 'mobile' ? '375px' : previewDevice === 'desktop' ? '640px' : '100%',
+            maxWidth: '100%',
+            transform: previewScale < 1 ? `scale(${previewScale})` : undefined,
+            transformOrigin: 'top center'
+          }"
+          :class="[
+            previewDevice === 'mobile'
+              ? 'rounded-[36px] border-8 border-gray-800 dark:border-gray-700 shadow-2xl bg-white dark:bg-gray-900 overflow-hidden my-2 ring-1 ring-black/10'
+              : 'rounded-xl shadow-xl border border-gray-200 dark:border-gray-800 bg-white text-gray-900 overflow-hidden my-2'
+          ]"
+          class="transition-all duration-300 flex flex-col min-h-[380px]"
+        >
+          <!-- Mobile Device Simulator Top Status / Notch Bar -->
+          <div v-if="previewDevice === 'mobile'" class="bg-gray-800 dark:bg-gray-700 text-white px-5 py-2 flex items-center justify-between text-[11px] select-none">
+            <span class="font-semibold tracking-tight">9:41</span>
+            <!-- Notch pill -->
+            <div class="w-16 h-3 bg-black/60 rounded-full mx-auto"></div>
+            <div class="flex items-center gap-1.5 opacity-80">
+              <!-- Signal icon -->
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z"/></svg>
+              <!-- Battery icon -->
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17 6H4a2 2 0 00-2 2v8a2 2 0 002 2h13a2 2 0 002-2v-2h2v-4h-2V8a2 2 0 00-2-2z"/></svg>
+            </div>
           </div>
+
+          <!-- Email Envelope Bar (Recipient & Subject Metadata) -->
+          <div v-if="subject || to || from" class="bg-gray-50/95 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700/80 px-4 py-3 text-xs space-y-1 select-none">
+            <div v-if="subject" class="flex items-baseline gap-2">
+              <span class="text-gray-400 font-semibold w-14 shrink-0 text-[11px]">Subject:</span>
+              <span class="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">{{ subject }}</span>
+            </div>
+            <div v-if="from" class="flex items-baseline gap-2">
+              <span class="text-gray-400 font-semibold w-14 shrink-0 text-[11px]">From:</span>
+              <span class="text-gray-700 dark:text-gray-300 truncate">{{ from }}</span>
+            </div>
+            <div v-if="to" class="flex items-baseline gap-2">
+              <span class="text-gray-400 font-semibold w-14 shrink-0 text-[11px]">To:</span>
+              <span class="text-gray-700 dark:text-gray-300 truncate">{{ to }}</span>
+            </div>
+          </div>
+
+          <!-- Responsive Sandboxed Iframe -->
+          <iframe
+            :key="previewKey"
+            :srcdoc="previewHtml"
+            sandbox="allow-same-origin"
+            class="w-full flex-grow min-h-[380px] border-none bg-white"
+          />
         </div>
       </div>
 
-      <!-- Split Panes -->
-      <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700 flex-grow min-h-[340px]">
-        <!-- Code Editor Pane -->
-        <div class="p-2 flex flex-col bg-gray-950">
+      <!-- Side-by-Side Split View Layout -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-800 flex-grow min-h-[380px] overflow-hidden">
+        <!-- Left: Code Editor Pane -->
+        <div class="flex flex-col bg-gray-950 p-2 overflow-hidden">
+          <div class="px-2 py-1 text-[11px] font-mono text-gray-400 flex items-center justify-between border-b border-gray-800 mb-1">
+            <span>HTML Source Code</span>
+            <span class="text-emerald-400 font-sans">Live Sync</span>
+          </div>
           <textarea
             v-model="sourceCode"
             @input="updateFromSource"
-            class="w-full flex-grow bg-transparent text-emerald-300 font-mono text-xs p-2 focus:outline-none resize-none leading-relaxed"
+            class="w-full flex-grow bg-transparent text-emerald-300 font-mono text-xs p-2 focus:outline-none resize-none leading-relaxed overflow-y-auto"
             placeholder="Type HTML here..."
           />
         </div>
 
-        <!-- Live Sandboxed Rendered Preview Pane -->
-        <div class="p-3 flex flex-col items-center justify-start bg-gray-200 dark:bg-gray-900/80 overflow-y-auto">
+        <!-- Right: Sandboxed Preview Pane -->
+        <div class="flex flex-col items-center justify-start p-3 bg-gray-100 dark:bg-gray-900/60 overflow-y-auto">
           <div
-            :style="{ width: previewDevice === 'mobile' ? '375px' : '100%', maxWidth: '100%' }"
-            class="bg-white text-gray-900 rounded-lg shadow-md border border-gray-300 overflow-hidden transition-all duration-300 min-h-[300px] flex flex-col"
+            :style="{
+              width: previewDevice === 'mobile' ? '375px' : '100%',
+              maxWidth: '100%',
+              transform: previewScale < 1 ? `scale(${previewScale})` : undefined,
+              transformOrigin: 'top center'
+            }"
+            class="bg-white text-gray-900 rounded-lg shadow-md border border-gray-300 dark:border-gray-700 overflow-hidden transition-all duration-300 min-h-[340px] flex flex-col w-full"
           >
-            <div class="bg-gray-100 border-b border-gray-200 px-3 py-1.5 flex items-center justify-between text-[11px] text-gray-500">
+            <div class="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 py-1.5 flex items-center justify-between text-[11px] text-gray-500 select-none">
               <span>Preview (Recipient view)</span>
-              <span class="font-mono">{{ previewDevice === 'mobile' ? '375px' : '100%' }}</span>
+              <span class="font-mono">{{ previewDevice === 'mobile' ? '375px' : previewDevice === 'desktop' ? '600px' : 'Fluid' }}</span>
             </div>
             <iframe
+              :key="previewKey"
               :srcdoc="previewHtml"
               sandbox="allow-same-origin"
-              class="w-full flex-grow min-h-[280px] border-none bg-white"
+              class="w-full flex-grow min-h-[320px] border-none bg-white"
             />
           </div>
         </div>
@@ -604,23 +715,40 @@ import StarterKit from "@tiptap/starter-kit";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-const props = defineProps<{
-	modelValue: string;
-}>();
+const props = withDefaults(
+	defineProps<{
+		modelValue: string;
+		subject?: string;
+		to?: string;
+		from?: string;
+	}>(),
+	{
+		subject: "",
+		to: "",
+		from: "",
+	},
+);
 
 const emit = defineEmits<{
 	"update:modelValue": [value: string];
 	"inline-image-added": [attachment: any];
 }>();
 
-const viewMode = ref<"visual" | "code" | "split">("visual");
-const previewDevice = ref<"desktop" | "mobile">("desktop");
+const viewMode = ref<"visual" | "code" | "preview">("visual");
+const previewDevice = ref<"desktop" | "mobile" | "fluid">("desktop");
+const previewLayout = ref<"full" | "split">("full");
+const previewScale = ref(1);
+const previewKey = ref(0);
 const sourceCode = ref(props.modelValue || "");
 const showImageMenu = ref(false);
 const showSnippetMenu = ref(false);
 const isDragging = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const htmlFileInput = ref<HTMLInputElement | null>(null);
+
+const refreshPreview = () => {
+	previewKey.value++;
+};
 
 // Modal state for links and image URLs
 const isUrlModalOpen = ref(false);
@@ -718,10 +846,10 @@ watch(
 	},
 );
 
-const setViewMode = (mode: "visual" | "code" | "split") => {
+const setViewMode = (mode: "visual" | "code" | "preview") => {
 	viewMode.value = mode;
-	if (mode === "code" || mode === "split") {
-		// When entering code or split mode, grab latest HTML from visual editor if available
+	if (mode === "code" || mode === "preview") {
+		// When entering code or preview mode, grab latest HTML from visual editor if available
 		if (editor.value) {
 			const visualHtml = editor.value.getHTML();
 			if (visualHtml && visualHtml !== "<p></p>") {
@@ -829,34 +957,58 @@ const insertHtmlSnippet = (type: "button" | "table" | "callout" | "divider") => 
 	emit("update:modelValue", sourceCode.value);
 };
 
-// Clean preview HTML template with safe styling
+// Non-destructive preview HTML generator
 const previewHtml = computed(() => {
-	const content = sourceCode.value || "<p style='color:#888;'>No content</p>";
+	const raw = (sourceCode.value || "").trim();
+	if (!raw) {
+		return `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; color: #9ca3af; text-align: center; font-size: 13px;">No email content to preview</body></html>`;
+	}
+
+	const isFullDoc = /<!doctype/i.test(raw) || /<html/i.test(raw);
+	if (isFullDoc) {
+		// If it's already a full HTML document (e.g. newsletter), do not double-wrap or inject table borders!
+		// Just ensure all links open in a new tab safely.
+		if (/<head[^>]*>/i.test(raw)) {
+			return raw.replace(/<head[^>]*>/i, "$&<base target=\"_blank\">");
+		}
+		return `<base target="_blank">${raw}`;
+	}
+
+	// For rich-text snippet or visual mode output, wrap in clean email container without destructive table borders
 	return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_blank">
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
-      padding: 16px;
+      padding: 20px;
       color: #111827;
       background-color: #ffffff;
       line-height: 1.6;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
-    img { max-width: 100%; height: auto; border-radius: 6px; }
+    img { max-width: 100%; height: auto; display: inline-block; }
     blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; margin: 12px 0; color: #4b5563; }
-    pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
-    code { font-family: monospace; background: #e5e7eb; padding: 2px 4px; border-radius: 4px; }
-    a { color: #2563eb; }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    td, th { border: 1px solid #e5e7eb; padding: 8px; }
+    pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #e5e7eb; padding: 2px 4px; border-radius: 4px; font-size: 12px; }
+    a { color: #2563eb; text-decoration: underline; }
+    p { margin: 0 0 12px 0; }
+    p:last-child { margin-bottom: 0; }
+    /* Layout presentation tables remain borderless with native widths */
+    table[role="presentation"] { border-collapse: collapse; }
+    /* Data tables with explicit class receive clean borders */
+    table.data-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    table.data-table td, table.data-table th { border: 1px solid #e5e7eb; padding: 8px; }
   </style>
 </head>
 <body>
-  ${content}
+  ${raw}
 </body>
 </html>`;
 });

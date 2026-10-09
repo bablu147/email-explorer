@@ -5,7 +5,7 @@
       <div 
         @keydown.meta.enter="triggerSendFlow(false)"
         @keydown.ctrl.enter="triggerSendFlow(false)"
-        class="bg-white dark:bg-gray-800 rounded-none sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-4xl text-gray-900 dark:text-gray-100 border-0 sm:border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all flex flex-col"
+        class="bg-white dark:bg-gray-800 rounded-none sm:rounded-2xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-5xl text-gray-900 dark:text-gray-100 border-0 sm:border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all flex flex-col"
         :style="composeModalStyle"
       >
         <!-- Header: Fixed Safe-Area Top Header -->
@@ -207,6 +207,9 @@
             </div>
             <RichTextEditor 
               v-model="body" 
+              :subject="subject"
+              :to="to"
+              :from="currentMailbox?.email"
               @inline-image-added="handleInlineImageAdded"
             />
           </div>
@@ -340,7 +343,7 @@
 
       <!-- Full Email Preview Modal -->
       <div v-if="showPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-60 p-4">
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
           <div class="px-6 py-4 bg-gray-100 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div class="flex items-center gap-3">
               <span class="font-bold text-sm text-gray-900 dark:text-white">Email Preview</span>
@@ -360,6 +363,14 @@
                   class="px-2 py-0.5 rounded transition-all cursor-pointer"
                 >
                   Mobile (375px)
+                </button>
+                <button
+                  type="button"
+                  @click="previewDevice = 'fluid'"
+                  :class="previewDevice === 'fluid' ? 'bg-white dark:bg-gray-800 font-bold text-emerald-500' : 'text-gray-500'"
+                  class="px-2 py-0.5 rounded transition-all cursor-pointer"
+                >
+                  Fluid
                 </button>
               </div>
             </div>
@@ -625,7 +636,7 @@ const error = ref<string | null>(null);
 const isLoading = ref(false);
 const showPreviewModal = ref(false);
 const showScheduleModal = ref(false);
-const previewDevice = ref<"desktop" | "mobile">("desktop");
+const previewDevice = ref<"desktop" | "mobile" | "fluid">("desktop");
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 // Visual Viewport tracking on mobile to ensure bottom action bar sits right above the keyboard
@@ -1430,26 +1441,44 @@ const htmlToPlainText = (html: string): string => {
 };
 
 const previewHtmlDoc = computed(() => {
-	const content = body.value || "<p style='color:#888;'>No message content</p>";
+	const raw = (body.value || "").trim();
+	if (!raw) {
+		return `<!DOCTYPE html><html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; color: #9ca3af; text-align: center; font-size: 13px;">No message content</body></html>`;
+	}
+
+	const isFullDoc = /<!doctype/i.test(raw) || /<html/i.test(raw);
+	if (isFullDoc) {
+		if (/<head[^>]*>/i.test(raw)) {
+			return raw.replace(/<head[^>]*>/i, "$&<base target=\"_blank\">");
+		}
+		return `<base target="_blank">${raw}`;
+	}
+
 	return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base target="_blank">
   <style>
+    * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 16px;
       color: #111827;
       line-height: 1.6;
+      font-size: 14px;
     }
     img { max-width: 100%; height: auto; border-radius: 6px; }
     blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; margin: 12px 0; color: #4b5563; }
+    table[role="presentation"] { border-collapse: collapse; }
+    table.data-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    table.data-table td, table.data-table th { border: 1px solid #e5e7eb; padding: 8px; }
   </style>
 </head>
 <body>
-  ${content}
+  ${raw}
 </body>
 </html>`;
 });
