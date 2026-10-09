@@ -22,7 +22,7 @@
           <!-- Follow-up action for Sent emails -->
           <button 
             v-if="isSentEmail" 
-            @click="handleReply" 
+            @click="handleReply()" 
             class="px-2.5 sm:px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
             title="Send follow-up message to this recipient"
             aria-label="Follow-up"
@@ -30,42 +30,46 @@
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
-            <span class="hidden sm:inline">Follow-up</span>
+            <span class="inline">Follow-up</span>
           </button>
 
           <!-- Reply -->
           <button 
             v-else 
-            @click="handleReply" 
-            class="p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
-            title="Reply (pop-up)"
+            @click="handleReply()" 
+            class="px-2.5 sm:px-3 py-1.5 text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold shadow-xs" 
+            title="Reply (r)"
+            aria-label="Reply"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            <svg class="h-3.5 w-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
+            <span class="inline">Reply</span>
           </button>
 
           <!-- Reply All -->
           <button 
-            @click="handleReplyAll" 
+            @click="handleReplyAll()" 
             class="hidden sm:inline-flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
-            title="Reply All"
+            title="Reply All (a)"
+            aria-label="Reply All"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-              <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6m-4-6l6 6m-6-6l6-6" />
             </svg>
           </button>
 
           <!-- Forward -->
           <button 
-            @click="handleForward" 
-            class="hidden sm:inline-flex p-2 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer" 
-            title="Forward"
+            @click="handleForward()" 
+            class="px-2.5 sm:px-3 py-1.5 text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/20 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold shadow-xs" 
+            title="Forward (f)"
+            aria-label="Forward"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H7a5 5 0 00-5 5v2a1 1 0 11-2 0v-2a7 7 0 017-7h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+            <svg class="h-3.5 w-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
             </svg>
+            <span class="inline">Forward</span>
           </button>
 
           <!-- Read/Unread -->
@@ -360,6 +364,9 @@
         :mailbox-id="mailboxId" 
         :root-email="email" 
         :from-folder="fromFolder" 
+        @forward="handleForward"
+        @reply="handleReply"
+        @reply-all="handleReplyAll"
         @thread-updated="handleThreadUpdated" 
       />
     </div>
@@ -428,6 +435,7 @@ import { useFolderStore } from "@/stores/folders";
 import { useMailboxStore } from "@/stores/mailboxes";
 import { useUIStore } from "@/stores/ui";
 import { extractCleanEmail } from "@/stores/appBindings";
+import type { Email } from "@/types";
 
 const emailStore = useEmailStore();
 const { currentEmail: email } = storeToRefs(emailStore);
@@ -795,21 +803,24 @@ const executeDelete = async () => {
 	}
 };
 
-const handleReply = () => {
-	if (email.value) {
-		uiStore.openComposeModal({ mode: "reply", originalEmail: email.value });
+const handleReply = (targetEmail?: Email) => {
+	const orig = targetEmail || email.value;
+	if (orig) {
+		uiStore.openComposeModal({ mode: isSentEmail.value ? "new" : "reply", originalEmail: orig });
 	}
 };
 
-const handleReplyAll = () => {
-	if (email.value) {
-		uiStore.openComposeModal({ mode: "reply-all", originalEmail: email.value });
+const handleReplyAll = (targetEmail?: Email) => {
+	const orig = targetEmail || email.value;
+	if (orig) {
+		uiStore.openComposeModal({ mode: "reply-all", originalEmail: orig });
 	}
 };
 
-const handleForward = () => {
-	if (email.value) {
-		uiStore.openComposeModal({ mode: "forward", originalEmail: email.value });
+const handleForward = (targetEmail?: Email) => {
+	const orig = targetEmail || email.value;
+	if (orig) {
+		uiStore.openComposeModal({ mode: "forward", originalEmail: orig });
 	}
 };
 </script>

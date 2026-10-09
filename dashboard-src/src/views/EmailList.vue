@@ -537,13 +537,25 @@
               <button
                 v-if="!isOutgoingFolder && canWrite"
                 type="button"
-                @click.stop.prevent="handleQuickReply(email)"
+                @click.stop.prevent="handleQuickReply(email, 'reply')"
                 class="p-1.5 rounded-md text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                 title="Reply (r)"
                 aria-label="Reply"
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+              </button>
+              <button
+                v-if="canWrite"
+                type="button"
+                @click.stop.prevent="handleQuickReply(email, 'forward')"
+                class="p-1.5 rounded-md text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                title="Forward (f)"
+                aria-label="Forward"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
                 </svg>
               </button>
             </div>
@@ -711,6 +723,10 @@
         <button v-else-if="folderId === 'snoozed'" type="button" @click="unsnoozeSelected" class="bulk-btn" title="Move to Inbox">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
           <span class="hidden sm:inline">Inbox</span>
+        </button>
+        <button v-if="selectedEmailIds.length === 1" type="button" @click="forwardSelected" class="bulk-btn" title="Forward (f)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6"/></svg>
+          <span class="hidden sm:inline">Forward</span>
         </button>
         <div class="h-4 w-px bg-white/15 mx-1"></div>
         <button type="button" @click="selectedEmailIds = []" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer" title="Clear selection (Esc)" aria-label="Clear selection">
@@ -1362,6 +1378,14 @@ const unsnoozeSelected = async () => {
 	const targets = [...selectedEmails.value];
 	selectedEmailIds.value = [];
 	await mail.unsnoozeEmails(mailboxId.value, targets);
+};
+
+const forwardSelected = () => {
+	if (selectedEmails.value.length === 1) {
+		const target = selectedEmails.value[0];
+		selectedEmailIds.value = [];
+		handleQuickReply(target, "forward");
+	}
 };
 
 const handleSendScheduledNow = async (email: Email) => {

@@ -135,18 +135,49 @@
               <div v-if="msg.cc"><span class="font-bold text-gray-700 dark:text-gray-300">Cc:</span> {{ msg.cc }}</div>
             </div>
 
-            <!-- Message Action Buttons (reply and star both write, so not for a view-only user) -->
-            <div v-if="canWrite" class="flex items-center gap-1.5">
+            <!-- Message Action Buttons (reply, forward, star) -->
+            <div v-if="canWrite" class="flex items-center gap-1">
+              <!-- Reply -->
               <button 
                 type="button" 
                 @click.stop="handleReplySingle(msg)"
-                class="p-1.5 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                title="Reply to this message"
+                class="px-2 py-1 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                title="Reply to this message (r)"
               >
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                 </svg>
+                <span class="hidden sm:inline">Reply</span>
               </button>
+
+              <!-- Reply All (if multiple recipients) -->
+              <button 
+                v-if="msg.cc || (msg.recipient && msg.recipient.includes(','))"
+                type="button" 
+                @click.stop="handleReplyAllSingle(msg)"
+                class="px-2 py-1 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                title="Reply All to this message (a)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+                <span class="hidden sm:inline">Reply all</span>
+              </button>
+
+              <!-- Forward -->
+              <button 
+                type="button" 
+                @click.stop="handleForwardSingle(msg)"
+                class="px-2 py-1 text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer flex items-center gap-1 text-xs font-medium"
+                title="Forward this message (f)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+                </svg>
+                <span class="hidden sm:inline">Forward</span>
+              </button>
+
+              <!-- Star -->
               <button 
                 type="button" 
                 @click.stop="handleStarSingle(msg)"
@@ -255,13 +286,27 @@
         ></textarea>
 
         <div class="flex items-center justify-between pt-2 border-t border-gray-200/60 dark:border-gray-700/40 mt-1">
-          <button 
-            type="button" 
-            @click="openFullComposer" 
-            class="text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-          >
-            Expand in full editor &rarr;
-          </button>
+          <div class="flex items-center gap-3">
+            <button 
+              type="button" 
+              @click="openFullComposer" 
+              class="text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+            >
+              Expand in full editor &rarr;
+            </button>
+            <span class="text-gray-300 dark:text-gray-600">·</span>
+            <button 
+              type="button" 
+              @click="handleForwardThread" 
+              class="text-xs font-semibold text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+              title="Forward conversation (f)"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+              </svg>
+              <span>Forward</span>
+            </button>
+          </div>
 
           <button 
             type="button" 
@@ -539,6 +584,36 @@ const handleReplySingle = (msg: Email) => {
     initialTo: isSentMessage(msg) ? msg.recipient : msg.sender,
     initialSubject: msg.subject.startsWith("Re:") ? msg.subject : `Re: ${msg.subject}`,
   });
+  emit("reply", msg);
+};
+
+const handleReplyAllSingle = (msg: Email) => {
+  uiStore.openComposeModal({
+    mode: "reply-all",
+    originalEmail: msg,
+    initialTo: isSentMessage(msg) ? msg.recipient : msg.sender,
+    initialSubject: msg.subject.startsWith("Re:") ? msg.subject : `Re: ${msg.subject}`,
+  });
+  emit("reply-all", msg);
+};
+
+const handleForwardSingle = (msg: Email) => {
+  uiStore.openComposeModal({
+    mode: "forward",
+    originalEmail: msg,
+    initialSubject: msg.subject.startsWith("Fwd:") ? msg.subject : `Fwd: ${msg.subject}`,
+  });
+  emit("forward", msg);
+};
+
+const handleForwardThread = () => {
+  const original = replyOriginal.value || props.rootEmail;
+  uiStore.openComposeModal({
+    mode: "forward",
+    originalEmail: original,
+    initialSubject: original.subject.startsWith("Fwd:") ? original.subject : `Fwd: ${original.subject}`,
+  });
+  emit("forward", original);
 };
 
 const handleStarSingle = async (msg: Email) => {
