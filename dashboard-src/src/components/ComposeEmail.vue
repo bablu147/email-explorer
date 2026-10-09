@@ -199,7 +199,12 @@
 
           <!-- Message Body with native CID image staging -->
           <div class="flex-grow flex flex-col">
-            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Message</label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">Message</label>
+              <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                Sends as HTML &bull; Supports Rich Text, Raw HTML &amp; Templates
+              </span>
+            </div>
             <RichTextEditor 
               v-model="body" 
               @inline-image-added="handleInlineImageAdded"

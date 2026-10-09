@@ -1,7 +1,145 @@
 <template>
   <div class="rich-text-editor border border-gray-300 dark:border-gray-600 rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900/50 flex flex-col">
-    <!-- Toolbar -->
-    <div v-if="editor" class="toolbar bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 px-2 py-1.5 flex items-center justify-between gap-1 overflow-x-auto touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <!-- Tier 1: View Mode Switcher & HTML Delivery Status Header (ALWAYS visible, never clipped) -->
+    <div class="bg-gray-100/90 dark:bg-gray-800/90 border-b border-gray-300 dark:border-gray-700 px-2.5 py-1.5 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
+      <!-- Mode Tabs -->
+      <div class="inline-flex items-center p-0.5 bg-gray-200/90 dark:bg-gray-700/90 rounded-lg gap-0.5">
+        <button
+          type="button"
+          @click="setViewMode('visual')"
+          :class="viewMode === 'visual' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+          class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer"
+          title="Rich Text Visual Editor (WYSIWYG)"
+        >
+          <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          <span>Visual</span>
+        </button>
+
+        <button
+          type="button"
+          @click="setViewMode('code')"
+          :class="viewMode === 'code' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+          class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer"
+          title="HTML Source Code Editor (Type or paste raw HTML, tables & newsletters)"
+        >
+          <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          <span>&lt;/&gt; HTML Code</span>
+        </button>
+
+        <button
+          type="button"
+          @click="setViewMode('split')"
+          :class="viewMode === 'split' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs font-semibold' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'"
+          class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer"
+          title="Side-by-side Code and Live Rendered Preview"
+        >
+          <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          <span>Live Preview</span>
+        </button>
+      </div>
+
+      <!-- Right Side Helpers & HTML Badge -->
+      <div class="flex items-center gap-2">
+        <!-- Visual Mode: Clear HTML badge -->
+        <span v-if="viewMode === 'visual'" class="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+          <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>Sends as HTML email</span>
+        </span>
+
+        <!-- Code/Split Mode: Quick HTML Tools -->
+        <div v-if="viewMode === 'code' || viewMode === 'split'" class="flex items-center gap-1.5">
+          <input
+            type="file"
+            ref="htmlFileInput"
+            @change="handleHtmlFileUpload"
+            accept=".html,.htm"
+            class="hidden"
+          />
+          <button
+            type="button"
+            @click="htmlFileInput?.click()"
+            class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs flex items-center gap-1 cursor-pointer transition-colors"
+            title="Import an HTML email template file (.html)"
+          >
+            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span>Import .html</span>
+          </button>
+
+          <button
+            type="button"
+            @click="prettifyHtmlCode"
+            class="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs flex items-center gap-1 cursor-pointer transition-colors"
+            title="Format and auto-indent HTML markup"
+          >
+            <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+            <span>Format</span>
+          </button>
+
+          <!-- Quick Template Snippet Dropdown -->
+          <div class="relative" ref="snippetDropdownRef">
+            <button
+              type="button"
+              @click.stop="showSnippetMenu = !showSnippetMenu"
+              class="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Insert HTML email elements"
+            >
+              <span>+ Insert HTML</span>
+              <svg class="w-3 h-3 transition-transform" :class="{ 'rotate-180': showSnippetMenu }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div
+              v-if="showSnippetMenu"
+              class="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-30 py-1 text-xs"
+            >
+              <button
+                type="button"
+                @click="insertHtmlSnippet('button')"
+                class="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2 cursor-pointer"
+              >
+                CTA Button
+              </button>
+              <button
+                type="button"
+                @click="insertHtmlSnippet('table')"
+                class="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2 cursor-pointer"
+              >
+                Responsive Table
+              </button>
+              <button
+                type="button"
+                @click="insertHtmlSnippet('callout')"
+                class="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2 cursor-pointer"
+              >
+                Callout Box
+              </button>
+              <button
+                type="button"
+                @click="insertHtmlSnippet('divider')"
+                class="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-2 cursor-pointer"
+              >
+                Styled Divider
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier 2: Formatting Toolbar (Visible in Visual Mode) -->
+    <div v-if="editor && viewMode === 'visual'" class="toolbar bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-600 px-2 py-1.5 flex items-center gap-1 overflow-x-auto touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div class="flex items-center gap-1 shrink-0 flex-nowrap sm:flex-wrap">
         <!-- Text Formatting (Enabled in Visual mode) -->
         <div v-if="viewMode === 'visual'" class="flex gap-1 border-r border-gray-300 dark:border-gray-600 pr-1.5 sm:pr-2 shrink-0">
@@ -258,48 +396,6 @@
           </button>
         </div>
       </div>
-
-      <!-- View Mode Switcher: Visual · HTML Source · Live Split Preview -->
-      <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-lg border border-gray-200 dark:border-gray-600 shrink-0 ml-2">
-        <button
-          type="button"
-          @click="setViewMode('visual')"
-          :class="viewMode === 'visual' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
-          title="Rich Text Visual Editor"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          Visual
-        </button>
-
-        <button
-          type="button"
-          @click="setViewMode('code')"
-          :class="viewMode === 'code' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
-          title="HTML Source Code Editor"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-          </svg>
-          HTML Code
-        </button>
-
-        <button
-          type="button"
-          @click="setViewMode('split')"
-          :class="viewMode === 'split' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'"
-          class="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer"
-          title="Side-by-side Code and Live Preview"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-          </svg>
-          Live Preview
-        </button>
-      </div>
     </div>
 
     <!-- Editor Body Containers -->
@@ -506,7 +602,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorContent, useEditor } from "@tiptap/vue-3";
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = defineProps<{
 	modelValue: string;
@@ -521,8 +617,10 @@ const viewMode = ref<"visual" | "code" | "split">("visual");
 const previewDevice = ref<"desktop" | "mobile">("desktop");
 const sourceCode = ref(props.modelValue || "");
 const showImageMenu = ref(false);
+const showSnippetMenu = ref(false);
 const isDragging = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
+const htmlFileInput = ref<HTMLInputElement | null>(null);
 
 // Modal state for links and image URLs
 const isUrlModalOpen = ref(false);
@@ -607,9 +705,15 @@ const editor = useEditor({
 watch(
 	() => props.modelValue,
 	(newValue) => {
-		if (editor.value && newValue !== editor.value.getHTML()) {
-			editor.value.commands.setContent(newValue, { emitUpdate: false });
-			sourceCode.value = newValue;
+		if (viewMode.value === "visual") {
+			if (editor.value && newValue !== editor.value.getHTML()) {
+				editor.value.commands.setContent(newValue, { emitUpdate: false });
+				sourceCode.value = newValue;
+			}
+		} else {
+			if (newValue !== sourceCode.value) {
+				sourceCode.value = newValue;
+			}
 		}
 	},
 );
@@ -617,8 +721,16 @@ watch(
 const setViewMode = (mode: "visual" | "code" | "split") => {
 	viewMode.value = mode;
 	if (mode === "code" || mode === "split") {
-		sourceCode.value = editor.value?.getHTML() || props.modelValue || "";
+		// When entering code or split mode, grab latest HTML from visual editor if available
+		if (editor.value) {
+			const visualHtml = editor.value.getHTML();
+			if (visualHtml && visualHtml !== "<p></p>") {
+				sourceCode.value = visualHtml;
+			}
+		}
+		emit("update:modelValue", sourceCode.value);
 	} else if (mode === "visual") {
+		// When returning to visual mode, populate TipTap with the user's HTML source
 		if (editor.value && sourceCode.value !== editor.value.getHTML()) {
 			editor.value.commands.setContent(sourceCode.value);
 		}
@@ -626,10 +738,95 @@ const setViewMode = (mode: "visual" | "code" | "split") => {
 };
 
 const updateFromSource = () => {
+	// Directly emit the raw HTML markup so outgoing mail payload receives exact HTML
 	emit("update:modelValue", sourceCode.value);
-	if (editor.value) {
-		editor.value.commands.setContent(sourceCode.value, { emitUpdate: false });
+};
+
+const handleHtmlFileUpload = (event: Event) => {
+	const target = event.target as HTMLInputElement;
+	const file = target.files?.[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = (e) => {
+		const content = e.target?.result as string;
+		if (content) {
+			sourceCode.value = content;
+			emit("update:modelValue", content);
+			if (viewMode.value === "visual" && editor.value) {
+				editor.value.commands.setContent(content);
+			}
+		}
+	};
+	reader.readAsText(file);
+	target.value = "";
+};
+
+const prettifyHtmlCode = () => {
+	if (!sourceCode.value) return;
+	sourceCode.value = formatHtmlString(sourceCode.value);
+	emit("update:modelValue", sourceCode.value);
+};
+
+function formatHtmlString(html: string): string {
+	let formatted = "";
+	let indent = 0;
+	const tab = "  ";
+	const tokens = html.replace(/>\s*</g, "><").replace(/</g, "~::~<").split("~::~");
+	for (const token of tokens) {
+		if (!token.trim()) continue;
+		if (token.match(/^<\/\w/)) {
+			indent = Math.max(0, indent - 1);
+		}
+		formatted += tab.repeat(indent) + token.trim() + "\n";
+		if (token.match(/^<[^!/?][^>]*[^/>]>$/) && !token.match(/^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)/i)) {
+			indent++;
+		}
 	}
+	return formatted.trim();
+}
+
+const insertHtmlSnippet = (type: "button" | "table" | "callout" | "divider") => {
+	showSnippetMenu.value = false;
+	let snippet = "";
+	if (type === "button") {
+		snippet = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 16px 0;">
+  <tr>
+    <td align="center" style="border-radius: 8px; background-color: #059669;">
+      <a href="https://example.com" target="_blank" style="font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff; text-decoration: none; border-radius: 8px; padding: 12px 24px; border: 1px solid #059669; display: inline-block; font-weight: 600;">
+        Call to Action &rarr;
+      </a>
+    </td>
+  </tr>
+</table>\n`;
+	} else if (type === "table") {
+		snippet = `<table width="100%" cellpadding="10" cellspacing="0" border="0" style="border-collapse: collapse; margin: 16px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px;">
+  <thead>
+    <tr style="background-color: #f3f4f6; text-align: left; color: #374151;">
+      <th style="padding: 10px; border: 1px solid #e5e7eb; font-weight: 600;">Item</th>
+      <th style="padding: 10px; border: 1px solid #e5e7eb; font-weight: 600;">Description</th>
+      <th style="padding: 10px; border: 1px solid #e5e7eb; font-weight: 600;">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 10px; border: 1px solid #e5e7eb; color: #111827;">Sample 1</td>
+      <td style="padding: 10px; border: 1px solid #e5e7eb; color: #4b5563;">Details here</td>
+      <td style="padding: 10px; border: 1px solid #e5e7eb; color: #059669; font-weight: 600;">Active</td>
+    </tr>
+  </tbody>
+</table>\n`;
+	} else if (type === "callout") {
+		snippet = `<div style="background-color: #f0fdf4; border-left: 4px solid #059669; padding: 16px; margin: 16px 0; border-radius: 0 8px 8px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <p style="margin: 0; color: #166534; font-size: 14px; font-weight: 500;">
+    <strong>Notice:</strong> This is a styled highlight box for important announcements.
+  </p>
+</div>\n`;
+	} else if (type === "divider") {
+		snippet = `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />\n`;
+	}
+
+	sourceCode.value = (sourceCode.value ? sourceCode.value + "\n" : "") + snippet;
+	emit("update:modelValue", sourceCode.value);
 };
 
 // Clean preview HTML template with safe styling
@@ -778,6 +975,7 @@ const handleClickOutside = (event: MouseEvent) => {
 	const target = event.target as HTMLElement;
 	if (!target.closest(".relative")) {
 		showImageMenu.value = false;
+		showSnippetMenu.value = false;
 	}
 };
 
