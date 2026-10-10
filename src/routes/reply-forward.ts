@@ -2,7 +2,7 @@ import { EmailMessage } from "cloudflare:email";
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
-import { checkDoNotContact } from "../delivery";
+import { checkDoNotContact, formatSenderString, getMailboxDisplayName } from "../delivery";
 import { buildMimeMessage } from "../mime-builder";
 import { describeInvalidRecipients, parseRecipients } from "../scheduling";
 import { answeredSender } from "../suppression";
@@ -194,9 +194,12 @@ export class PostReplyEmail extends OpenAPIRoute {
 		).getUnsubscribeSecret();
 		const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, clickSecret);
 
+		const displayName = await getMailboxDisplayName(c.env, mailboxId);
+		const { fromHeader, senderString } = formatSenderString(mailboxId, displayName);
+
 		// Build MIME message
 		const mimeMessage = buildMimeMessage({
-			from: mailboxId,
+			from: fromHeader,
 			to: toList,
 			cc: ccList.length > 0 ? ccList : undefined,
 			bcc: bccList.length > 0 ? bccList : undefined,
@@ -247,7 +250,7 @@ export class PostReplyEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: mailboxId,
+				sender: senderString,
 				recipient: toList.join(", "),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,
@@ -366,9 +369,12 @@ export class PostForwardEmail extends OpenAPIRoute {
 		).getUnsubscribeSecret();
 		const outboundHtml = await injectEmailTracking(html, mailboxId, messageId, clickSecret);
 
+		const displayName = await getMailboxDisplayName(c.env, mailboxId);
+		const { fromHeader, senderString } = formatSenderString(mailboxId, displayName);
+
 		// Forwarded emails don't have threading headers
 		const mimeMessage = buildMimeMessage({
-			from: mailboxId,
+			from: fromHeader,
 			to: toList,
 			cc: ccList.length > 0 ? ccList : undefined,
 			bcc: bccList.length > 0 ? bccList : undefined,
@@ -417,7 +423,7 @@ export class PostForwardEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: mailboxId,
+				sender: senderString,
 				recipient: toList.join(", "),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,

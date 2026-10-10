@@ -230,7 +230,7 @@
           />
           <div>
             <div class="flex items-center gap-2 flex-wrap">
-              <p class="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">{{ email.sender }}</p>
+              <p class="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100">{{ formatSender(email.sender) }}</p>
               <AppBadge :email="email.sender" />
             </div>
             <div class="flex items-center gap-2 flex-wrap mt-0.5">
@@ -637,6 +637,19 @@ const isSentEmail = computed(() => {
 	const own = (currentMailbox.value?.email || mailboxId.value || "").toLowerCase();
 	return !!own && (extractCleanEmail(email.value.sender) || "").toLowerCase() === own;
 });
+
+const formatSender = (sender?: string | null): string => {
+	if (!sender) return "(Unknown sender)";
+	if (sender.includes("<") && sender.includes(">")) return sender;
+	const currentMb = currentMailbox.value;
+	if (currentMb?.name && currentMb.name.toLowerCase() !== currentMb.email.toLowerCase()) {
+		const ownEmail = (currentMb.email || currentMb.id || "").toLowerCase();
+		if (sender.toLowerCase() === ownEmail) {
+			return `${currentMb.name} <${sender}>`;
+		}
+	}
+	return sender;
+};
 
 const formatFriendlyDate = (dateStr?: string): string => {
 	if (!dateStr) return "";

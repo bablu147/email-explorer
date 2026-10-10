@@ -22,13 +22,20 @@
       </p>
       <form @submit.prevent="updateSettings" class="space-y-6">
         <div>
-          <label for="name" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Display Name</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="name" class="block text-xs font-bold text-gray-700 dark:text-gray-300">Display Name / Sender Name</label>
+            <span class="text-[11px] text-gray-400">Used as the sender name in outgoing emails and header profile</span>
+          </div>
           <input 
             type="text" 
             id="name" 
             v-model="mailbox.name" 
+            placeholder="e.g. Lara Kuhlmann"
             class="block w-full bg-gray-50 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-600 rounded-xl shadow-xs focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-gray-100 p-3 text-base sm:text-sm transition-all" 
           />
+          <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+            Recipients will see: <span class="font-semibold text-gray-800 dark:text-gray-200">{{ mailbox.name && mailbox.name.toLowerCase() !== mailbox.email.toLowerCase() ? `${mailbox.name} <${mailbox.email}>` : mailbox.email }}</span>
+          </p>
         </div>
         <div>
           <label for="email" class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">Email Address</label>
@@ -371,15 +378,18 @@ const stripHtml = (html: string): string =>
 
 const updateSettings = async () => {
 	if (mailbox.value) {
+		const displayName = mailbox.value.name?.trim() || "";
 		const settings = {
 			...mailbox.value.settings,
+			fromName: displayName,
 			signature: {
 				enabled: signatureEnabled.value,
 				text: stripHtml(signatureHtml.value),
 				html: signatureHtml.value,
 			},
 		};
-		await mailboxStore.updateMailbox(route.params.mailboxId as string, settings);
+		await mailboxStore.updateMailbox(route.params.mailboxId as string, settings, displayName);
+		await mailboxStore.fetchMailboxes();
 		showSuccessToast("Settings saved successfully!");
 	}
 };

@@ -26,6 +26,7 @@ export const MailboxDetailsSchema = z.object({
 // Strict: an unknown top-level key is a 400 instead of being silently dropped.
 export const UpdateMailboxRequestSchema = z
 	.object({
+		name: z.string().min(1).optional(),
 		settings: z.record(z.any()),
 	})
 	.strict();
@@ -102,14 +103,22 @@ export class GetMailboxes extends OpenAPIRoute {
 		const list = await c.env.BUCKET.list({
 			prefix: "mailboxes/",
 		});
-		const allMailboxes = list.objects.map((obj) => {
-			const id = obj.key.replace("mailboxes/", "").replace(".json", "");
-			return {
-				id,
-				name: id,
-				email: id,
-			};
-		});
+		const allMailboxes = await Promise.all(
+			list.objects.map(async (obj) => {
+				const id = obj.key.replace("mailboxes/", "").replace(".json", "");
+				try {
+					const r2Obj = await c.env.BUCKET.get(obj.key);
+					if (r2Obj) {
+						const settings: any = await r2Obj.json();
+						const name = settings?.fromName || settings?.name || id;
+						return { id, name, email: id };
+					}
+				} catch {
+					// Fall through to id
+				}
+				return { id, name: id, email: id };
+			}),
+		);
 
 		// If no session (auth disabled) or user is admin, return all mailboxes. Nothing in a mailbox
 		// is closed to them, which is what "owner" means.
@@ -154,15 +163,16 @@ export class GetMailbox extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId } = data.params;
-		const key = `mailboxes/${mailboxId}.json`;
+		const key = `mailboxes/${mailboxId.toLowerCase()}.json`;
 		const obj = await c.env.BUCKET.get(key);
 		if (!obj) {
 			return c.json({ error: "Not found" }, 404);
 		}
-		const settings = await obj.json();
+		const settings: any = await obj.json();
+		const name = settings?.fromName || settings?.name || mailboxId;
 		const response = {
 			id: mailboxId,
-			name: mailboxId,
+			name,
 			email: mailboxId,
 			settings: settings,
 		};
@@ -193,21 +203,29 @@ export class PutMailbox extends OpenAPIRoute {
 	async handle(c: AppContext) {
 		const data = await this.getValidatedData<typeof this.schema>();
 		const { mailboxId } = data.params;
-		const { settings } = data.body;
-		const key = `mailboxes/${mailboxId}.json`;
+		const { settings, name } = data.body;
+		const key = `mailboxes/${mailboxId.toLowerCase()}.json`;
 
 		const obj = await c.env.BUCKET.head(key);
 		if (!obj) {
 			return c.json({ error: "Not found" }, 404);
 		}
 
-		await c.env.BUCKET.put(key, JSON.stringify(settings));
+		const finalSettings = { ...settings };
+		if (name !== undefined) {
+			finalSettings.fromName = name.trim();
+		} else if (finalSettings.fromName !== undefined) {
+			finalSettings.fromName = String(finalSettings.fromName).trim();
+		}
+		const finalName = finalSettings.fromName || name || mailboxId;
+
+		await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
 
 		const response = {
 			id: mailboxId,
-			name: mailboxId,
+			name: finalName,
 			email: mailboxId,
-			settings: settings,
+			settings: finalSettings,
 		};
 		return c.json(response);
 	}

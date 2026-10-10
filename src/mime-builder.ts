@@ -45,6 +45,25 @@ function quotedParamValue(value: unknown): string {
 	return headerValue(value).replace(/"/g, "'").replace(/\\/g, "_");
 }
 
+export function formatSenderString(
+	mailboxId: string,
+	fromName?: string,
+): { fromHeader: string; senderString: string } {
+	const cleanName = (fromName || "").trim().replace(/^["'\s]+|["'\s]+$/g, "");
+	const cleanId = mailboxId.trim().toLowerCase();
+	if (cleanName && cleanName.toLowerCase() !== cleanId) {
+		const safeName = cleanName.replace(/["\r\n\t]/g, " ").replace(/\s+/g, " ").trim();
+		return {
+			fromHeader: `"${safeName}" <${mailboxId}>`,
+			senderString: `${safeName} <${mailboxId}>`,
+		};
+	}
+	return {
+		fromHeader: mailboxId,
+		senderString: mailboxId,
+	};
+}
+
 export function buildMimeMessage(options: MimeMessageOptions): string {
 	const {
 		from,

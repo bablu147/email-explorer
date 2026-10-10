@@ -1,7 +1,7 @@
 import { contentJson, OpenAPIRoute } from "chanfana";
 import type { Context } from "hono";
 import { z } from "zod";
-import { checkDoNotContact, deliverMessage, type OutboundAttachment } from "../delivery";
+import { checkDoNotContact, deliverMessage, formatSenderString, getMailboxDisplayName, type OutboundAttachment } from "../delivery";
 import { checkSendAt, describeInvalidRecipients, parseRecipients, type Recipients } from "../scheduling";
 import { answeredSender } from "../suppression";
 import type { Env, Session } from "../types";
@@ -332,6 +332,9 @@ export class PostEmail extends OpenAPIRoute {
 
 		const messageId = savesAsDraft && draft_id ? draft_id : crypto.randomUUID();
 
+		const displayName = await getMailboxDisplayName(c.env, mailboxId);
+		const { senderString } = formatSenderString(mailboxId, displayName);
+
 		if (!savesAsDraft) {
 			if (allEnvelopeRecipients.length === 0) {
 				return c.json({ error: "No valid recipient email provided" }, 400);
@@ -340,6 +343,7 @@ export class PostEmail extends OpenAPIRoute {
 			try {
 				await deliverMessage(c.env, {
 					mailboxId,
+					fromName: displayName,
 					messageId,
 					to: toList,
 					cc: ccList,
@@ -381,7 +385,7 @@ export class PostEmail extends OpenAPIRoute {
 				{
 					id: messageId,
 					subject: subject || "(No Subject)",
-					sender: mailboxId,
+					sender: senderString,
 					recipient: storedRecipients(to, toParsed) || (Array.isArray(to) ? to.join(", ") : to || ""),
 					cc: storedRecipients(cc, ccParsed) || null,
 					bcc: storedRecipients(bcc, bccParsed) || null,
@@ -419,7 +423,7 @@ export class PostEmail extends OpenAPIRoute {
 			{
 				id: messageId,
 				subject,
-				sender: mailboxId,
+				sender: senderString,
 				recipient: toList.join(", ") || (Array.isArray(to) ? to.join(", ") : to),
 				cc: ccList.length > 0 ? ccList.join(", ") : null,
 				bcc: bccList.length > 0 ? bccList.join(", ") : null,

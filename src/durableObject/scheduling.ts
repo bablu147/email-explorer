@@ -1,4 +1,4 @@
-import { checkDoNotContact, deliverMessage, type SendBlock } from "../delivery";
+import { checkDoNotContact, deliverMessage, formatSenderString, getMailboxDisplayName, type SendBlock } from "../delivery";
 import { sendWebPush } from "../push-crypto";
 import { describeInvalidRecipients, earliest, htmlToText, parseRecipients } from "../scheduling";
 import { answeredSender } from "../suppression";
@@ -282,9 +282,11 @@ export class SchedulingHandler {
 			return await fail(err instanceof Error ? err.message : "Sending failed");
 		}
 
+		const displayName = await getMailboxDisplayName(this.#env, mailboxId);
+		const { senderString } = formatSenderString(mailboxId, displayName);
 		sql.exec(
 			"UPDATE emails SET folder_id = 'sent', sender = ?, date = ?, delivery_status = 'inbox', scheduled_at = NULL, send_error = NULL WHERE id = ?",
-			mailboxId,
+			senderString,
 			new Date().toISOString(),
 			id,
 		);

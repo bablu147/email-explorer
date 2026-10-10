@@ -58,9 +58,16 @@ export const useMailboxStore = defineStore("mailboxes", {
 			const response = await api.getMailbox(id);
 			this.currentMailbox = response.data;
 		},
-		async updateMailbox(id: string, settings: any) {
-			const response = await api.updateMailbox(id, settings);
+		async updateMailbox(id: string, settings: any, name?: string) {
+			const response = await api.updateMailbox(id, settings, name);
 			this.currentMailbox = response.data;
+			const idx = this.mailboxes.findIndex((m) => m.id.toLowerCase() === id.toLowerCase());
+			if (idx !== -1 && response.data) {
+				this.mailboxes[idx] = {
+					...this.mailboxes[idx],
+					name: response.data.name || this.mailboxes[idx].name,
+				};
+			}
 		},
 		async deleteMailbox(id: string) {
 			await api.deleteMailbox(id);

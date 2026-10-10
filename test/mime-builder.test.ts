@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildMimeMessage } from "../src/mime-builder.ts";
+import { buildMimeMessage, formatSenderString } from "../src/mime-builder.ts";
 
 const base = { from: "a@x.io", to: "b@y.io", subject: "Hi" };
 
@@ -192,3 +192,25 @@ test("inline attachments carry a Content-ID", () => {
 	assert.match(mime, /Content-ID: <logo>/);
 	assert.match(mime, /Content-Disposition: inline/);
 });
+
+test("formatSenderString formats human display names and preserves plain addresses", () => {
+	const withName = formatSenderString("lara@reflect.cloud", "Lara Kuhlmann");
+	assert.equal(withName.fromHeader, '"Lara Kuhlmann" <lara@reflect.cloud>');
+	assert.equal(withName.senderString, "Lara Kuhlmann <lara@reflect.cloud>");
+
+	const plain = formatSenderString("lara@reflect.cloud", "lara@reflect.cloud");
+	assert.equal(plain.fromHeader, "lara@reflect.cloud");
+	assert.equal(plain.senderString, "lara@reflect.cloud");
+
+	const empty = formatSenderString("lara@reflect.cloud", "");
+	assert.equal(empty.fromHeader, "lara@reflect.cloud");
+	assert.equal(empty.senderString, "lara@reflect.cloud");
+
+	const mime = buildMimeMessage({
+		...base,
+		from: withName.fromHeader,
+		text: "Hello",
+	});
+	assert.match(mime, /^From: "Lara Kuhlmann" <lara@reflect\.cloud>\r$/m);
+});
+

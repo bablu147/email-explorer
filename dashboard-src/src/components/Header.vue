@@ -140,9 +140,18 @@
           <!-- User Info Banner -->
           <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700/60 bg-gray-50/50 dark:bg-gray-900/40">
             <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Signed in as</p>
-            <p class="text-xs font-bold text-gray-900 dark:text-white truncate mt-0.5" :title="authStore.currentUser?.email">
-              {{ authStore.currentUser?.email }}
-            </p>
+            <div class="mt-0.5 min-w-0">
+              <p v-if="currentDisplayName" class="text-xs font-bold text-gray-900 dark:text-white truncate">
+                {{ currentDisplayName }}
+              </p>
+              <p 
+                class="text-xs text-gray-600 dark:text-gray-400 truncate" 
+                :class="{ 'text-[11px] font-normal text-gray-500 dark:text-gray-400': currentDisplayName }" 
+                :title="authStore.currentUser?.email"
+              >
+                {{ authStore.currentUser?.email }}
+              </p>
+            </div>
             <div class="mt-1.5 flex items-center gap-1.5">
               <span 
                 v-if="authStore.isAdmin" 
@@ -288,9 +297,25 @@ const openChangePassword = () => {
 
 const currentMailboxId = computed(() => (route.params.mailboxId as string) || "");
 
+const currentMailbox = computed(() => {
+	const id = currentMailboxId.value.toLowerCase();
+	return (
+		mailboxStore.mailboxes.find((m) => m.id.toLowerCase() === id) ||
+		mailboxStore.currentMailbox
+	);
+});
+
+const currentDisplayName = computed(() => {
+	const name = currentMailbox.value?.name;
+	if (name && name.toLowerCase() !== currentMailbox.value?.email.toLowerCase()) {
+		return name;
+	}
+	return "";
+});
+
 const userInitial = computed(() => {
-	const email = authStore.currentUser?.email || "U";
-	return email.charAt(0).toUpperCase();
+	const name = currentDisplayName.value || authStore.currentUser?.email || "U";
+	return name.charAt(0).toUpperCase();
 });
 
 const toggleUserMenu = () => {

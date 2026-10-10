@@ -1,5 +1,6 @@
 import { EmailMessage } from "cloudflare:email";
-import { buildMimeMessage } from "./mime-builder";
+import { buildMimeMessage, formatSenderString } from "./mime-builder";
+export { formatSenderString } from "./mime-builder";
 import {
 	appendUnsubscribeFooter,
 	describeSuppressed,
@@ -25,6 +26,8 @@ export interface OutboundMessage {
 	 * there is deliberately no separate `from`, so a caller cannot send as another address.
 	 */
 	mailboxId: string;
+	/** Optional human-readable display name for the From header (e.g. "Lara Kuhlmann"). */
+	fromName?: string;
 	/** Id the message will have in the Sent folder; used in the open/click tracking links. */
 	messageId: string;
 	to: string[];
@@ -77,6 +80,23 @@ export async function checkDoNotContact(env: Env, recipients: string[]): Promise
 	return { status: 422, error: describeSuppressed(suppressed.map((s) => s.email)), suppressed };
 }
 
+export async function getMailboxDisplayName(env: Env, mailboxId: string): Promise<string | undefined> {
+	try {
+		const key = `mailboxes/${mailboxId.trim().toLowerCase()}.json`;
+		const obj = await env.BUCKET.get(key);
+		if (obj) {
+			const settings: any = await obj.json();
+			const name = settings?.fromName || settings?.name;
+			if (typeof name === "string" && name.trim().length > 0) {
+				return name.trim();
+			}
+		}
+	} catch {
+		// Ignore failure reading mailbox settings
+	}
+	return undefined;
+}
+
 /**
  * Sends one message through Cloudflare Email Sending, one copy per recipient (so Bcc stays hidden and
  * unsubscribe links are per person). Adds open/click tracking, and, for outreach (not a reply), the
@@ -91,6 +111,9 @@ export async function deliverMessage(env: Env, msg: OutboundMessage): Promise<vo
 	const bccList = msg.bcc ?? [];
 	const recipients = Array.from(new Set([...toList, ...ccList, ...bccList]));
 	if (recipients.length === 0) throw new Error("No valid recipient email provided");
+
+	const resolvedName = msg.fromName || (await getMailboxDisplayName(env, msg.mailboxId));
+	const { fromHeader } = formatSenderString(msg.mailboxId, resolvedName);
 
 	// One signing secret serves unsubscribe tokens and click-tracking link signatures.
 	const signingSecret = await env.MAILBOX.get(env.MAILBOX.idFromName("AUTH")).getUnsubscribeSecret();
@@ -116,7 +139,7 @@ export async function deliverMessage(env: Env, msg: OutboundMessage): Promise<vo
 			};
 		}
 		return buildMimeMessage({
-			from: msg.mailboxId,
+			from: fromHeader,
 			to: toList,
 			cc: ccList.length > 0 ? ccList : undefined,
 			bcc: bccList.length > 0 ? bccList : undefined,

@@ -146,8 +146,8 @@ export default {
 		apiClient.post("/api/v1/mailboxes", { email, name, settings }),
 	getMailbox: (mailboxId: string) =>
 		apiClient.get(`/api/v1/mailboxes/${mailboxId}`),
-	updateMailbox: (mailboxId: string, settings: any) =>
-		apiClient.put(`/api/v1/mailboxes/${mailboxId}`, { settings }),
+	updateMailbox: (mailboxId: string, settings: any, name?: string) =>
+		apiClient.put(`/api/v1/mailboxes/${mailboxId}`, { settings, ...(name ? { name } : {}) }),
 	deleteMailbox: (mailboxId: string) =>
 		apiClient.delete(`/api/v1/mailboxes/${mailboxId}`),
 

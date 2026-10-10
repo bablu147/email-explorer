@@ -71,7 +71,7 @@
 
             <div class="min-w-0 flex-1 flex items-baseline gap-2">
               <span class="text-sm font-bold text-gray-900 dark:text-white truncate max-w-[160px] sm:max-w-[220px]">
-                {{ isSentMessage(msg) ? 'You' : msg.sender }}
+                {{ getSenderDisplayName(msg) }}
               </span>
 
               <AppBadge :email="isSentMessage(msg) ? msg.recipient : msg.sender" />
@@ -130,7 +130,7 @@
           <!-- Expanded Metadata (To, Cc, Actions) -->
           <div class="flex items-start justify-between gap-3 text-xs border-b border-gray-100 dark:border-gray-800 pb-3">
             <div class="text-gray-500 dark:text-gray-400 space-y-0.5">
-              <div><span class="font-bold text-gray-700 dark:text-gray-300">From:</span> {{ msg.sender }}</div>
+              <div><span class="font-bold text-gray-700 dark:text-gray-300">From:</span> {{ formatSender(msg.sender) }}</div>
               <div><span class="font-bold text-gray-700 dark:text-gray-300">To:</span> {{ msg.recipient }}</div>
               <div v-if="msg.cc"><span class="font-bold text-gray-700 dark:text-gray-300">Cc:</span> {{ msg.cc }}</div>
             </div>
@@ -356,7 +356,8 @@ const emit = defineEmits<{
 
 const uiStore = useUIStore();
 const emailStore = useEmailStore();
-const { canWrite } = storeToRefs(useMailboxStore());
+const mailboxStore = useMailboxStore();
+const { canWrite } = storeToRefs(mailboxStore);
 const toast = useToast();
 
 const messages = ref<Email[]>([]);
@@ -390,6 +391,38 @@ const isSentMessage = (msg: Email): boolean => {
   if (folder === "inbox" || folder === "spam") return false;
   const own = addressOf(props.mailboxId);
   return !!own && addressOf(msg.sender) === own;
+};
+
+const getSenderDisplayName = (msg: Email): string => {
+  if (isSentMessage(msg)) {
+    if (msg.sender && msg.sender.includes("<")) {
+      const match = msg.sender.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
+      if (match && match[1].trim()) return match[1].trim();
+    }
+    const currentMb = mailboxStore.currentMailbox;
+    if (currentMb?.name && currentMb.name.toLowerCase() !== currentMb.email.toLowerCase()) {
+      return currentMb.name;
+    }
+    return "You";
+  }
+  if (msg.sender && msg.sender.includes("<")) {
+    const match = msg.sender.match(/^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/);
+    if (match && match[1].trim()) return match[1].trim();
+  }
+  return msg.sender || "";
+};
+
+const formatSender = (sender?: string | null): string => {
+  if (!sender) return "";
+  if (sender.includes("<") && sender.includes(">")) return sender;
+  const currentMb = mailboxStore.currentMailbox;
+  if (currentMb?.name && currentMb.name.toLowerCase() !== currentMb.email.toLowerCase()) {
+    const ownEmail = (currentMb.email || currentMb.id || props.mailboxId || "").toLowerCase();
+    if (sender.toLowerCase() === ownEmail) {
+      return `${currentMb.name} <${sender}>`;
+    }
+  }
+  return sender;
 };
 
 const isExpanded = (id: string): boolean => {

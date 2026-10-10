@@ -54,6 +54,14 @@
             <span class="block sm:inline">{{ error }}</span>
           </div>
 
+          <!-- From Identity Header -->
+          <div v-if="currentMailboxSender" class="flex items-center justify-between text-xs py-1.5 px-3 bg-gray-50/80 dark:bg-gray-800/50 rounded-xl border border-gray-200/70 dark:border-gray-700/60 text-gray-500 dark:text-gray-400">
+            <span class="font-bold text-gray-700 dark:text-gray-300">From</span>
+            <span class="font-semibold text-gray-900 dark:text-gray-100 truncate" :title="currentMailboxSender">
+              {{ currentMailboxSender }}
+            </span>
+          </div>
+
           <!-- To field with Cc / Bcc expanders & App Linking -->
           <div>
             <div class="flex items-center justify-between mb-1.5">
@@ -209,7 +217,7 @@
               v-model="body" 
               :subject="subject"
               :to="to"
-              :from="currentMailbox?.email"
+              :from="currentMailboxSender"
               @inline-image-added="handleInlineImageAdded"
             />
           </div>
@@ -392,7 +400,7 @@
                 </div>
                 <div class="flex items-start">
                   <span class="font-bold text-gray-500 w-16">From:</span>
-                  <span class="text-gray-700">{{ currentMailbox?.email }}</span>
+                  <span class="text-gray-700 font-medium">{{ currentMailboxSender }}</span>
                 </div>
                 <div class="flex items-start">
                   <span class="font-bold text-gray-500 w-16">To:</span>
@@ -631,6 +639,15 @@ const body = ref("");
 const attachments = ref<OutgoingAttachment[]>([]);
 const inlineAttachments = ref<any[]>([]);
 const currentDraftId = ref<string | null>(null);
+
+const currentMailboxSender = computed(() => {
+	const mb = currentMailbox.value;
+	if (!mb) return "";
+	if (mb.name && mb.name.toLowerCase() !== mb.email.toLowerCase()) {
+		return `${mb.name} <${mb.email}>`;
+	}
+	return mb.email;
+});
 
 const error = ref<string | null>(null);
 const isLoading = ref(false);
