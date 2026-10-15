@@ -36,6 +36,21 @@ export function firstNameFromSender(raw?: string | null): string {
 	return first || "there";
 }
 
+export const isFullHtmlDoc = (str: string): boolean =>
+	/<!doctype/i.test(str || "") || /<html[\s>]/i.test(str || "");
+
+/** Converts plain text with line breaks into HTML paragraphs, preserving existing HTML if already markup. */
+export function textToHtml(text: string): string {
+	if (isFullHtmlDoc(text) || /<[a-z][\s\S]*>/i.test(text)) {
+		return text;
+	}
+	const escaped = escapeHtml(text);
+	const paragraphs = escaped.split(/\n{2,}/);
+	return paragraphs
+		.map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+		.join("\n");
+}
+
 export const useTemplatesStore = defineStore("templates", {
 	state: () => ({
 		templates: [] as MailTemplate[],
