@@ -101,6 +101,10 @@ export class TemplateHandler {
 			);
 			await this.#storage.put("followup_template_seeded", true);
 		}
+		if ((await this.#storage.get("pitch_template_version")) !== 2) {
+			await this.resetPitchTemplate();
+			await this.#storage.put("pitch_template_version", 2);
+		}
 		const rows = sql
 			.exec(
 				"SELECT id, kind, name, subject, body, updated_by, updated_at FROM templates ORDER BY kind DESC, name COLLATE NOCASE",

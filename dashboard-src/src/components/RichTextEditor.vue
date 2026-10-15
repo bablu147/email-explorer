@@ -521,6 +521,18 @@
         </button>
       </div>
 
+      <div v-if="isFullHtmlDoc(sourceCode)" class="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 px-3.5 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>This message is a complete responsive HTML document. Use <strong>Preview</strong> or <strong>HTML Code</strong> mode to preserve full styles and layout.</span>
+        </div>
+        <button type="button" @click="setViewMode('preview')" class="shrink-0 font-bold underline hover:text-amber-950 dark:hover:text-amber-100 cursor-pointer">
+          Switch to Preview
+        </button>
+      </div>
+
       <editor-content :editor="editor" class="prose prose-sm max-w-none p-4 text-gray-900 dark:text-gray-100" />
       <div v-if="isDragging" class="absolute inset-0 bg-emerald-500/10 border-2 border-dashed border-emerald-500 rounded-lg flex items-center justify-center pointer-events-none">
         <span class="text-emerald-600 dark:text-emerald-400 font-bold text-sm bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow">Drop image to insert</span>
@@ -734,7 +746,12 @@ const emit = defineEmits<{
 	"inline-image-added": [attachment: any];
 }>();
 
-const viewMode = ref<"visual" | "code" | "preview">("visual");
+const isFullHtmlDoc = (str: string) =>
+	/<!doctype/i.test(str || "") || /<html[\s>]/i.test(str || "");
+
+const viewMode = ref<"visual" | "code" | "preview">(
+	isFullHtmlDoc(props.modelValue || "") ? "preview" : "visual",
+);
 const previewDevice = ref<"desktop" | "mobile" | "fluid">("desktop");
 const previewLayout = ref<"full" | "split">("full");
 const previewScale = ref(1);
@@ -807,7 +824,7 @@ const editor = useEditor({
 			multicolor: true,
 		}),
 	],
-	content: props.modelValue,
+	content: isFullHtmlDoc(props.modelValue || "") ? "" : props.modelValue,
 	editorProps: {
 		attributes: {
 			class: "prose prose-sm max-w-none focus:outline-none min-h-[220px]",
@@ -823,9 +840,11 @@ const editor = useEditor({
 		},
 	},
 	onUpdate: ({ editor }) => {
-		const html = editor.getHTML();
-		sourceCode.value = html;
-		emit("update:modelValue", html);
+		if (viewMode.value === "visual") {
+			const html = editor.getHTML();
+			sourceCode.value = html;
+			emit("update:modelValue", html);
+		}
 	},
 });
 
@@ -833,6 +852,10 @@ const editor = useEditor({
 watch(
 	() => props.modelValue,
 	(newValue) => {
+		const fullDoc = isFullHtmlDoc(newValue || "");
+		if (fullDoc && viewMode.value === "visual") {
+			viewMode.value = "preview";
+		}
 		if (viewMode.value === "visual") {
 			if (editor.value && newValue !== editor.value.getHTML()) {
 				editor.value.commands.setContent(newValue, { emitUpdate: false });
@@ -847,10 +870,12 @@ watch(
 );
 
 const setViewMode = (mode: "visual" | "code" | "preview") => {
+	const prevMode = viewMode.value;
 	viewMode.value = mode;
 	if (mode === "code" || mode === "preview") {
 		// When entering code or preview mode, grab latest HTML from visual editor if available
-		if (editor.value) {
+		// and ONLY if we were in visual mode and not dealing with a full HTML document that TipTap strips
+		if (prevMode === "visual" && editor.value && !isFullHtmlDoc(sourceCode.value)) {
 			const visualHtml = editor.value.getHTML();
 			if (visualHtml && visualHtml !== "<p></p>") {
 				sourceCode.value = visualHtml;

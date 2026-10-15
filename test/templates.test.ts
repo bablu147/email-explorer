@@ -34,7 +34,7 @@ test("reply template validation", () => {
 	});
 	assert.ok("error" in validateTemplateInput({ name: "", body: "x" }, "reply"));
 	assert.ok("error" in validateTemplateInput({ name: "n", body: "   " }, "reply"));
-	assert.ok("error" in validateTemplateInput({ name: "n", body: "x".repeat(20001) }, "reply"));
+	assert.ok("error" in validateTemplateInput({ name: "n", body: "x".repeat(200001) }, "reply"));
 });
 
 test("pitch needs a subject; replies ignore one", () => {

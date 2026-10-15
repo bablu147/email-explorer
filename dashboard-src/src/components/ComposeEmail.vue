@@ -1430,8 +1430,9 @@ ${original.body || ""}
 				bcc.value = "";
 				subject.value = options.initialSubject || "";
 				const initialText = options.initialBody || "";
+				const isFullDoc = /<!doctype/i.test(initialText) || /<html[\s>]/i.test(initialText);
 				body.value = initialText
-					? `${initialText}${sigBlock ? `<br><br>${sigBlock}` : ""}`
+					? (isFullDoc ? initialText : `${initialText}${sigBlock ? `<br><br>${sigBlock}` : ""}`)
 					: sigBlock
 						? `<br><br>${sigBlock}`
 						: "";
